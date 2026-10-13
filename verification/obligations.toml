@@ -102,6 +102,28 @@ probes = [
 
 [[obligation]]
 verifier = "kani"
+source = "crates/sivi-core/src/theme_rules.rs"
+harnesses = [
+  { name = "proofs::sections_are_exactly_one_to_their_count_each_once", covers = 2, contract = "missing_section is None exactly when the section numbers are a permutation of one to their count, and otherwise names a number the slots do not bind", input_domain = "every list of exactly three section numbers up to six", bound = "three slots and numbers up to six; shorter lists are covered by the tests" },
+  { name = "proofs::a_follows_chain_ends_inside_its_master_or_names_the_fault", covers = 3, contract = "follows_fault is None exactly when every reference names another slot of the master and following references from any slot ends", input_domain = "every list of up to three follows references", bound = "three slots" },
+  { name = "proofs::a_line_box_fits_exactly_when_the_pitch_covers_the_face", covers = 2, contract = "line_box_fits agrees with the inequality line_height times units_per_em at least ascender minus descender times one thousand, over wide integers", input_domain = "every face metric and every line height up to ten", bound = "complete over the admitted line heights" },
+]
+probes = [
+  { harness = "proofs::rejects_a_gap_in_the_section_numbers", assertion = "NEGATIVE_THEME_CONTROL" },
+]
+
+[[obligation]]
+verifier = "alloy"
+spec = "specs/theme.als"
+solver = "sat4j"
+checks = [
+  { assertion = "AttributionIsUnique", instance = "Populated", counterexample = "AttributionUnchecked", scope = "for 4 but 4 Int, 6 Binding" },
+  { assertion = "SectionsAreHandles", instance = "Populated", counterexample = "SectionsUnchecked", scope = "for 4 but 4 Int, 6 Binding" },
+  { assertion = "FollowsChainsEnd", instance = "Populated", counterexample = "FollowsUnchecked", scope = "for 4 but 4 Int, 6 Binding" },
+]
+
+[[obligation]]
+verifier = "kani"
 source = "crates/sivi-core/src/attribute_rules.rs"
 harnesses = [
   { name = "proofs::a_point_belongs_to_the_first_region_that_contains_it", covers = 2, contract = "region_of names the first region containing the point and None when none does", input_domain = "every point and up to three regions with coordinates within 2^30 millipoints of zero", bound = "three regions" },

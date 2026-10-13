@@ -43,6 +43,8 @@ pub enum Tool {
     Gh,
     Ouch,
     Rustup,
+    /// Docker, which hosts the verifiers that ship as Java programs.
+    Docker,
 }
 
 impl Tool {
@@ -60,6 +62,7 @@ impl Tool {
             Self::Gh => "gh",
             Self::Ouch => "ouch",
             Self::Rustup => "rustup",
+            Self::Docker => "docker",
         }
     }
 

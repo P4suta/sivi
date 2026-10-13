@@ -2221,7 +2221,10 @@ dependencies = [
 name = "sivi-theme"
 version = "0.0.0"
 dependencies = [
+ "serde",
  "sivi-core",
+ "toml 1.1.8+spec-1.1.0",
+ "ttf-parser",
 ]
 
 [[package]]

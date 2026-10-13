@@ -31,6 +31,27 @@ pub enum Obligation {
         source: String,
         functions: Vec<Specification>,
     },
+    /// Every check of the model must hold within its scope, have an instance, and fail without its validator.
+    Alloy {
+        spec: String,
+        /// The solver Alloy runs, such as `sat4j`.
+        solver: String,
+        checks: Vec<AlloyCheck>,
+    },
+}
+
+/// One property of an Alloy model, as three named commands that share one scope.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AlloyCheck {
+    /// A `check` command that must find no counterexample.
+    pub assertion: String,
+    /// A `run` command that must find an instance, which rules out a vacuous assertion.
+    pub instance: String,
+    /// A `check` command without the validator, which must find a counterexample.
+    pub counterexample: String,
+    /// The scope every command shares, for the report.
+    pub scope: String,
 }
 
 /// A function Verus verifies, with the property its specification states.

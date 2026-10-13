@@ -1,0 +1,77 @@
+schema = 1
+
+[theme]
+name = "Bad Name"
+
+[page]
+width = "100px"
+height = "100pt"
+background = "nothing"
+
+[colors]
+paper = "#fff"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "50%"
+
+[text.body]
+font = ""
+size = "12pt"
+weight = 50
+color = "paper"
+line_height = 1.23456
+
+[inline]
+emphasis = { style = "bold" }
+strong = { }
+code = { }
+link = { }
+
+[lists]
+bullets = []
+ordered = "1."
+indent = "1em"
+gap = "0.2em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.3
+background = "paper"
+padding = "4pt"
+highlight = false
+tab_width = 2
+
+[tables]
+text = "body"
+header_weight = 700
+rule = "paper"
+padding = "2pt"
+
+[quotes]
+bar = "paper"
+bar_width = "2pt"
+indent = "10pt"
+
+[masters.a.slots.one]
+binds = "section"
+accepts = ["paragraph"]
+region = { x = "0pt", y = "0pt", width = "200pt", height = "100%" }
+text = "body"
+follows = "one"
+
+[masters.a.slots.two]
+binds = "section"
+section = 3
+accepts = []
+region = { x = "0pt", y = "0pt", width = "10pt", height = "0pt" }
+text = "body"
+
+[[masters.a.decor]]
+kind = "page_number"
+format = "page"
+region = { x = "0pt", y = "0pt", width = "10pt", height = "10pt" }
+
+[masters.b]
+slots = {}

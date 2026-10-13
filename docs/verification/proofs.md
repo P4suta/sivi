@@ -8,7 +8,8 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Kani | 0.68.0 | The harnesses of every `*_rules.rs` module, with the covers each declares | Every `rejects_*` probe, and `xtask/proofs/kani-negative`, whose harness asserts a false claim |
 | Verus | 0.2026.10.04.426d8b0 on Rust 1.98.1 | The functions `verification/obligations.toml` lists under `verus`, verified for inputs of any size with `--no-cheating` | `xtask/proofs/verus-negative`, whose specification states the opposite of its function |
 | Z3 | 5.1.0 | `specs/smt/millipoints.smt2`, generated from the core's constants: the fixed-point verdict agrees with the real one outside a band of one millipoint | `specs/smt/millipoints-negative.smt2`, a claim rounding breaks, which Z3 must find satisfiable |
-| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst | `xtask/proofs/miri-fixture`, which reads past a slice |
+| Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one slot interior, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
+| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme and the bundled fonts are skipped, since Miri interprets each in minutes, and a small theme stands in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
 | cargo-mutants | 27.1.0 | The campaign over `sivi-core`, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
@@ -27,6 +28,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `deck_rules` | a line is a separator, a code fence, a key and value, a blank, or content exactly as the deck format says; a fence closes only with its marker at its length or more; a table row declares its cells as GFM counts them, for lines of up to six bytes | — |
 | `front_matter_rules` | identifiers, dates, and language tags follow their grammars, complete for dates and tags and up to seven bytes for identifiers; every key is allowed exactly where it belongs | — |
 | `subset_rules` | what passes is exactly the Markdown subset, and raw markup never does, for every node kind | — |
+| `theme_rules` | section numbers are one to their count each once; a `follows` chain ends inside its master or the fault is named, for three slots; a line box fits exactly when the pitch covers the face | — |
 
 ## What the fuzz targets replay
 
@@ -35,5 +37,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `deck_scanner` | `sivi_markdown::scanner::parse` | no panic; every slide's text covers exactly the lines it spans; the scan is deterministic |
 | `front_matter` | `sivi_core::front_matter::parse` | no panic; a refusal names a diagnostic |
 | `markdown_ir` | `sivi_markdown::parse` | no panic; the model is withheld exactly on an error; slides are numbered in order; the parse is deterministic |
+| `theme_units` | `sivi_theme::units::parse` | no panic; a unit that reads prints back to text that reads to the same unit |
+| `theme_toml` | `sivi_theme::parse` | no panic; a theme that loads has masters with slots; a refusal names a diagnostic; the load is deterministic |
 
 The Typst layout engine is an external boundary; `docs/verification/typst-boundary.md` lists the assumptions and the tests that keep them.

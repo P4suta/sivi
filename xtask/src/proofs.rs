@@ -54,16 +54,18 @@ pub enum Step {
     Kani,
     Verus,
     Smt,
+    Alloy,
     Miri,
     Fuzz,
     Mutants,
 }
 
 impl Step {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Kani,
         Self::Verus,
         Self::Smt,
+        Self::Alloy,
         Self::Miri,
         Self::Fuzz,
         Self::Mutants,
@@ -75,6 +77,7 @@ impl Step {
             Self::Kani => "kani",
             Self::Verus => "verus",
             Self::Smt => "smt",
+            Self::Alloy => "alloy",
             Self::Miri => "miri",
             Self::Fuzz => "fuzz",
             Self::Mutants => "mutants",
@@ -492,7 +495,7 @@ fn verify_kani(root: &Path) -> Result<()> {
                         ..harness.clone()
                     })
                     .collect::<Vec<_>>(),
-                Obligation::Verus { .. } => Vec::new(),
+                Obligation::Verus { .. } | Obligation::Alloy { .. } => Vec::new(),
             })
             .collect();
         let harnesses: Vec<&Harness> = qualified.iter().collect();
@@ -799,6 +802,7 @@ fn receipt(root: &Path, step: Step) -> Result<()> {
         Step::Kani => KANI_VERSION,
         Step::Verus => verus::VERSION,
         Step::Smt => crate::smt::Z3_VERSION,
+        Step::Alloy => crate::alloy::ALLOY_VERSION,
         Step::Miri => tool::NIGHTLY,
         Step::Fuzz => FUZZ_VERSION,
         Step::Mutants => MUTANTS_VERSION,
@@ -818,6 +822,7 @@ fn verify(root: &Path, step: Step) -> Result<()> {
         Step::Kani => verify_kani(root)?,
         Step::Verus => verus::verify(root)?,
         Step::Smt => crate::smt::verify(root)?,
+        Step::Alloy => crate::alloy::verify(root)?,
         Step::Miri => verify_miri(root)?,
         Step::Fuzz => verify_fuzz(root)?,
         Step::Mutants => verify_mutants(root)?,
@@ -935,7 +940,14 @@ mod tests {
                 only: None
             }
             .selected(),
-            [Step::Kani, Step::Verus, Step::Smt, Step::Miri, Step::Fuzz]
+            [
+                Step::Kani,
+                Step::Verus,
+                Step::Smt,
+                Step::Alloy,
+                Step::Miri,
+                Step::Fuzz
+            ]
         );
         assert_eq!(
             Options {

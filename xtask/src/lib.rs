@@ -4,6 +4,7 @@
 //! Files are read and written only through [`fs`], and children start only through [`tool`].
 
 pub mod adr;
+pub mod alloy;
 pub mod check;
 pub mod ci;
 pub mod commit_msg;

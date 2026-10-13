@@ -36,3 +36,5 @@ pub mod span;
 pub mod split_rules;
 pub mod subset_rules;
 pub mod text;
+pub mod theme;
+pub mod theme_rules;

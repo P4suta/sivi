@@ -184,35 +184,49 @@ pub const IMAGE_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "svg"];
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AssetRef(String);
 
+/// Why `path` cannot stay beside the file that names it, before its extension is read.
+#[must_use]
+pub fn relative_fault(path: &str) -> Option<InvalidAsset> {
+    if path.is_empty() {
+        return Some(InvalidAsset::Empty);
+    }
+    if path.contains('\\') {
+        return Some(InvalidAsset::Backslash);
+    }
+    if path.contains(':') {
+        return Some(InvalidAsset::Colon);
+    }
+    if path.starts_with('/') {
+        return Some(InvalidAsset::Absolute);
+    }
+    if path
+        .split('/')
+        .any(|segment| segment == "." || segment == "..")
+    {
+        return Some(InvalidAsset::DotSegment);
+    }
+    None
+}
+
+/// Whether `path` ends in one of `extensions` after a file name that is more than the extension.
+#[must_use]
+pub fn has_extension(path: &str, extensions: &[&str]) -> bool {
+    let extension = path.rsplit('.').next().unwrap_or_default();
+    extensions.contains(&extension)
+        && path.rsplit('/').next().is_some_and(|name| {
+            name != extension && !(name.starts_with('.') && name.matches('.').count() == 1)
+        })
+}
+
 impl AssetRef {
     /// # Errors
     ///
     /// Returns why `path` cannot name an asset beside the deck.
     pub fn new(path: &str) -> Result<Self, InvalidAsset> {
-        if path.is_empty() {
-            return Err(InvalidAsset::Empty);
+        if let Some(fault) = relative_fault(path) {
+            return Err(fault);
         }
-        if path.contains('\\') {
-            return Err(InvalidAsset::Backslash);
-        }
-        if path.contains(':') {
-            return Err(InvalidAsset::Colon);
-        }
-        if path.starts_with('/') {
-            return Err(InvalidAsset::Absolute);
-        }
-        if path
-            .split('/')
-            .any(|segment| segment == "." || segment == "..")
-        {
-            return Err(InvalidAsset::DotSegment);
-        }
-        let extension = path.rsplit('.').next().unwrap_or_default();
-        if !IMAGE_EXTENSIONS.contains(&extension)
-            || path.rsplit('/').next().is_none_or(|name| {
-                name == extension || name.starts_with('.') && name.matches('.').count() == 1
-            })
-        {
+        if !has_extension(path, &IMAGE_EXTENSIONS) {
             return Err(InvalidAsset::Extension);
         }
         Ok(Self(String::from(path)))

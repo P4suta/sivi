@@ -16,6 +16,16 @@ shape = "parser"
 path = "crates/sivi-markdown/src/lib.rs"
 by = "fuzz/fuzz_targets/markdown_ir.rs"
 
+[[owner]]
+shape = "parser"
+path = "crates/sivi-theme/src/units.rs"
+by = "fuzz/fuzz_targets/theme_units.rs"
+
+[[owner]]
+shape = "parser"
+path = "crates/sivi-theme/src/lib.rs"
+by = "fuzz/fuzz_targets/theme_toml.rs"
+
 [[budget]]
 name = "unsafe-sites"
 ceiling = 0
