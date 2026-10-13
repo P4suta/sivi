@@ -4,7 +4,7 @@ use crate::obligations::{self, Harness, Manifest, Obligation, Probe};
 use crate::report::Report;
 use crate::structure::{self, CORE, Harnesses};
 use crate::tool::{self, FUZZ_VERSION, KANI_VERSION, MUTANTS_VERSION, Tool};
-use crate::{fs, portable};
+use crate::{fs, portable, verus};
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -52,18 +52,29 @@ const FIXTURE_OUTPUT: &str = "target/proofs/fixtures";
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Step {
     Kani,
+    Verus,
+    Smt,
     Miri,
     Fuzz,
     Mutants,
 }
 
 impl Step {
-    pub const ALL: [Self; 4] = [Self::Kani, Self::Miri, Self::Fuzz, Self::Mutants];
+    pub const ALL: [Self; 6] = [
+        Self::Kani,
+        Self::Verus,
+        Self::Smt,
+        Self::Miri,
+        Self::Fuzz,
+        Self::Mutants,
+    ];
 
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Kani => "kani",
+            Self::Verus => "verus",
+            Self::Smt => "smt",
             Self::Miri => "miri",
             Self::Fuzz => "fuzz",
             Self::Mutants => "mutants",
@@ -105,13 +116,15 @@ impl Options {
 
     #[must_use]
     pub fn selected(self) -> Vec<Step> {
-        match self.only {
-            Some(step) => vec![step],
-            None => Step::ALL
-                .into_iter()
-                .filter(|step| !(self.ci && *step == Step::Mutants))
-                .collect(),
-        }
+        self.only.map_or_else(
+            || {
+                Step::ALL
+                    .into_iter()
+                    .filter(|step| !(self.ci && *step == Step::Mutants))
+                    .collect()
+            },
+            |step| vec![step],
+        )
     }
 }
 
@@ -373,12 +386,50 @@ pub fn inventory_findings(
         }
     }
     for obligation in &manifest.obligation {
-        let Obligation::Kani { source, .. } = obligation;
+        let Obligation::Kani { source, .. } = obligation else {
+            continue;
+        };
         if !discovered.iter().any(|(found, _)| found == source) {
             findings.push(format!(
                 "the manifest declares {source}, which is not a rule module of the core"
             ));
         }
+    }
+    findings.extend(specification_findings(discovered, manifest));
+    findings
+}
+
+/// Every way the manifest disagrees with the Verus specifications the rule modules carry.
+fn specification_findings(discovered: &[(String, Harnesses)], manifest: &Manifest) -> Vec<String> {
+    let mut findings = Vec::new();
+    let specified: Vec<String> = discovered
+        .iter()
+        .flat_map(|(source, found)| {
+            found
+                .specifications
+                .iter()
+                .map(|name| qualify(source, name))
+        })
+        .collect();
+    let mut declared = Vec::new();
+    for obligation in &manifest.obligation {
+        let Obligation::Verus { source, functions } = obligation else {
+            continue;
+        };
+        if source != verus::SOURCE {
+            findings.push(format!(
+                "the manifest declares a Verus obligation over {source}, but the driver verifies {}",
+                verus::SOURCE
+            ));
+        }
+        declared.extend(functions.iter().map(|function| function.name.clone()));
+    }
+    if sorted(&declared) != sorted(&specified) {
+        findings.push(format!(
+            "the core carries Verus specifications on {} but the manifest declares {}",
+            specified.join(", "),
+            declared.join(", ")
+        ));
     }
     findings
 }
@@ -397,6 +448,16 @@ fn run_probe(root: &Path, scratch: &Path, manifest: Option<&Path>, probe: &Probe
     check_negative(&read_report(&report)?, &probe.harness, &probe.assertion)
 }
 
+/// The harness name Kani matches with `--exact`: the source file's module followed by the name inside it.
+#[must_use]
+pub fn qualify(source: &str, name: &str) -> String {
+    let stem = Path::new(source)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
+    format!("{stem}::{name}")
+}
+
 fn verify_kani(root: &Path) -> Result<()> {
     tool::require_version(
         Tool::Cargo.command(root).arg("kani"),
@@ -413,17 +474,28 @@ fn verify_kani(root: &Path) -> Result<()> {
         findings.join("\n")
     );
     let scratch = tempfile::tempdir().context("create the proof scratch directory")?;
-    if manifest.obligation.is_empty() {
-        eprintln!("kani: the core defines no rule module yet, so only the fixture runs");
-    } else {
-        let harnesses: Vec<&Harness> = manifest
+    let has_kani = manifest
+        .obligation
+        .iter()
+        .any(|obligation| matches!(obligation, Obligation::Kani { .. }));
+    if has_kani {
+        let qualified: Vec<Harness> = manifest
             .obligation
             .iter()
-            .flat_map(|obligation| {
-                let Obligation::Kani { harnesses, .. } = obligation;
-                harnesses.iter()
+            .flat_map(|obligation| match obligation {
+                Obligation::Kani {
+                    source, harnesses, ..
+                } => harnesses
+                    .iter()
+                    .map(|harness| Harness {
+                        name: qualify(source, &harness.name),
+                        ..harness.clone()
+                    })
+                    .collect::<Vec<_>>(),
+                Obligation::Verus { .. } => Vec::new(),
             })
             .collect();
+        let harnesses: Vec<&Harness> = qualified.iter().collect();
         let report = scratch.path().join("proofs.json");
         let mut command = kani_command(root, None, &scratch.path().join("proofs"), &report);
         for harness in &harnesses {
@@ -432,11 +504,19 @@ fn verify_kani(root: &Path) -> Result<()> {
         tool::succeed(&mut command, "cargo kani")?;
         check_positive(&read_report(&report)?, &harnesses)?;
         for obligation in &manifest.obligation {
-            let Obligation::Kani { probes, .. } = obligation;
+            let Obligation::Kani { source, probes, .. } = obligation else {
+                continue;
+            };
             for probe in probes {
-                run_probe(root, scratch.path(), None, probe)?;
+                let probe = Probe {
+                    harness: qualify(source, &probe.harness),
+                    assertion: probe.assertion.clone(),
+                };
+                run_probe(root, scratch.path(), None, &probe)?;
             }
         }
+    } else {
+        eprintln!("kani: the core defines no rule module yet, so only the fixture runs");
     }
     let fixture = Probe {
         harness: KANI_FIXTURE_HARNESS.to_owned(),
@@ -545,14 +625,54 @@ fn verify_fuzz(root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The counts a mutation campaign reports.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+/// The counts a mutation campaign reports, and the mutants behind the counts that matter.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct Outcomes {
     pub total_mutants: u64,
     pub missed: u64,
     pub caught: u64,
     pub timeout: u64,
     pub unviable: u64,
+    /// Every run of the campaign, including the baseline, under the key cargo-mutants writes.
+    #[serde(default, rename = "outcomes")]
+    pub runs: Vec<Run>,
+}
+
+/// One run of the campaign and how it ended.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub struct Run {
+    pub scenario: Scenario,
+    pub summary: String,
+}
+
+/// What a campaign ran: the unmutated baseline or one mutant.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub enum Scenario {
+    Baseline,
+    Mutant(Mutant),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub struct Mutant {
+    pub name: String,
+}
+
+const TIMEOUT_SUMMARY: &str = "Timeout";
+const MISSED_SUMMARY: &str = "MissedMutant";
+
+impl Outcomes {
+    /// The names of the mutants whose outcome is `summary`.
+    #[must_use]
+    pub fn named(&self, summary: &str) -> Vec<String> {
+        self.runs
+            .iter()
+            .filter(|run| run.summary == summary)
+            .filter_map(|run| match &run.scenario {
+                Scenario::Mutant(mutant) => Some(mutant.name.clone()),
+                Scenario::Baseline => None,
+            })
+            .collect()
+    }
 }
 
 fn campaign(
@@ -590,6 +710,7 @@ impl Outcomes {
         caught: 0,
         timeout: 0,
         unviable: 0,
+        runs: Vec::new(),
     };
 }
 
@@ -613,13 +734,31 @@ fn verify_mutants(root: &Path) -> Result<()> {
             outcomes.total_mutants > 0,
             "the mutation campaign found nothing to mutate"
         );
+        let mut findings = Vec::new();
+        if !within(outcomes.missed, MISSED_CEILING) {
+            findings.extend(
+                outcomes
+                    .named(MISSED_SUMMARY)
+                    .iter()
+                    .map(|mutant| format!("`{mutant}` survived; add the test that detects it")),
+            );
+        }
+        if !within(outcomes.timeout, TIMEOUT_CEILING) {
+            findings.extend(outcomes.named(TIMEOUT_SUMMARY).iter().map(|mutant| {
+                format!(
+                    "`{mutant}` ran past the timeout; make the loop it changes end by construction"
+                )
+            }));
+        }
         ensure!(
-            within(outcomes.missed, MISSED_CEILING) && within(outcomes.timeout, TIMEOUT_CEILING),
-            "the mutation campaign over the core missed {} and timed out on {} mutants of {}; see {}",
+            findings.is_empty(),
+            "the mutation campaign over the core is not clean ({} missed, {} timed out, {} of {} caught); see {}:\n{}",
             outcomes.missed,
             outcomes.timeout,
+            outcomes.caught,
             outcomes.total_mutants,
-            MUTANTS_OUTPUT
+            MUTANTS_OUTPUT,
+            findings.join("\n")
         );
     }
     let fixture = campaign(
@@ -658,6 +797,8 @@ fn digest(root: &Path) -> Result<String> {
 fn receipt(root: &Path, step: Step) -> Result<()> {
     let version = match step {
         Step::Kani => KANI_VERSION,
+        Step::Verus => verus::VERSION,
+        Step::Smt => crate::smt::Z3_VERSION,
         Step::Miri => tool::NIGHTLY,
         Step::Fuzz => FUZZ_VERSION,
         Step::Mutants => MUTANTS_VERSION,
@@ -675,6 +816,8 @@ fn receipt(root: &Path, step: Step) -> Result<()> {
 fn verify(root: &Path, step: Step) -> Result<()> {
     match step {
         Step::Kani => verify_kani(root)?,
+        Step::Verus => verus::verify(root)?,
+        Step::Smt => crate::smt::verify(root)?,
         Step::Miri => verify_miri(root)?,
         Step::Fuzz => verify_fuzz(root)?,
         Step::Mutants => verify_mutants(root)?,
@@ -723,9 +866,31 @@ pub fn scratch(root: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        Harness, Harnesses, KaniReport, Manifest, Options, Step, check_negative, check_positive,
-        inventory_findings,
+        Harness, Harnesses, KaniReport, MISSED_SUMMARY, Manifest, Options, Outcomes, Step,
+        TIMEOUT_SUMMARY, check_negative, check_positive, inventory_findings,
     };
+
+    #[test]
+    fn the_outcomes_name_the_mutants_behind_each_count() {
+        let outcomes: Outcomes = serde_json::from_str(
+            r#"{"total_mutants":3,"missed":1,"caught":1,"timeout":1,"unviable":0,"outcomes":[
+                {"scenario":"Baseline","summary":"Success"},
+                {"scenario":{"Mutant":{"name":"a.rs:1:1: replace < with <= in fit","file":"a.rs"}},"summary":"MissedMutant"},
+                {"scenario":{"Mutant":{"name":"a.rs:2:1: replace && with || in walk","file":"a.rs"}},"summary":"Timeout"},
+                {"scenario":{"Mutant":{"name":"a.rs:3:1: replace == with != in fit","file":"a.rs"}},"summary":"CaughtMutant"}
+            ]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            outcomes.named(MISSED_SUMMARY),
+            vec!["a.rs:1:1: replace < with <= in fit".to_owned()]
+        );
+        assert_eq!(
+            outcomes.named(TIMEOUT_SUMMARY),
+            vec!["a.rs:2:1: replace && with || in walk".to_owned()]
+        );
+        assert_eq!(Outcomes::NONE.named(MISSED_SUMMARY), Vec::<String>::new());
+    }
 
     fn harness(name: &str) -> Harness {
         Harness {
@@ -770,7 +935,7 @@ mod tests {
                 only: None
             }
             .selected(),
-            [Step::Kani, Step::Miri, Step::Fuzz]
+            [Step::Kani, Step::Verus, Step::Smt, Step::Miri, Step::Fuzz]
         );
         assert_eq!(
             Options {
@@ -812,15 +977,20 @@ mod tests {
         check_negative(&positive(), "contract", "anything").unwrap_err();
     }
 
-    #[test]
-    fn the_inventory_must_match_the_rule_modules() {
-        let discovered = vec![(
+    fn discovered() -> Vec<(String, Harnesses)> {
+        vec![(
             "crates/sivi-core/src/fit_rules.rs".to_owned(),
             Harnesses {
                 proofs: vec!["fits".to_owned()],
                 probes: vec!["rejects_x".to_owned()],
+                specifications: vec!["fit".to_owned()],
             },
-        )];
+        )]
+    }
+
+    #[test]
+    fn the_inventory_must_match_the_rule_modules() {
+        let discovered = discovered();
         let manifest: Manifest = toml::from_str(
             r#"
 [[obligation]]
@@ -828,6 +998,11 @@ verifier = "kani"
 source = "crates/sivi-core/src/fit_rules.rs"
 harnesses = [{ name = "fits", covers = 1, contract = "c", input_domain = "i", bound = "b" }]
 probes = [{ harness = "rejects_x", assertion = "NEGATIVE_FIT_CONTROL" }]
+
+[[obligation]]
+verifier = "verus"
+source = "crates/sivi-core/src/lib.rs"
+functions = [{ name = "fit_rules::fit", contract = "c" }]
 "#,
         )
         .unwrap();
@@ -862,6 +1037,39 @@ probes = [{ harness = "rejects_x", assertion = "NEGATIVE_FIT_CONTROL" }]
             stale
                 .iter()
                 .any(|finding| finding.contains("not a rule module"))
+        );
+    }
+
+    #[test]
+    fn the_inventory_holds_the_verus_specifications_to_the_manifest() {
+        let sources = |_: &str| Ok("assert!(x, \"NEGATIVE_FIT_CONTROL\")".to_owned());
+        let unspecified: Manifest = toml::from_str(
+            r#"
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/fit_rules.rs"
+harnesses = [{ name = "fits", covers = 1, contract = "c", input_domain = "i", bound = "b" }]
+probes = [{ harness = "rejects_x", assertion = "NEGATIVE_FIT_CONTROL" }]
+
+[[obligation]]
+verifier = "verus"
+source = "crates/sivi-core/src/fit_rules.rs"
+functions = [{ name = "fit_rules::other", contract = "c" }]
+"#,
+        )
+        .unwrap();
+        let mismatched = inventory_findings(&discovered(), &unspecified, &sources);
+        assert!(
+            mismatched
+                .iter()
+                .any(|finding| finding.contains("but the driver verifies")),
+            "{mismatched:?}"
+        );
+        assert!(
+            mismatched
+                .iter()
+                .any(|finding| finding.contains("carries Verus specifications on fit_rules::fit")),
+            "{mismatched:?}"
         );
     }
 }

@@ -2,6 +2,9 @@
 
 use core::fmt;
 
+#[cfg(verus_keep_ghost)]
+use vstd::prelude::*;
+
 /// How many millipoints make one typographic point.
 pub const MILLIPOINTS_PER_POINT: i64 = 1000;
 
@@ -11,8 +14,21 @@ pub const EPSILON: Length = Length::from_millipoints(10);
 const DECIMALS: usize = 3;
 
 /// A signed length in millipoints.
+#[cfg_attr(verus_keep_ghost, verus_verify)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Hash)]
-pub struct Length(i64);
+pub struct Length(pub i64);
+
+#[cfg(verus_keep_ghost)]
+verus! {
+
+impl Length {
+    /// The value in millipoints as an unbounded integer, for specifications.
+    pub open spec fn value(self) -> int {
+        self.0 as int
+    }
+}
+
+} // verus!
 
 impl Length {
     pub const ZERO: Self = Self(0);

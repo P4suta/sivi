@@ -47,6 +47,8 @@ pub struct Harnesses {
     pub proofs: Vec<String>,
     /// The rejecting probes, named `rejects_*`, which must fail on their assertion.
     pub probes: Vec<String>,
+    /// The free functions that carry a Verus specification, which the manifest declares under `verus`.
+    pub specifications: Vec<String>,
 }
 
 #[derive(Default)]
@@ -75,6 +77,8 @@ impl Visit<'_> for StdUse {
 #[derive(Default)]
 struct KaniHarnesses {
     found: Harnesses,
+    /// The inline modules enclosing the current item, outermost first.
+    modules: Vec<String>,
 }
 
 fn is_kani_proof(attribute: &syn::Attribute) -> bool {
@@ -87,15 +91,42 @@ fn is_kani_proof(attribute: &syn::Attribute) -> bool {
     segments == ["kani", "proof"]
 }
 
+/// Whether an attribute is `cfg_attr(verus_keep_ghost, verus_spec(..))`, the form a Verus specification takes.
+fn is_verus_specification(attribute: &syn::Attribute) -> bool {
+    attribute.path().is_ident("cfg_attr")
+        && attribute
+            .meta
+            .require_list()
+            .is_ok_and(|list| list.tokens.to_string().contains("verus_spec"))
+}
+
+impl KaniHarnesses {
+    fn qualified(&self, name: &str) -> String {
+        let mut path = self.modules.clone();
+        path.push(name.to_owned());
+        path.join("::")
+    }
+}
+
 impl Visit<'_> for KaniHarnesses {
+    fn visit_item_mod(&mut self, item: &syn::ItemMod) {
+        self.modules.push(item.ident.to_string());
+        syn::visit::visit_item_mod(self, item);
+        self.modules.pop();
+    }
+
     fn visit_item_fn(&mut self, item: &syn::ItemFn) {
+        let name = item.sig.ident.to_string();
         if item.attrs.iter().any(is_kani_proof) {
-            let name = item.sig.ident.to_string();
+            let qualified = self.qualified(&name);
             if name.starts_with("rejects_") {
-                self.found.probes.push(name);
+                self.found.probes.push(qualified);
             } else {
-                self.found.proofs.push(name);
+                self.found.proofs.push(qualified);
             }
+        }
+        if item.attrs.iter().any(is_verus_specification) {
+            self.found.specifications.push(self.qualified(&name));
         }
         syn::visit::visit_item_fn(self, item);
     }
@@ -113,7 +144,7 @@ pub fn std_lines(source: &str) -> Result<Vec<usize>> {
     Ok(uses.lines)
 }
 
-/// The Kani harnesses `source` defines, split into proofs and rejecting probes.
+/// The Kani harnesses `source` defines, split into proofs and rejecting probes, each qualified by the inline modules that hold it.
 ///
 /// # Errors
 ///
@@ -123,6 +154,15 @@ pub fn harnesses(source: &str) -> Result<Harnesses> {
     let mut visitor = KaniHarnesses::default();
     visitor.visit_file(&file);
     Ok(visitor.found)
+}
+
+/// Whether a qualified harness name is a rejecting probe.
+#[must_use]
+pub fn is_probe(qualified: &str) -> bool {
+    qualified
+        .rsplit("::")
+        .next()
+        .is_some_and(|name| name.starts_with("rejects_"))
 }
 
 /// The lints a crate root's `#![deny(...)]` attributes name from [`DENIED`].
@@ -425,11 +465,14 @@ mod tests {
         assert_eq!(std_lines("\nextern crate std;").unwrap(), [2]);
         std_lines("fn broken(").unwrap_err();
         let found = harnesses(
-            "#[cfg(kani)]\nmod proofs {\n#[kani::proof]\nfn fits() {}\n#[kani::proof]\nfn rejects_a_false_claim() {}\n#[test]\nfn other() {}\n}",
+            "#[cfg_attr(verus_keep_ghost, verus_spec(r => ensures r == 1))]\npub fn fit() -> u8 { 1 }\n#[cfg_attr(kani, allow(dead_code))]\nfn plain() {}\n#[cfg(kani)]\nmod proofs {\n#[kani::proof]\nfn fits() {}\n#[kani::proof]\nfn rejects_a_false_claim() {}\n#[test]\nfn other() {}\n}",
         )
         .unwrap();
-        assert_eq!(found.proofs, ["fits"]);
-        assert_eq!(found.probes, ["rejects_a_false_claim"]);
+        assert_eq!(found.proofs, ["proofs::fits"]);
+        assert_eq!(found.probes, ["proofs::rejects_a_false_claim"]);
+        assert_eq!(found.specifications, ["fit"]);
+        assert!(super::is_probe("proofs::rejects_a_false_claim"));
+        assert!(!super::is_probe("proofs::fits"));
     }
 
     #[test]

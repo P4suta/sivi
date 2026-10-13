@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 const USAGE_EXIT_CODE: u8 = 2;
 
-const USAGE: &str = "usage: cargo xtask check [--staged] | push-check | structure | fonts verify | commit-msg FILE | proofs [--ci] [--only kani|miri|fuzz|mutants] | fuzz TARGET RUNS | gen [--check] | ci check|test|proofs|gate NAME";
+const USAGE: &str = "usage: cargo xtask check [--staged] | push-check | structure | fonts verify | commit-msg FILE | proofs [--ci] [--only kani|verus|smt|miri|fuzz|mutants] | fuzz TARGET RUNS | gen [--check] | ci check|test|proofs|gate NAME";
 
 fn report(task: &str, result: anyhow::Result<()>) -> ExitCode {
     match result {
@@ -34,10 +34,10 @@ fn dispatch(root: &Path, words: &[&str]) -> ExitCode {
             "commit-msg",
             xtask::commit_msg::check(root, Path::new(message)),
         ),
-        ["proofs", options @ ..] => match xtask::proofs::Options::from_words(options) {
-            Some(options) => report("proofs", xtask::proofs::run(root, options)),
-            None => usage(),
-        },
+        ["proofs", options @ ..] => xtask::proofs::Options::from_words(options)
+            .map_or_else(usage, |options| {
+                report("proofs", xtask::proofs::run(root, options))
+            }),
         ["fuzz", target, runs] => report("fuzz", xtask::proofs::fuzz(root, target, runs)),
         ["gen"] => report("gen", xtask::check::generate(root)),
         ["gen", "--check"] => report("gen", xtask::check::generated(root)),

@@ -130,12 +130,14 @@ impl World for SiviWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        match self.files.get(&id) {
-            Some(bytes) => Ok(bytes.clone()),
-            None => Err(FileError::NotFound(PathBuf::from(
-                id.vpath().get_with_slash(),
-            ))),
-        }
+        self.files.get(&id).map_or_else(
+            || {
+                Err(FileError::NotFound(PathBuf::from(
+                    id.vpath().get_with_slash(),
+                )))
+            },
+            |bytes| Ok(bytes.clone()),
+        )
     }
 
     fn font(&self, index: usize) -> Option<Font> {

@@ -1,3 +1,76 @@
 # Every verification obligation of this repository, which `just proofs` discharges and `just check` holds to the source.
 # Each rule module of crates/sivi-core has one Kani obligation: every harness it defines must pass with the covers it declares, and every `rejects_*` probe must fail on its named assertion.
-# The core defines no rule module yet.
+# A harness names its contract, the inputs it admits, and the bound it proves to, so a reader can tell a complete proof from a bounded one.
+# A Verus obligation lists the functions the pinned driver verifies for inputs of any size, each with the property its specification states.
+
+[[obligation]]
+verifier = "verus"
+source = "crates/sivi-core/src/lib.rs"
+functions = [
+  { name = "fit_rules::fit", contract = "fit reports Fits exactly when measured - limit <= epsilon, for every admitted pair of lengths" },
+  { name = "split_rules::split_point", contract = "the verdict names the longest fitting prefix for prefixes of any length: AllFit when every part fits, SplitAfter(k) when parts 0..=k fit and k+1 does not, NothingFits when the first part does not fit" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/fit_rules.rs"
+harnesses = [
+  { name = "proofs::content_overflows_exactly_when_its_excess_passes_the_tolerance", covers = 2, contract = "fit reports Overflows with the exact excess when measured - limit > epsilon and Fits otherwise", input_domain = "every length within BOUND millipoints of zero and every tolerance at or above zero", bound = "complete over the admitted domain" },
+  { name = "proofs::less_content_never_overflows_where_more_content_fits", covers = 1, contract = "a smaller measured length fits wherever a larger one fits", input_domain = "every pair of lengths within BOUND millipoints of zero", bound = "complete over the admitted domain" },
+  { name = "proofs::pages_match_slides_or_name_the_exact_difference", covers = 3, contract = "pages reports Matches exactly when the counts agree and otherwise the exact surplus or shortfall", input_domain = "every pair of 32-bit counts", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_overflow_within_the_tolerance_as_fitting", assertion = "NEGATIVE_FIT_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/split_rules.rs"
+harnesses = [
+  { name = "proofs::the_split_keeps_the_longest_fitting_prefix", covers = 3, contract = "split_point names the last part that fits, AllFit when every part fits, and NothingFits when the first does not", input_domain = "every list of at most six nondecreasing cumulative heights, any available height, any tolerance at or above zero", bound = "six parts; the unbounded property is the Verus obligation" },
+]
+probes = [
+  { harness = "proofs::rejects_a_split_that_is_not_the_longest_fitting_prefix", assertion = "NEGATIVE_SPLIT_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/geometry_rules.rs"
+harnesses = [
+  { name = "proofs::a_layout_is_valid_exactly_when_no_region_is_degenerate_outside_or_overlapping", covers = 3, contract = "validate accepts a layout exactly when every region has area, lies on the page, and shares no interior with another, and otherwise names the first offender", input_domain = "every page and exactly three regions with coordinates within 2^20 millipoints of zero", bound = "three regions; fewer regions are covered by the tests" },
+  { name = "proofs::overlap_is_symmetric_and_a_region_overlaps_itself_only_when_it_has_area", covers = 1, contract = "overlaps is symmetric and a region overlaps itself exactly when it has area", input_domain = "every pair of regions with coordinates within 2^30 millipoints of zero", bound = "complete over the admitted domain" },
+]
+probes = [
+  { harness = "proofs::rejects_overlapping_regions_as_a_valid_layout", assertion = "NEGATIVE_GEOMETRY_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/escape_rules.rs"
+harnesses = [
+  { name = "proofs::every_character_reads_back_from_its_spelling_without_a_raw_control_or_quote", covers = 4, contract = "escaped yields a nonempty spelling that decodes to the character, holds no control character, and holds a quote only as the escaped pair", input_domain = "every character", bound = "complete; whole literals are the concatenation, which the tests and the fuzz target cover" },
+]
+probes = [
+  { harness = "proofs::rejects_a_literal_with_an_unescaped_quote", assertion = "NEGATIVE_ESCAPE_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/softbreak_rules.rs"
+harnesses = [
+  { name = "proofs::a_soft_break_vanishes_exactly_between_two_east_asian_characters", covers = 2, contract = "joiner yields Nothing exactly when both characters are East Asian, and is symmetric", input_domain = "every pair of characters", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_joining_latin_words_without_a_space", assertion = "NEGATIVE_SOFTBREAK_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/attribute_rules.rs"
+harnesses = [
+  { name = "proofs::a_point_belongs_to_the_first_region_that_contains_it", covers = 2, contract = "region_of names the first region containing the point and None when none does", input_domain = "every point and up to three regions with coordinates within 2^30 millipoints of zero", bound = "three regions" },
+  { name = "proofs::a_height_falls_in_the_first_part_whose_prefix_passes_it", covers = 2, contract = "part_at names the first part whose cumulative height passes the offset and None when none does", input_domain = "every offset and up to three cumulative heights within 2^30 millipoints of zero", bound = "three parts" },
+]
+probes = [
+  { harness = "proofs::rejects_attributing_a_height_to_a_later_part", assertion = "NEGATIVE_ATTRIBUTE_CONTROL" },
+]

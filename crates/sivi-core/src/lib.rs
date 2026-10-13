@@ -3,6 +3,7 @@
 //! Every fact arrives as a value and every decision leaves as a value.
 //! The crate reaches no file, process, network, clock, or environment, and `cargo xtask structure` refuses a dependency, a `std` path, or a weakened deny list.
 #![no_std]
+#![cfg_attr(verus_keep_ghost, feature(proc_macro_hygiene))]
 #![deny(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -18,6 +19,12 @@
 
 extern crate alloc;
 
+pub mod attribute_rules;
+pub mod escape_rules;
+pub mod fit_rules;
+pub mod geometry_rules;
 pub mod length;
 pub mod measure;
 pub mod protocol;
+pub mod softbreak_rules;
+pub mod split_rules;

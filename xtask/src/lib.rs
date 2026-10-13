@@ -12,8 +12,10 @@ pub mod fs;
 pub mod obligations;
 pub mod proofs;
 pub mod report;
+pub mod smt;
 pub mod structure;
 pub mod tool;
+pub mod verus;
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};

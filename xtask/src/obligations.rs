@@ -26,10 +26,23 @@ pub enum Obligation {
         harnesses: Vec<Harness>,
         probes: Vec<Probe>,
     },
+    /// Every function listed must verify under the pinned Verus with its specification, for inputs of any size.
+    Verus {
+        source: String,
+        functions: Vec<Specification>,
+    },
+}
+
+/// A function Verus verifies, with the property its specification states.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Specification {
+    pub name: String,
+    pub contract: String,
 }
 
 /// A Kani harness, with the contract it states and the input domain it admits.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Harness {
     pub name: String,

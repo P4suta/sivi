@@ -47,4 +47,4 @@ A Lean model of the whole compiler would need a refinement to the implementation
 
 Adding a rule means choosing its verifier and declaring the obligation in the same change.
 The proof gate runs several tools, some in pinned containers, so a full `just proofs` takes minutes rather than seconds.
-Verus enters through a spike; if it cannot verify the core without adding a dependency, its properties fall back to Kani bounds, the Prolog reference, and fuzzing, recorded in a further decision.
+Verus entered through a spike, which `docs/adr/verus-for-unbounded-algorithmic-properties.md` records as adopted: the standalone driver verifies the core without adding a dependency.

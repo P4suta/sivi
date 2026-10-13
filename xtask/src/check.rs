@@ -2,7 +2,7 @@
 
 use crate::report::Report;
 use crate::tool::{Tool, capture, succeed};
-use crate::{adr, fonts, fs, proofs, structure};
+use crate::{adr, fonts, fs, proofs, smt, structure};
 use anyhow::{Context, Result};
 use std::io::ErrorKind;
 use std::path::Path;
@@ -272,6 +272,7 @@ pub fn push_check(root: &Path) -> Result<()> {
 ///
 /// Returns an error when a generator fails.
 pub fn generate(root: &Path) -> Result<()> {
+    smt::generate(root)?;
     repository(root, "generate")
 }
 
@@ -283,6 +284,7 @@ pub fn generate(root: &Path) -> Result<()> {
 pub fn generated(root: &Path) -> Result<()> {
     let mut report = Report::default();
     report.stage("adr", || adr::check(root));
+    report.stage("smt", || smt::check(root));
     report.stage("repository", || repository(root, "check"));
     report.finish("gen --check")
 }

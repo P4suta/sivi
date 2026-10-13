@@ -39,6 +39,10 @@ pub enum Tool {
     Zizmor,
     Git,
     Dotfiles,
+    Z3,
+    Gh,
+    Ouch,
+    Rustup,
 }
 
 impl Tool {
@@ -52,6 +56,10 @@ impl Tool {
             Self::Zizmor => "zizmor",
             Self::Git => "git",
             Self::Dotfiles => "dotfiles",
+            Self::Z3 => "z3",
+            Self::Gh => "gh",
+            Self::Ouch => "ouch",
+            Self::Rustup => "rustup",
         }
     }
 

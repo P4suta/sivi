@@ -47,6 +47,21 @@ version = "0.68.0"
 backend = "cargo:kani-verifier"
 specifiers = ["0.68.0"]
 
+[[tools.gh]]
+version = "2.102.0"
+backend = "aqua:cli/cli"
+specifiers = ["2.102.0"]
+
+[[tools."github:Z3Prover/z3"]]
+version = "z3-5.1.0"
+backend = "github:Z3Prover/z3"
+specifiers = ["z3-5.1.0"]
+
+[[tools."github:ouch-org/ouch"]]
+version = "0.8.3"
+backend = "github:ouch-org/ouch"
+specifiers = ["0.8.3"]
+
 [[tools.just]]
 version = "1.58.0"
 backend = "aqua:casey/just"
