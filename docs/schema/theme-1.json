@@ -34,7 +34,36 @@
         "weight": { "$ref": "#/definitions/weight" },
         "font": { "type": "string", "minLength": 1 },
         "background": { "$ref": "#/definitions/styleName" },
-        "underline": { "type": "boolean" }
+        "marker": { "$ref": "#/definitions/marker" },
+        "underline": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/definitions/underline" }]
+        }
+      }
+    },
+    "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+    "marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["color"],
+      "properties": {
+        "color": { "$ref": "#/definitions/styleName" },
+        "opacity": { "$ref": "#/definitions/opacity" },
+        "top": { "type": "string", "enum": ["ascender", "cap-height", "x-height", "baseline", "bounds"] },
+        "bottom": { "type": "string", "enum": ["descender", "baseline", "bounds"] },
+        "extent": { "$ref": "#/definitions/length" },
+        "radius": { "$ref": "#/definitions/length" }
+      }
+    },
+    "underline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/definitions/styleName" },
+        "opacity": { "$ref": "#/definitions/opacity" },
+        "thickness": { "$ref": "#/definitions/length" },
+        "offset": { "$ref": "#/definitions/length" },
+        "extent": { "$ref": "#/definitions/length" },
+        "behind": { "type": "boolean" }
       }
     },
     "textStyle": {
@@ -143,12 +172,13 @@
     "inline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["emphasis", "strong", "code", "link"],
+      "required": ["emphasis", "strong", "code", "link", "mark"],
       "properties": {
         "emphasis": { "$ref": "#/definitions/mark" },
         "strong": { "$ref": "#/definitions/mark" },
         "code": { "$ref": "#/definitions/mark" },
-        "link": { "$ref": "#/definitions/mark" }
+        "link": { "$ref": "#/definitions/mark" },
+        "mark": { "$ref": "#/definitions/mark" }
       }
     },
     "lists": {

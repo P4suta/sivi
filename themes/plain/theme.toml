@@ -16,6 +16,7 @@ muted = "#5f6368"
 accent = "#0b57d0"
 rule = "#d9dde3"
 code_bg = "#f3f5f7"
+highlight = "#ffd54a"
 
 [typography]
 min_size = "18pt"
@@ -99,6 +100,7 @@ emphasis = { style = "color", color = "accent" }
 strong = { weight = 700 }
 code = { font = "JetBrains Mono", background = "code_bg" }
 link = { color = "accent", underline = true }
+mark = { marker = { color = "highlight", opacity = 0.5, top = "ascender", bottom = "descender" } }
 
 [lists]
 bullets = ["•", "–", "·"]

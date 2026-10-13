@@ -89,8 +89,40 @@ pub struct MarkSection {
     pub weight: Option<u16>,
     pub font: Option<FontSpec>,
     pub background: Option<String>,
+    pub marker: Option<MarkerSection>,
+    pub underline: Option<UnderlineSpec>,
+}
+
+/// A translucent band behind the text.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarkerSection {
+    pub color: String,
+    pub opacity: Option<f64>,
+    pub top: Option<String>,
+    pub bottom: Option<String>,
+    pub extent: Option<String>,
+    pub radius: Option<String>,
+}
+
+/// `underline = true` for the plain line, `false` for none, or a table that shapes the line.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum UnderlineSpec {
+    Plain(bool),
+    Shaped(UnderlineSection),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnderlineSection {
+    pub color: Option<String>,
+    pub opacity: Option<f64>,
+    pub thickness: Option<String>,
+    pub offset: Option<String>,
+    pub extent: Option<String>,
     #[serde(default)]
-    pub underline: bool,
+    pub behind: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +132,8 @@ pub struct InlineSection {
     pub strong: MarkSection,
     pub code: MarkSection,
     pub link: MarkSection,
+    /// The mark of `==text==`.
+    pub mark: MarkSection,
 }
 
 #[derive(Debug, Deserialize)]

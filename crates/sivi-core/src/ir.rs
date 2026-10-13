@@ -302,6 +302,8 @@ pub enum Inline {
     Strong(Vec<Self>),
     Code(String),
     Strike(Vec<Self>),
+    /// `==text==`, which the theme's `mark` style sets apart.
+    Mark(Vec<Self>),
     Link {
         dest: LinkDest,
         inlines: Vec<Self>,
@@ -375,7 +377,10 @@ fn append_plain(text: &mut String, inlines: &[Inline]) {
     for inline in inlines {
         match inline {
             Inline::Text(part) | Inline::Code(part) => text.push_str(part),
-            Inline::Emph(inner) | Inline::Strong(inner) | Inline::Strike(inner) => {
+            Inline::Emph(inner)
+            | Inline::Strong(inner)
+            | Inline::Strike(inner)
+            | Inline::Mark(inner) => {
                 append_plain(text, inner);
             }
             Inline::Link {

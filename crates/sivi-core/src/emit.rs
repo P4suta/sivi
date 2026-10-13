@@ -11,6 +11,7 @@ use crate::ir::{
     Inline, LinkDest, List, ListKind, Paragraph, Slide, Table,
 };
 use crate::length::{Length, Rect};
+use crate::mark_rules;
 use crate::measure::{Expected, ExpectedRegion};
 use crate::protocol::{
     MeasureLabel, PREFIXES_KEY, REQUIRED_KEY, RegionIndex, SLIDE_KEY, SlideIndex, SlideLabel,
@@ -19,7 +20,7 @@ use crate::protocol::{
 use crate::softbreak_rules::{Joiner, joiner};
 use crate::theme::{
     Align, Decor, FamilyName, Field, FontStack, Mark, Measure, Slot, StyleName, TextStyle, Theme,
-    Thousandths, VerticalAlign,
+    Thousandths, Underline, VerticalAlign,
 };
 use alloc::format;
 use alloc::string::String;
@@ -750,10 +751,76 @@ impl Emitter<'_> {
         if let Some(background) = &mark.background {
             content = format!("highlight(fill: {}, {content})", self.rgb(background));
         }
-        if mark.underline {
-            content = format!("underline({content})");
+        if let Some(marker) = &mark.marker {
+            content = format!(
+                "highlight(fill: {}, top-edge: \"{}\", bottom-edge: \"{}\", extent: {}, radius: {}, {content})",
+                self.rgba(&marker.color, marker.opacity),
+                marker.top.name(),
+                marker.bottom.name(),
+                marker.extent,
+                marker.radius
+            );
+        }
+        if let Some(underline) = &mark.underline {
+            let prefix = self.underline_arguments(underline);
+            content = format!("underline({prefix}{content})");
         }
         content
+    }
+
+    /// The arguments of `underline` before its body, each followed by a comma, or nothing for the plain line.
+    fn underline_arguments(&mut self, underline: &Underline) -> String {
+        let mut pieces: Vec<String> = Vec::new();
+        let color = underline
+            .color
+            .as_ref()
+            .map(|name| self.rgba(name, underline.opacity));
+        let stroke = match (underline.thickness, color) {
+            (Some(thickness), Some(color)) => Some(format!("{thickness} + {color}")),
+            (Some(thickness), None) => Some(format!("{thickness}")),
+            (None, Some(color)) => Some(color),
+            (None, None) => None,
+        };
+        if let Some(stroke) = stroke {
+            pieces.push(format!("stroke: {stroke}, "));
+        }
+        if let Some(offset) = underline.offset {
+            pieces.push(format!("offset: {offset}, "));
+        }
+        if underline.extent != Length::ZERO {
+            pieces.push(format!("extent: {}, ", underline.extent));
+        }
+        if underline.behind {
+            pieces.push(String::from("background: true, evade: false, "));
+        }
+        pieces.concat()
+    }
+
+    /// The color `name` at `opacity`, as `rgb("#rrggbbaa")`.
+    fn rgba(&mut self, name: &StyleName, opacity: Thousandths) -> String {
+        let Some(alpha) = mark_rules::alpha(opacity) else {
+            self.internal(format!(
+                "the theme sets the opacity {} thousandths, which leaves clear to solid",
+                opacity.0
+            ));
+            return self.rgb(name);
+        };
+        if alpha == mark_rules::OPAQUE {
+            return self.rgb(name);
+        }
+        let theme = self.theme;
+        theme.color(name).map_or_else(
+            || {
+                self.internal(format!("the theme names the color `{name}` but lacks it"));
+                String::from("black")
+            },
+            |color| {
+                format!(
+                    "rgb(\"#{:02x}{:02x}{:02x}{alpha:02x}\")",
+                    color.red, color.green, color.blue
+                )
+            },
+        )
     }
 
     fn link(&mut self, dest: &LinkDest, inner: String) -> String {
@@ -822,6 +889,10 @@ impl Emitter<'_> {
                     self.marked(&theme.inline.code, format!("text({})", lit(text)))
                 }
                 Inline::Strike(inner) => format!("strike({})", self.inlines(inner)),
+                Inline::Mark(inner) => {
+                    let inner = self.inlines(inner);
+                    self.marked(&theme.inline.mark, inner)
+                }
                 Inline::Link {
                     dest,
                     inlines: inner,
@@ -902,7 +973,10 @@ mod tests {
     use crate::span::Span;
     use crate::text::{Identifier, Lang};
     use crate::theme::fixture::{family, slot, style, tiny};
-    use crate::theme::{Align, Binding, BlockKindSet, Decor, Slot, Theme, Thousandths};
+    use crate::theme::{
+        Align, Binding, BlockKindSet, BottomEdge, Decor, Marker, Slot, Theme, Thousandths, TopEdge,
+        Underline,
+    };
     use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
@@ -1095,6 +1169,74 @@ mod tests {
         assert!(
             source.contains("image(\"deck/pics/a.svg\", alt: \"\", width: 100%, fit: \"contain\")"),
             "{source}"
+        );
+    }
+
+    #[test]
+    fn a_mark_paints_a_translucent_band_and_an_underline_can_lie_behind_the_text() {
+        let mut theme = theme();
+        theme.inline.mark.marker = Some(Marker {
+            color: style("ink"),
+            opacity: Thousandths(500),
+            top: TopEdge::XHeight,
+            bottom: BottomEdge::Baseline,
+            extent: Length::from_millipoints(1_000),
+            radius: Length::from_millipoints(2_000),
+        });
+        theme.inline.link.underline = Some(Underline {
+            color: Some(style("ink")),
+            opacity: Thousandths(300),
+            thickness: Some(Length::from_millipoints(3_000)),
+            offset: Some(Length::from_millipoints(2_000)),
+            extent: Length::from_millipoints(1_000),
+            behind: true,
+        });
+        theme.inline.emphasis.underline = Some(Underline::default());
+        theme.inline.strong.underline = Some(Underline {
+            color: Some(style("ink")),
+            ..Underline::default()
+        });
+        let deck = Deck {
+            head: Head::default(),
+            slides: vec![slide(
+                1,
+                None,
+                vec![block(BlockBody::Paragraph(Paragraph {
+                    inlines: vec![
+                        Inline::Mark(vec![Inline::Text(String::from("m"))]),
+                        Inline::Link {
+                            dest: LinkDest::Url(String::from("https://example.com")),
+                            inlines: vec![Inline::Text(String::from("l"))],
+                        },
+                        Inline::Emph(vec![Inline::Text(String::from("e"))]),
+                        Inline::Strong(vec![Inline::Text(String::from("s"))]),
+                    ],
+                }))],
+            )],
+        };
+        let bound = bind(&deck, &theme).unwrap();
+        let emitted = typst_source(&theme, &deck, &bound, &LineBoxes::default()).unwrap();
+        let source = emitted.source.as_str();
+        assert!(
+            source.contains(
+                "highlight(fill: rgb(\"#01020380\"), top-edge: \"x-height\", bottom-edge: \"baseline\", extent: 1.000pt, radius: 2.000pt, text(\"m\"))"
+            ),
+            "{source}"
+        );
+        assert!(
+            source.contains(
+                "underline(stroke: 3.000pt + rgb(\"#0102034d\"), offset: 2.000pt, extent: 1.000pt, background: true, evade: false, text(\"l\"))"
+            ),
+            "{source}"
+        );
+        assert!(source.contains("underline(text(\"e\"))"), "{source}");
+        assert!(
+            source.contains("underline(stroke: rgb(\"#010203\"), text(\"s\"))"),
+            "{source}"
+        );
+        assert_eq!(
+            crate::ir::plain_text(&[Inline::Mark(vec![Inline::Text(String::from("m"))])]).as_str(),
+            "m"
         );
     }
 

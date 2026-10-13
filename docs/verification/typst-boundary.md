@@ -21,6 +21,7 @@ A Typst upgrade that breaks an assumption fails that test before it can change a
 | A `heading` element adds its own block spacing and text size, which `show heading: set ...` rules remove, so a title measures as its lines alone | `a_heading_under_show_set_rules_measures_as_its_lines` |
 | A variable font sets the weight the text asks for along its axis, so one file serves every weight a theme sets | `a_variable_font_sets_the_weight_the_text_asks_for` |
 | A font list falls through per glyph to the first family that has the glyph, with `fallback: false` keeping the host's fonts out | `a_font_stack_falls_through_to_the_family_that_has_the_glyph` |
+| A `highlight` fill and an `underline` stroke with an alpha reach the frame as solid paints with that alpha, and as background decorations they come before the text they decorate | `a_translucent_decoration_keeps_its_alpha_and_lies_behind_the_text` |
 
 ## What the adapter trusts and what it checks
 

@@ -79,6 +79,7 @@ fn options(broken: Arc<BrokenLinks>) -> Options<'static> {
     let mut options = Options::default();
     options.extension.table = true;
     options.extension.strikethrough = true;
+    options.extension.highlight = true;
     options.extension.tasklist = true;
     options.extension.footnotes = true;
     options.extension.math_dollars = true;
@@ -641,15 +642,9 @@ impl<'a> Converter<'a> {
                 out.push(Inline::SoftBreak);
             } else if let NodeValue::Code(code) = &data.value {
                 out.push(Inline::Code(code.literal.clone()));
-            } else if matches!(data.value, NodeValue::Emph) {
+            } else if let Some(wrap) = wrapper(&data.value) {
                 let inner = self.inlines(node);
-                out.push(Inline::Emph(inner));
-            } else if matches!(data.value, NodeValue::Strong) {
-                let inner = self.inlines(node);
-                out.push(Inline::Strong(inner));
-            } else if matches!(data.value, NodeValue::Strikethrough) {
-                let inner = self.inlines(node);
-                out.push(Inline::Strike(inner));
+                out.push(wrap(inner));
             } else if let NodeValue::Link(link) = &data.value {
                 if let Some(inline) = self.link(node, &link.url, span) {
                     out.push(inline);
@@ -665,6 +660,21 @@ impl<'a> Converter<'a> {
             }
         }
         out
+    }
+}
+
+/// The inline a mark node wraps its children in, for the marks the subset admits, or `None` for every other node.
+fn wrapper(value: &NodeValue) -> Option<fn(Vec<Inline>) -> Inline> {
+    if matches!(value, NodeValue::Emph) {
+        Some(Inline::Emph)
+    } else if matches!(value, NodeValue::Strong) {
+        Some(Inline::Strong)
+    } else if matches!(value, NodeValue::Strikethrough) {
+        Some(Inline::Strike)
+    } else if matches!(value, NodeValue::Highlight) {
+        Some(Inline::Mark)
+    } else {
+        None
     }
 }
 
@@ -820,6 +830,25 @@ mod tests {
                 .as_ref()
                 .map(|notes| notes.text.as_str()),
             Some("Speak.")
+        );
+    }
+
+    #[test]
+    fn a_mark_wraps_the_inlines_it_holds() {
+        let converted = slide("# T ==marked *deep*==\n");
+        assert_eq!(codes(&converted), Vec::<Code>::new());
+        let BlockBody::Heading(heading) = &converted.slide.blocks[0].body else {
+            panic!("a heading");
+        };
+        assert_eq!(
+            heading.inlines,
+            vec![
+                Inline::Text(String::from("T ")),
+                Inline::Mark(vec![
+                    Inline::Text(String::from("marked ")),
+                    Inline::Emph(vec![Inline::Text(String::from("deep"))]),
+                ]),
+            ]
         );
     }
 

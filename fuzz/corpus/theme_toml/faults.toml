@@ -27,6 +27,7 @@ emphasis = { style = "bold" }
 strong = { }
 code = { }
 link = { }
+mark = { marker = { color = "nothing", opacity = 1.5, top = "roof" }, underline = { opacity = 0.5 } }
 
 [lists]
 bullets = []

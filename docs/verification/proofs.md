@@ -36,6 +36,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `master_rules` | the edit distance is zero only between equal names, symmetric, and bounded, for names of up to four bytes | — |
 | `publish_rules` | the output is replaced only by the rename, which follows the sync; every stage reaches the end; a failure removes the staging file exactly when it exists | `specs/publish.tla` under TLC owns the interleavings with a crash |
 | `home_rules` | the data directory stands on the first usable variable in precedence, with the tail its base owns, and an empty variable never names a directory, for every combination of unset, empty, and set variables on either kind of host | — |
+| `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
 
 ## What the fuzz targets replay
 
@@ -57,19 +58,19 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 224 tests passed and the one PDF dump test skipped |
-| Kani | 27 harnesses verified, and every probe and the negative fixture refused |
+| `cargo xtask check` | clean, with 231 tests passed and the one PDF dump test skipped |
+| Kani | 28 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
 | Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
-| Prolog | 235 slides bind the same way under the binder and the reference, and a tampered binding differs |
+| Prolog | 237 slides bind the same way under the binder and the reference, and a tampered binding differs |
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 821 mutants, 403 caught, 418 unviable, none missed |
-| cargo-mutants over `sivi-markdown` | 111 mutants, 44 caught, 67 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 238 mutants, 84 caught, 154 unviable, none missed |
+| cargo-mutants over `sivi-core` | 841 mutants, 416 caught, 425 unviable, none missed |
+| cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 253 mutants, 87 caught, 166 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.

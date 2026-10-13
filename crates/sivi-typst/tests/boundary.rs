@@ -9,6 +9,8 @@ use sivi_typst::{
     CompileError, Compiled, PdfSettings, ReadBackError, SiviWorld, UtcTimestamp, compile, export,
     measure,
 };
+use typst::layout::{Frame, FrameItem};
+use typst::visualize::Paint;
 
 /// A page without margins whose text boxes cover the whole ink of every glyph, as the emitter sets them.
 const PAGE: &str = "#set page(width: 300pt, height: 200pt, margin: 0pt)\n#set text(font: \"BIZ UDPGothic\", size: 12pt, top-edge: \"bounds\", bottom-edge: \"bounds\")\n#show raw: set text(font: \"JetBrains Mono\")\n";
@@ -413,6 +415,46 @@ fn a_variable_font_sets_the_weight_the_text_asks_for() {
     let bold = "#text(font: \"Montserrat\", weight: 700)[Weighty words]";
     let (light, heavy) = text_widths(regular, bold).unwrap();
     assert!(heavy > light, "{heavy:?} is not wider than {light:?}");
+}
+
+/// Every solid paint of a shape and every text run in `frame` and its groups, in paint order.
+fn paints(frame: &Frame, found: &mut Vec<String>) {
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Group(group) => paints(&group.frame, found),
+            FrameItem::Shape(shape, _) => {
+                if let Some(Paint::Solid(color)) = &shape.fill {
+                    found.push(color.to_hex().to_string());
+                }
+                if let Some(stroke) = &shape.stroke
+                    && let Paint::Solid(color) = &stroke.paint
+                {
+                    found.push(color.to_hex().to_string());
+                }
+            }
+            FrameItem::Text(text) => found.push(format!("text {}", text.text)),
+            FrameItem::Image(..) | FrameItem::Link(..) | FrameItem::Tag(_) => {}
+        }
+    }
+}
+
+#[test]
+fn a_translucent_decoration_keeps_its_alpha_and_lies_behind_the_text() {
+    let source = format!(
+        "{PAGE}#highlight(fill: rgb(\"#ff000080\"), top-edge: \"x-height\", bottom-edge: \"baseline\", extent: 1pt, radius: 2pt)[mark]\n#underline(stroke: 3pt + rgb(\"#0000ff4d\"), offset: 2pt, background: true, evade: false)[line]\n"
+    );
+    let compiled = build(&source).unwrap();
+    let mut found = Vec::new();
+    for page in compiled.document.pages() {
+        paints(&page.frame, &mut found);
+    }
+    let position = |needle: &str| found.iter().position(|entry| entry == needle);
+    let band = position("#ff000080").unwrap();
+    let line = position("#0000ff4d").unwrap();
+    let marked = position("text mark").unwrap();
+    let lined = position("text line").unwrap();
+    assert!(band < marked, "{found:?}");
+    assert!(line < lined, "{found:?}");
 }
 
 #[test]

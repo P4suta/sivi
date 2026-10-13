@@ -28,6 +28,7 @@ emphasis = { style = "italic" }
 strong = { weight = 700 }
 code = { font = "JetBrains Mono" }
 link = { color = "ink", underline = true }
+mark = { marker = { color = "ink", opacity = 0.25, top = "x-height", bottom = "baseline", extent = "1pt", radius = "2pt" }, underline = { color = "ink", opacity = 0.4, thickness = "3pt", offset = "2pt", behind = true } }
 
 [lists]
 bullets = ["•"]

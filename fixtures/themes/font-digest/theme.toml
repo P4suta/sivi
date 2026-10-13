@@ -34,6 +34,7 @@ emphasis = { style = "color", color = "ink" }
 strong = { weight = 400 }
 code = { font = "JetBrains Mono" }
 link = { color = "ink", underline = true }
+mark = { marker = { color = "ink", opacity = 0.2 } }
 
 [lists]
 bullets = ["•"]

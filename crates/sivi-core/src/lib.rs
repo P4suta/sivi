@@ -36,6 +36,7 @@ pub mod image;
 pub mod ir;
 pub mod length;
 pub mod lints;
+pub mod mark_rules;
 pub mod master_rules;
 pub mod measure;
 pub mod protocol;

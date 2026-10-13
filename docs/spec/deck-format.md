@@ -46,7 +46,7 @@ An unknown key or a key in the wrong place reports `E0104`, a value outside its 
 | `##` | opens a section | `E0305` when the master holds fewer |
 | `###` and deeper, `===` or `---` underlines, empty headings or items | refused | `E0205`, `E0204`, `E0220` |
 | paragraph | inlines; a soft break is a space, or nothing between East Asian characters | |
-| `*em*` `**strong**` `` `code` `` `~~gone~~` | inline marks the theme styles | |
+| `*em*` `**strong**` `` `code` `` `~~gone~~` `==mark==` | inline marks the theme styles; `==mark==` takes the theme's `mark` | |
 | `[text](dest)` | `https:`, `http:`, `mailto:`, or `#slide-id` | `E0210`, `E0308` for an unknown id |
 | `[text][ref]` without a definition | refused | `E0221` |
 | a backslash or two spaces at a line end | refused | `E0214` |

@@ -2,19 +2,21 @@
 
 use crate::schema::{
     CodeSection, DecorSection, FontSection, FontSpec, InlineSection, ListsSection, MarkSection,
-    MasterSection, QuotesSection, RegionSection, SlotSection, TablesSection, TextSection,
-    ThemeFile, TypographySection,
+    MarkerSection, MasterSection, QuotesSection, RegionSection, SlotSection, TablesSection,
+    TextSection, ThemeFile, TypographySection, UnderlineSection, UnderlineSpec,
 };
 use crate::units::{self, Unit};
 use sivi_core::diagnostic::{Code, Diagnostic};
 use sivi_core::geometry_rules::{self, GeometryError};
 use sivi_core::ir::{self, BlockKind};
 use sivi_core::length::{Length, Point, Rect, Size};
+use sivi_core::mark_rules;
 use sivi_core::text::Identifier;
 use sivi_core::theme::{
-    Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, Decor, Digest, FamilyName, Field,
-    FontFile, FontStack, InlineStyles, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot,
-    StyleName, TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
+    Align, Binding, BlockKindSet, BottomEdge, Capacity, CodeStyle, Color, Decor, Digest,
+    FamilyName, Field, FontFile, FontStack, InlineStyles, ListStyle, Mark, Marker, Master, Measure,
+    Page, QuoteStyle, Slot, StyleName, TableStyle, TextStyle, Theme, Thousandths, TopEdge,
+    Typography, Underline, VerticalAlign, Weight,
 };
 use sivi_core::theme_rules::{self, FollowsFault};
 
@@ -253,6 +255,67 @@ impl Loader {
         }
     }
 
+    /// An opacity from clear to solid as a ratio, which the alpha rule must accept.
+    fn opacity(&mut self, path: &str, number: f64) -> Option<Thousandths> {
+        let ratio = self.ratio(path, number)?;
+        if mark_rules::alpha(ratio).is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{number}` is not an opacity"),
+                    "write a number from 0 for clear to 1 for solid",
+                ),
+            );
+            return None;
+        }
+        Some(ratio)
+    }
+
+    /// A length in points, or `default` when the text is left out.
+    fn points_or(&mut self, path: &str, text: Option<&String>, default: Length) -> Option<Length> {
+        text.map_or(Some(default), |text| self.points(path, text))
+    }
+
+    fn top_edge(&mut self, path: &str, text: &str) -> Option<TopEdge> {
+        const EDGES: [TopEdge; 5] = [
+            TopEdge::Ascender,
+            TopEdge::CapHeight,
+            TopEdge::XHeight,
+            TopEdge::Baseline,
+            TopEdge::Bounds,
+        ];
+        let found = EDGES.into_iter().find(|edge| edge.name() == text);
+        if found.is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{text}` is not a top edge"),
+                    "write `ascender`, `cap-height`, `x-height`, `baseline`, or `bounds`",
+                ),
+            );
+        }
+        found
+    }
+
+    fn bottom_edge(&mut self, path: &str, text: &str) -> Option<BottomEdge> {
+        const EDGES: [BottomEdge; 3] = [
+            BottomEdge::Descender,
+            BottomEdge::Baseline,
+            BottomEdge::Bounds,
+        ];
+        let found = EDGES.into_iter().find(|edge| edge.name() == text);
+        if found.is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{text}` is not a bottom edge"),
+                    "write `descender`, `baseline`, or `bounds`",
+                ),
+            );
+        }
+        found
+    }
+
     fn weight(&mut self, path: &str, number: u16) -> Option<Weight> {
         let weight = Weight::new(number);
         if weight.is_none() {
@@ -448,13 +511,109 @@ fn mark(loader: &mut Loader, path: &str, section: &MarkSection) -> Option<Mark> 
             .color_ref(&format!("{path}.background"), text)
             .map(Some)
     });
+    let marker = section
+        .marker
+        .as_ref()
+        .map_or(Some(None), |marker_section| {
+            marker(loader, &format!("{path}.marker"), marker_section).map(Some)
+        });
+    // `underline = true` is the plain line, `false` or nothing is no line, and a table shapes the line.
+    let underline = match &section.underline {
+        None | Some(UnderlineSpec::Plain(false)) => Some(None),
+        Some(UnderlineSpec::Plain(true)) => Some(Some(Underline::default())),
+        Some(UnderlineSpec::Shaped(shaped)) => {
+            shaped_underline(loader, &format!("{path}.underline"), shaped).map(Some)
+        }
+    };
     Some(Mark {
         italic: italic?,
         color: color?,
         weight: weight?,
         font: font?,
         background: background?,
-        underline: section.underline,
+        marker: marker?,
+        underline: underline?,
+    })
+}
+
+/// The band of `section`, with the solid, ascender-to-descender, flush, square band as the default.
+fn marker(loader: &mut Loader, path: &str, section: &MarkerSection) -> Option<Marker> {
+    let color = loader.color_ref(&format!("{path}.color"), &section.color);
+    let opacity = section.opacity.map_or(Some(mark_rules::SOLID), |number| {
+        loader.opacity(&format!("{path}.opacity"), number)
+    });
+    let top = section
+        .top
+        .as_ref()
+        .map_or(Some(TopEdge::Ascender), |text| {
+            loader.top_edge(&format!("{path}.top"), text)
+        });
+    let bottom = section
+        .bottom
+        .as_ref()
+        .map_or(Some(BottomEdge::Descender), |text| {
+            loader.bottom_edge(&format!("{path}.bottom"), text)
+        });
+    let extent = loader.points_or(
+        &format!("{path}.extent"),
+        section.extent.as_ref(),
+        Length::ZERO,
+    );
+    let radius = loader.points_or(
+        &format!("{path}.radius"),
+        section.radius.as_ref(),
+        Length::ZERO,
+    );
+    Some(Marker {
+        color: color?,
+        opacity: opacity?,
+        top: top?,
+        bottom: bottom?,
+        extent: extent?,
+        radius: radius?,
+    })
+}
+
+/// The line `section` shapes, with the font's thickness and offset and the text color as the defaults.
+fn shaped_underline(
+    loader: &mut Loader,
+    path: &str,
+    section: &UnderlineSection,
+) -> Option<Underline> {
+    let color = section.color.as_ref().map_or(Some(None), |text| {
+        loader.color_ref(&format!("{path}.color"), text).map(Some)
+    });
+    let opacity = section.opacity.map_or(Some(mark_rules::SOLID), |number| {
+        loader.opacity(&format!("{path}.opacity"), number)
+    });
+    if section.opacity.is_some() && section.color.is_none() {
+        loader.refuse(
+            &format!("{path}.opacity"),
+            value(
+                String::from("an opacity without a color"),
+                "set `color` beside `opacity`, since the line takes the text color otherwise",
+            ),
+        );
+        return None;
+    }
+    let thickness = section.thickness.as_ref().map_or(Some(None), |text| {
+        loader.points(&format!("{path}.thickness"), text).map(Some)
+    });
+    let offset = section.offset.as_ref().map_or(Some(None), |text| {
+        loader.points(&format!("{path}.offset"), text).map(Some)
+    });
+    let extent = loader.points_or(
+        &format!("{path}.extent"),
+        section.extent.as_ref(),
+        Length::ZERO,
+    );
+    Some(Underline {
+        color: color?,
+        opacity: opacity?,
+        thickness: thickness?,
+        offset: offset?,
+        extent: extent?,
+        behind: section.behind,
     })
 }
 
@@ -463,11 +622,13 @@ fn inline(loader: &mut Loader, section: &InlineSection) -> Option<InlineStyles> 
     let strong = mark(loader, "inline.strong", &section.strong);
     let code = mark(loader, "inline.code", &section.code);
     let link = mark(loader, "inline.link", &section.link);
+    let marked = mark(loader, "inline.mark", &section.mark);
     Some(InlineStyles {
         emphasis: emphasis?,
         strong: strong?,
         code: code?,
         link: link?,
+        mark: marked?,
     })
 }
 

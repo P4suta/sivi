@@ -152,6 +152,16 @@ harnesses = [
 probes = [{ harness = "proofs::rejects_an_empty_sivi_home", assertion = "NEGATIVE_HOME_CONTROL" }]
 
 [[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/mark_rules.rs"
+harnesses = [
+  { name = "proofs::the_alpha_is_the_nearest_byte_within_clear_to_solid_and_keeps_the_order", covers = 2, contract = "alpha yields a byte exactly for opacities from zero to one thousand thousandths, the byte nearest to the exact scaling, never decreasing as the opacity grows, with zero clear and one thousand opaque", input_domain = "every pair of 64-bit opacities", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_an_opacity_above_solid", assertion = "NEGATIVE_MARK_CONTROL" },
+]
+
+[[obligation]]
 verifier = "quint"
 spec = "specs/binder.qnt"
 main = "binder"

@@ -246,6 +246,96 @@ pub struct TextStyle {
     pub align: Align,
 }
 
+/// Where the top of a band behind the text lies, as Typst names the edges of a run.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum TopEdge {
+    #[default]
+    Ascender,
+    CapHeight,
+    XHeight,
+    Baseline,
+    Bounds,
+}
+
+impl TopEdge {
+    /// The edge as the theme and Typst spell it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Ascender => "ascender",
+            Self::CapHeight => "cap-height",
+            Self::XHeight => "x-height",
+            Self::Baseline => "baseline",
+            Self::Bounds => "bounds",
+        }
+    }
+}
+
+/// Where the bottom of a band behind the text lies.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum BottomEdge {
+    #[default]
+    Descender,
+    Baseline,
+    Bounds,
+}
+
+impl BottomEdge {
+    /// The edge as the theme and Typst spell it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Descender => "descender",
+            Self::Baseline => "baseline",
+            Self::Bounds => "bounds",
+        }
+    }
+}
+
+/// A translucent band behind the text, as a highlighter pen leaves it.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Marker {
+    pub color: StyleName,
+    /// How opaque the band is, in thousandths from clear to solid.
+    pub opacity: Thousandths,
+    pub top: TopEdge,
+    pub bottom: BottomEdge,
+    /// How far the band reaches past the text on each side.
+    pub extent: Length,
+    pub radius: Length,
+}
+
+/// A line under the text.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Underline {
+    /// The color of the line, or the color of the text when unset.
+    pub color: Option<StyleName>,
+    /// How opaque the line is, in thousandths, which applies to a color the underline sets.
+    pub opacity: Thousandths,
+    /// The thickness of the line, or the font's own when unset.
+    pub thickness: Option<Length>,
+    /// How far below the baseline the line lies, or the font's own when unset.
+    pub offset: Option<Length>,
+    /// How far the line reaches past the text on each side.
+    pub extent: Length,
+    /// Whether the line lies behind the glyphs, crossing their descenders, rather than in front and around them.
+    pub behind: bool,
+}
+
+impl Default for Underline {
+    /// The plain underline: the text color at full opacity, the font's thickness and offset, in front of the glyphs.
+    fn default() -> Self {
+        Self {
+            color: None,
+            opacity: Thousandths::ONE,
+            thickness: None,
+            offset: None,
+            extent: Length::ZERO,
+            behind: false,
+        }
+    }
+}
+
 /// What an inline mark changes about the text it marks.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Mark {
@@ -253,8 +343,11 @@ pub struct Mark {
     pub color: Option<StyleName>,
     pub weight: Option<Weight>,
     pub font: Option<FontStack>,
+    /// A solid box behind the text.
     pub background: Option<StyleName>,
-    pub underline: bool,
+    /// A translucent band behind the text.
+    pub marker: Option<Marker>,
+    pub underline: Option<Underline>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -263,6 +356,8 @@ pub struct InlineStyles {
     pub strong: Mark,
     pub code: Mark,
     pub link: Mark,
+    /// The mark of `==text==`.
+    pub mark: Mark,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -553,6 +648,7 @@ impl Theme {
                     &self.inline.strong,
                     &self.inline.code,
                     &self.inline.link,
+                    &self.inline.mark,
                 ]
                 .into_iter()
                 .filter_map(|mark| mark.font.as_ref()),
@@ -672,6 +768,7 @@ pub mod fixture {
                 strong: Mark::default(),
                 code: Mark::default(),
                 link: Mark::default(),
+                mark: Mark::default(),
             },
             lists: ListStyle {
                 bullets: vec![String::from("•")],

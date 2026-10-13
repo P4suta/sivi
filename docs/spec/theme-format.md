@@ -28,7 +28,7 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | `colors` | color names to colors |
 | `typography` | `min_size`, `paragraph_gap`, `fallback`, a list of families |
 | `text.<name>` | `font`, a font list, `size`, `weight`, `color`, `line_height`, `align` |
-| `inline` | `emphasis`, `strong`, `code`, `link`, each a mark |
+| `inline` | `emphasis`, `strong`, `code`, `link`, `mark`, each a mark |
 | `lists` | `bullets`, `ordered`, `indent`, `gap` |
 | `code` | `font`, `size`, `line_height`, `background`, `padding`, `highlight`, `tab_width` |
 | `tables` | `text`, `header_weight`, `rule`, `padding` |
@@ -37,7 +37,15 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | `masters.<name>.slots.<slot>` | a slot |
 | `masters.<name>.decor` | an array of decor |
 
-A mark sets any of `style`, which is `italic` or `color`, `color`, `weight`, `font`, a font list, `background`, and `underline`.
+A mark sets any of `style`, which is `italic` or `color`, `color`, `weight`, `font`, a font list, `background`, `marker`, and `underline`.
+`mark` styles `==text==`, and every theme names it.
+
+A `marker` is a translucent band behind the text: `color`, `opacity` from 0 for clear to 1 for solid, `top` among `ascender`, `cap-height`, `x-height`, `baseline`, and `bounds`, `bottom` among `descender`, `baseline`, and `bounds`, `extent` past the text on each side, and `radius`.
+The band is solid, from the ascender to the descender, flush, and square unless a key says otherwise.
+Typst paints the band once per shaped run, and a run ends where the script changes, as between kanji and kana, so an `extent` or a `radius` shows a seam there; a theme for Japanese text keeps both at zero.
+
+An `underline` is `true` for the plain line in the text color, or a table of `color`, `opacity`, `thickness`, `offset` below the baseline, `extent`, and `behind`, which lays the line behind the glyphs and across their descenders.
+An `opacity` needs a `color` beside it, since the plain line takes the text color.
 
 A style sets text in a bundled family, a family of the theme's own `fonts`, or a family of the font catalog, which `sivi fonts list` shows and `sivi fonts install` places in the library.
 

@@ -81,6 +81,7 @@ pub const fn admit(kind: NodeKind) -> Admission {
         | NodeKind::Emph
         | NodeKind::Strong
         | NodeKind::Strikethrough
+        | NodeKind::Highlight
         | NodeKind::Link
         | NodeKind::Image
         | NodeKind::CodeBlock { fenced: true } => Admission::Admit,
@@ -115,7 +116,6 @@ pub const fn admit(kind: NodeKind) -> Admission {
         | NodeKind::DescriptionItem
         | NodeKind::DescriptionTerm
         | NodeKind::DescriptionDetails
-        | NodeKind::Highlight
         | NodeKind::Insert
         | NodeKind::Superscript
         | NodeKind::MultilineBlockQuote
@@ -145,7 +145,7 @@ mod proofs {
         )
     }
 
-    /// The subset, stated as the record lists it: structure, paragraphs, lists, fenced code, quotes, tables, images, and plain inline marks.
+    /// The subset, stated as the record lists it: structure, paragraphs, lists, fenced code, quotes, tables, images, and plain inline marks, with `==text==` among them.
     pub(super) const fn in_subset(kind: NodeKind) -> bool {
         match kind {
             NodeKind::Heading { level, setext } => !setext && level <= MAX_HEADING_LEVEL,
@@ -164,6 +164,7 @@ mod proofs {
             | NodeKind::Emph
             | NodeKind::Strong
             | NodeKind::Strikethrough
+            | NodeKind::Highlight
             | NodeKind::Link
             | NodeKind::Image => true,
             NodeKind::FrontMatter
@@ -178,7 +179,6 @@ mod proofs {
             | NodeKind::LineBreak
             | NodeKind::HtmlInline { .. }
             | NodeKind::Raw
-            | NodeKind::Highlight
             | NodeKind::Insert
             | NodeKind::Superscript
             | NodeKind::FootnoteReference
@@ -317,5 +317,10 @@ mod tests {
             Admission::Reject(Code::OutsideSubset)
         );
         assert_eq!(admit(NodeKind::Strikethrough), Admission::Admit);
+        assert_eq!(admit(NodeKind::Highlight), Admission::Admit);
+        assert_eq!(
+            admit(NodeKind::Underline),
+            Admission::Reject(Code::OutsideSubset)
+        );
     }
 }

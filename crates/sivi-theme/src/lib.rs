@@ -204,7 +204,7 @@ mod tests {
             theme.inline.strong.weight.map(Weight::value),
             Some(STRONG_WEIGHT)
         );
-        assert!(theme.inline.link.underline);
+        assert!(theme.inline.link.underline.is_some());
     }
 
     #[test]
@@ -234,7 +234,25 @@ mod tests {
     }
 
     /// Each case replaces a fragment of the plain theme and names the code and the path the loader reports.
-    const FAULTS: [(&str, &str, Code, &str); 12] = [
+    const FAULTS: [(&str, &str, Code, &str); 15] = [
+        (
+            "opacity = 0.5, top = \"ascender\"",
+            "opacity = 1.5, top = \"ascender\"",
+            Code::ThemeValue,
+            "inline.mark.marker.opacity",
+        ),
+        (
+            "top = \"ascender\", bottom = \"descender\"",
+            "top = \"roof\", bottom = \"descender\"",
+            Code::ThemeValue,
+            "inline.mark.marker.top",
+        ),
+        (
+            "link = { color = \"accent\", underline = true }",
+            "link = { color = \"accent\", underline = { opacity = 0.5 } }",
+            Code::ThemeValue,
+            "inline.link.underline.opacity",
+        ),
         (
             "size = \"24pt\"\nweight = 400\ncolor = \"ink\"\nline_height = 1.45\nalign = \"left\"\n\n[text.quote]",
             "size = \"24px\"\nweight = 400\ncolor = \"ink\"\nline_height = 1.45\nalign = \"left\"\n\n[text.quote]",
@@ -341,6 +359,60 @@ mod tests {
         );
         let faulty = SMALL.replacen("background = \"paper\"", "background = \"nothing\"", 1);
         assert_eq!(codes(&faulty), vec![Code::UndefinedReference]);
+    }
+
+    #[test]
+    fn a_mark_loads_its_band_and_its_line_with_their_defaults() {
+        use sivi_core::length::Length;
+        use sivi_core::theme::{BottomEdge, Marker, StyleName, Thousandths, TopEdge, Underline};
+        let theme = parse(SMALL).unwrap();
+        let ink = StyleName::new("ink").unwrap();
+        assert_eq!(
+            theme.inline.mark.marker,
+            Some(Marker {
+                color: ink.clone(),
+                opacity: Thousandths(250),
+                top: TopEdge::XHeight,
+                bottom: BottomEdge::Baseline,
+                extent: Length::from_millipoints(1_000),
+                radius: Length::from_millipoints(2_000),
+            })
+        );
+        assert_eq!(
+            theme.inline.mark.underline,
+            Some(Underline {
+                color: Some(ink.clone()),
+                opacity: Thousandths(400),
+                thickness: Some(Length::from_millipoints(3_000)),
+                offset: Some(Length::from_millipoints(2_000)),
+                extent: Length::ZERO,
+                behind: true,
+            })
+        );
+        assert_eq!(theme.inline.link.underline, Some(Underline::default()));
+        assert_eq!(theme.inline.strong.underline, None);
+        let bare = SMALL.replacen(
+            "mark = { marker = { color = \"ink\", opacity = 0.25, top = \"x-height\", bottom = \"baseline\", extent = \"1pt\", radius = \"2pt\" }, underline = { color = \"ink\", opacity = 0.4, thickness = \"3pt\", offset = \"2pt\", behind = true } }",
+            "mark = { marker = { color = \"ink\" }, underline = false }",
+            1,
+        );
+        let plainer = parse(&bare).unwrap();
+        assert_eq!(
+            plainer.inline.mark.marker,
+            Some(Marker {
+                color: ink,
+                opacity: Thousandths::ONE,
+                top: TopEdge::Ascender,
+                bottom: BottomEdge::Descender,
+                extent: Length::ZERO,
+                radius: Length::ZERO,
+            })
+        );
+        assert_eq!(plainer.inline.mark.underline, None);
+        let bottomless = SMALL.replacen("bottom = \"baseline\"", "bottom = \"floor\"", 1);
+        assert_eq!(codes(&bottomless), vec![Code::ThemeValue]);
+        let clearer = SMALL.replacen("opacity = 0.4", "opacity = -0.1", 1);
+        assert_eq!(codes(&clearer), vec![Code::ThemeValue]);
     }
 
     #[test]
