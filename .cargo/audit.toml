@@ -1,0 +1,25 @@
+# cargo-audit reads this file, and `cargo xtask check` runs `cargo audit --deny warnings` over every lockfile.
+# Each ignored advisory sits in the dependency tree of the pinned typst 0.15.1, on a path sivi never feeds with untrusted input.
+# `docs/adr/advisories-inside-the-pinned-typst.md` records the exposure analysis and the condition that removes each entry.
+
+[advisories]
+ignore = [
+  # Exempt as semantic-boundary: quick-xml 0.38 parses CSL styles for citationberg through hayagriva, which sivi never calls; decks carry no bibliography.
+  # Reconsider when typst upgrades hayagriva past quick-xml 0.41.
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+  # Exempt as semantic-boundary: bincode 1 and yaml-rust load syntect's embedded syntax definitions, which the binary ships and no input changes.
+  # Reconsider when typst's syntect dependency moves off them.
+  "RUSTSEC-2025-0141",
+  "RUSTSEC-2024-0320",
+  # Exempt as semantic-boundary: paste is a build-time proc macro of biblatex, which sivi never calls.
+  # Reconsider when typst's biblatex dependency drops it.
+  "RUSTSEC-2024-0436",
+  # Exempt as semantic-boundary: rustybuzz and ttf-parser shape the bundled fonts and the fonts a theme pins by digest; no font arrives from outside the deck's directory.
+  # Reconsider when typst moves to the maintained successors.
+  "RUSTSEC-2026-0206",
+  "RUSTSEC-2026-0192",
+  # Exempt as semantic-boundary: unsafe-libyaml backs serde_yaml inside hayagriva, which sivi never calls.
+  # Reconsider when typst's hayagriva dependency drops serde_yaml.
+  "RUSTSEC-2024-0449",
+]

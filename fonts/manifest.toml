@@ -1,0 +1,31 @@
+# The fonts the binary bundles, each pinned to the exact bytes `cargo xtask fonts verify` requires.
+# Every file carries the SIL Open Font License 1.1, whose text sits beside it.
+
+[[font]]
+family = "BIZ UDPGothic"
+file = "BIZUDPGothic-Regular.ttf"
+sha256 = "258d7156c165f2ff774b6efee637c22c3b950de0d8a10e501137061bc8085d01"
+license = "BIZUDPGothic-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/bizudpgothic/BIZUDPGothic-Regular.ttf"
+
+[[font]]
+family = "BIZ UDPGothic"
+file = "BIZUDPGothic-Bold.ttf"
+sha256 = "30eba52fc837e8b62c97d4b82e6706583149fb7294e3712dd71a655eaea80a90"
+license = "BIZUDPGothic-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/bizudpgothic/BIZUDPGothic-Bold.ttf"
+
+[[font]]
+family = "JetBrains Mono"
+file = "JetBrainsMono-Regular.ttf"
+sha256 = "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f"
+license = "JetBrainsMono-OFL.txt"
+source = "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip"
+
+[[license]]
+file = "BIZUDPGothic-OFL.txt"
+sha256 = "e753d7155d53c747d037a445e584c8ecfca6dd79846db610417e282a736b28bc"
+
+[[license]]
+file = "JetBrainsMono-OFL.txt"
+sha256 = "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"

@@ -2,7 +2,7 @@
 
 use crate::report::Report;
 use crate::tool::{Tool, capture, succeed};
-use crate::{adr, fs, proofs, structure};
+use crate::{adr, fonts, fs, proofs, structure};
 use anyhow::{Context, Result};
 use std::io::ErrorKind;
 use std::path::Path;
@@ -80,7 +80,10 @@ fn taplo(root: &Path, files: Option<&[&str]>) -> Result<()> {
 fn typos(root: &Path, files: Option<&[&str]>) -> Result<()> {
     match files {
         Some([]) => Ok(()),
-        Some(files) => succeed(Tool::Typos.command(root).args(files), "typos"),
+        Some(files) => succeed(
+            Tool::Typos.command(root).arg("--force-exclude").args(files),
+            "typos",
+        ),
         None => succeed(&mut Tool::Typos.command(root), "typos"),
     }
 }
@@ -204,6 +207,7 @@ fn everything(root: &Path) -> Result<()> {
     report.stage("typos", || typos(root, None));
     report.stage("clippy", || clippy(root));
     report.stage("structure", || structure::check(root));
+    report.stage("fonts", || fonts::verify(root));
     report.stage("adr", || adr::check(root));
     report.stage("repository", || repository(root, "check"));
     report.stage("workflows", || workflows(root));

@@ -7,6 +7,7 @@ pub mod adr;
 pub mod check;
 pub mod ci;
 pub mod commit_msg;
+pub mod fonts;
 pub mod fs;
 pub mod obligations;
 pub mod proofs;
