@@ -23,8 +23,9 @@ fn measure(name: &str) -> Result<Measurement> {
     let parsed = sivi_markdown::parse(&bytes)
         .deck
         .context("the fixture parses")?;
-    let (theme, _) = sivi::themes::load(&sivi::themes::Choice::Builtin(String::from("plain")))
-        .map_err(|diagnostics| anyhow!("the theme loads: {diagnostics:?}"))?;
+    let (theme, _) =
+        sivi::themes::load(&sivi::themes::Choice::Builtin(String::from("plain")), None)
+            .map_err(|diagnostics| anyhow!("the theme loads: {diagnostics:?}"))?;
     let bound = sivi_core::bind::bind(&parsed, &theme.theme)
         .map_err(|diagnostics| anyhow!("the fixture binds: {diagnostics:?}"))?;
     let boxes = sivi::fonts::line_boxes(&theme.faces);

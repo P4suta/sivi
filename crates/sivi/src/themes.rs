@@ -3,9 +3,10 @@
 use crate::digest::sha256_hex;
 use crate::fonts::{self, face_error};
 use crate::io::{self, ReadError, ReadErrorKind};
+use crate::library;
 use sivi_core::diagnostic::{Code, Diagnostic, has_error};
 use sivi_core::text::ThemeRef;
-use sivi_core::theme::{FontFile, Theme};
+use sivi_core::theme::{FamilyName, FontFile, Theme};
 use sivi_theme::faces::{self, Face};
 use std::path::{Path, PathBuf};
 
@@ -157,12 +158,89 @@ fn text_of(choice: &Choice) -> Result<(String, String, Option<PathBuf>), Vec<Dia
     }
 }
 
-/// Loads and checks the chosen theme, with the warnings it earned.
+/// What reading the catalog families left: the diagnostics, and the families no face could be read for.
+struct CatalogFonts {
+    diagnostics: Vec<Diagnostic>,
+    absent: Vec<FamilyName>,
+}
+
+/// Reads every family the theme sets text in that neither the bundled fonts nor its own files provide, from the library.
+fn catalog_fonts(loaded: &mut LoadedTheme, fonts_dir: Option<&Path>) -> CatalogFonts {
+    let mut found = CatalogFonts {
+        diagnostics: Vec::new(),
+        absent: Vec::new(),
+    };
+    let catalog = match sivi_theme::catalog::catalog() {
+        Ok(catalog) => catalog,
+        Err(message) => {
+            found
+                .diagnostics
+                .push(Diagnostic::new(Code::Internal, message));
+            return found;
+        }
+    };
+    let declared: Vec<FamilyName> = loaded
+        .theme
+        .fonts
+        .iter()
+        .map(|file| file.family.clone())
+        .collect();
+    let wanted: Vec<FamilyName> = loaded.theme.families().into_iter().cloned().collect();
+    let bundled = library::bundled_names();
+    for family in wanted {
+        if declared.contains(&family) || loaded.faces.iter().any(|face| face.family == family) {
+            continue;
+        }
+        let Some(entry) = catalog.family(family.as_str()) else {
+            found.diagnostics.push(
+                library::unknown_family(family.as_str(), catalog, &bundled)
+                    .note(String::from("the theme sets text in it")),
+            );
+            found.absent.push(family);
+            continue;
+        };
+        let Some(dir) = fonts_dir else {
+            found.diagnostics.push(library::not_installed(entry, None));
+            found.absent.push(family);
+            continue;
+        };
+        match library::read_installed(entry, dir) {
+            Ok(files) => {
+                for bytes in files {
+                    match faces::face(&bytes) {
+                        Ok(face) => {
+                            loaded.faces.push(face);
+                            loaded.fonts.push(bytes);
+                        }
+                        Err(error) => found.diagnostics.push(Diagnostic::new(
+                            Code::FontUnreadable,
+                            format!(
+                                "an installed file of `{}` is {}",
+                                entry.name,
+                                face_error(error)
+                            ),
+                        )),
+                    }
+                }
+            }
+            Err(diagnostic) => {
+                found.diagnostics.push(*diagnostic);
+                found.absent.push(family);
+            }
+        }
+    }
+    found
+}
+
+/// Loads and checks the chosen theme, with the warnings it earned, reading catalog families from the library under `fonts_dir`.
 ///
 /// # Errors
 ///
 /// Returns every diagnostic when the theme cannot be read, does not validate, or lacks a font or face it needs.
-pub fn load(choice: &Choice) -> Result<(LoadedTheme, Vec<Diagnostic>), Vec<Diagnostic>> {
+pub fn load(
+    choice: &Choice,
+    fonts_dir: Option<&Path>,
+) -> Result<(LoadedTheme, Vec<Diagnostic>), Vec<Diagnostic>> {
     let (text, label, dir) = text_of(choice)?;
     let theme = sivi_theme::parse(&text)?;
     let faces =
@@ -192,7 +270,13 @@ pub fn load(choice: &Choice) -> Result<(LoadedTheme, Vec<Diagnostic>), Vec<Diagn
             diagnostics.push(diagnostic);
         }
     }
-    diagnostics.extend(faces::check(&loaded.theme, &loaded.faces));
+    let from_catalog = catalog_fonts(&mut loaded, fonts_dir);
+    diagnostics.extend(from_catalog.diagnostics);
+    diagnostics.extend(faces::check_except(
+        &loaded.theme,
+        &loaded.faces,
+        &from_catalog.absent,
+    ));
     if has_error(&diagnostics) {
         Err(diagnostics)
     } else {
@@ -231,13 +315,74 @@ mod tests {
 
     #[test]
     fn the_built_in_theme_loads_with_the_bundled_faces_and_an_unknown_name_is_refused() {
-        let (loaded, warnings) = load(&Choice::Builtin(String::from("plain"))).unwrap();
+        let (loaded, warnings) = load(&Choice::Builtin(String::from("plain")), None).unwrap();
         assert_eq!(loaded.label, "plain");
-        assert_eq!(loaded.faces.len(), 3);
+        assert_eq!(loaded.faces.len(), 12);
         assert_eq!(warnings, Vec::new());
-        let refused = load(&Choice::Builtin(String::from("nope"))).unwrap_err();
+        let refused = load(&Choice::Builtin(String::from("nope")), None).unwrap_err();
         assert_eq!(refused[0].code, Code::ThemeToml);
-        let unreadable = load(&Choice::Dir(PathBuf::from("/nonexistent/sivi"))).unwrap_err();
+        let unreadable = load(&Choice::Dir(PathBuf::from("/nonexistent/sivi")), None).unwrap_err();
         assert_eq!(unreadable[0].code, Code::ThemeToml);
+    }
+
+    /// A copy of the plain theme whose styles are set in `family`, written under a fresh directory.
+    fn theme_in(family: &str) -> (tempfile::TempDir, PathBuf) {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("theme");
+        crate::io::create_dir_all(&dir).unwrap();
+        let text = sivi_theme::PLAIN.replace(
+            "font = \"BIZ UDPGothic\"",
+            &format!("font = [\"{family}\", \"BIZ UDPGothic\"]"),
+        );
+        crate::publish::publish(
+            &mut crate::publish::Disk::default(),
+            &dir.join(super::THEME_FILE),
+            text.as_bytes(),
+        )
+        .unwrap();
+        (root, dir)
+    }
+
+    #[test]
+    fn a_catalog_family_that_is_not_installed_is_named_once_with_its_command() {
+        let (root, dir) = theme_in("Zen Maru Gothic");
+        let empty = root.path().join("fonts");
+        let refused = load(&Choice::Dir(dir.clone()), Some(&empty)).unwrap_err();
+        let codes: Vec<Code> = refused.iter().map(|d| d.code).collect();
+        assert_eq!(codes, vec![Code::FontNotInstalled], "{refused:?}");
+        assert!(
+            refused[0]
+                .helps
+                .iter()
+                .any(|help| help.contains("sivi fonts install \"Zen Maru Gothic\""))
+        );
+        let nowhere = load(&Choice::Dir(dir), None).unwrap_err();
+        assert_eq!(nowhere[0].code, Code::FontNotInstalled);
+        assert!(
+            nowhere[0]
+                .helps
+                .iter()
+                .any(|help| help.contains("SIVI_HOME"))
+        );
+    }
+
+    #[test]
+    fn a_family_outside_every_source_is_named_once_with_its_closest_name() {
+        let (_root, dir) = theme_in("Zen Maru Gothik");
+        let refused = load(&Choice::Dir(dir), None).unwrap_err();
+        let codes: Vec<Code> = refused.iter().map(|d| d.code).collect();
+        assert_eq!(codes, vec![Code::FamilyUnknown], "{refused:?}");
+        assert!(
+            refused[0]
+                .helps
+                .iter()
+                .any(|help| help.contains("`Zen Maru Gothic`"))
+        );
+        assert!(
+            refused[0]
+                .notes
+                .iter()
+                .any(|note| note.contains("sets text in it"))
+        );
     }
 }

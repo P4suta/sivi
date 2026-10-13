@@ -10,7 +10,7 @@ include = [
   "verification/*.toml",
   "fonts/*.toml",
 ]
-exclude = ["target/**", "fuzz/corpus/**", "fuzz/target/**"]
+exclude = ["target/**", "fuzz/corpus/**", "fuzz/target/**", "fonts/catalog.toml"]
 
 [formatting]
 align_entries = false

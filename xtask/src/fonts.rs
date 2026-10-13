@@ -9,6 +9,8 @@ use std::path::Path;
 /// Where the bundled fonts and their manifest live.
 pub const DIRECTORY: &str = "fonts";
 pub const MANIFEST: &str = "fonts/manifest.toml";
+/// The suffix of the directory's own documents, which the manifest does not pin.
+const TOML_SUFFIX: &str = ".toml";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -103,7 +105,8 @@ pub fn findings(root: &Path) -> Result<Vec<String>> {
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or_default();
-        if name != "manifest.toml" && !pinned.iter().any(|(file, _)| *file == name) {
+        // The manifest, the family list, and the catalog are the directory's TOML; every other file is a font or a license the manifest pins.
+        if !name.ends_with(TOML_SUFFIX) && !pinned.iter().any(|(file, _)| *file == name) {
             findings.push(format!("{} is not in the manifest", portable(&path)));
         }
     }
@@ -121,6 +124,12 @@ pub fn verify(root: &Path) -> Result<()> {
         found.is_empty(),
         "the bundled fonts disagree with {MANIFEST}:\n{}",
         found.join("\n")
+    );
+    let drift = crate::font_catalog::findings(root)?;
+    ensure!(
+        drift.is_empty(),
+        "the font catalog disagrees with its family list:\n{}",
+        drift.join("\n")
     );
     Ok(())
 }

@@ -22,6 +22,7 @@ fn check(name: &str) -> sivi::build::Outcome {
         theme: None,
         sink: Sink::Nothing,
         timestamp: None,
+        fonts_dir: None,
     })
 }
 
@@ -34,6 +35,7 @@ fn every_master_builds_once_each_to_the_same_bytes_twice() {
         theme: None,
         sink: Sink::File(output.clone()),
         timestamp: None,
+        fonts_dir: None,
     };
     let first = run(&request);
     assert!(!has_error(&first.diagnostics), "{:#?}", first.diagnostics);
@@ -141,7 +143,7 @@ fn dump_the_source_and_the_measurement_of_a_fixture() {
     let bytes = sivi::io::read(&fixture("fail-code-width")).unwrap();
     let deck = sivi_markdown::parse(&bytes).deck.unwrap();
     let (theme, _) =
-        sivi::themes::load(&sivi::themes::Choice::Builtin(String::from("plain"))).unwrap();
+        sivi::themes::load(&sivi::themes::Choice::Builtin(String::from("plain")), None).unwrap();
     let bound = sivi_core::bind::bind(&deck, &theme.theme).unwrap();
     let boxes = sivi::fonts::line_boxes(&theme.faces);
     let emitted = sivi_core::emit::typst_source(&theme.theme, &deck, &bound, &boxes).unwrap();

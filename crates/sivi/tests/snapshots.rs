@@ -35,6 +35,7 @@ fn check(deck: &Path) -> Outcome {
         theme: None,
         sink: Sink::Nothing,
         timestamp: None,
+        fonts_dir: None,
     })
 }
 
@@ -72,7 +73,7 @@ fn every_deck_fixture_renders_as_its_snapshots_say() {
 fn every_theme_fixture_renders_as_its_snapshot_says() {
     settings().bind(|| {
         for (name, dir) in fixtures(THEMES).unwrap() {
-            let (label, text, diagnostics) = match themes::load(&Choice::Dir(dir.clone())) {
+            let (label, text, diagnostics) = match themes::load(&Choice::Dir(dir.clone()), None) {
                 Ok((loaded, warnings)) => (loaded.label, loaded.text, warnings),
                 Err(diagnostics) => (dir.display().to_string(), String::new(), diagnostics),
             };

@@ -1,5 +1,6 @@
 # The fonts the binary bundles, each pinned to the exact bytes `cargo xtask fonts verify` requires.
 # Every file carries the SIL Open Font License 1.1, whose text sits beside it.
+# The official themes draw on these families alone, so a deck builds offline; every other family of `fonts/catalog.toml` installs on request.
 
 [[font]]
 family = "BIZ UDPGothic"
@@ -22,6 +23,69 @@ sha256 = "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f"
 license = "JetBrainsMono-OFL.txt"
 source = "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip"
 
+[[font]]
+family = "Shippori Mincho"
+file = "ShipporiMincho-Regular.ttf"
+sha256 = "769b5269f0f9bc6534b352c0e6bd856a566e03ff788f107191c2d835863570b2"
+license = "ShipporiMincho-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/shipporimincho/ShipporiMincho-Regular.ttf"
+
+[[font]]
+family = "Shippori Mincho"
+file = "ShipporiMincho-Bold.ttf"
+sha256 = "63bc4eddc74793f671c3ab827c5175e773ffbe569d0bf50ee65375ea9e3bc286"
+license = "ShipporiMincho-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/shipporimincho/ShipporiMincho-Bold.ttf"
+
+[[font]]
+family = "Zen Kaku Gothic New"
+file = "ZenKakuGothicNew-Regular.ttf"
+sha256 = "b840cd07a67d89cacca44249ae49aa99ee7640eb5ce623be8d8983d6aabac801"
+license = "ZenKakuGothicNew-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/zenkakugothicnew/ZenKakuGothicNew-Regular.ttf"
+
+[[font]]
+family = "Zen Kaku Gothic New"
+file = "ZenKakuGothicNew-Bold.ttf"
+sha256 = "0081cedabc4921982fcd061f845a005664ac7fb642af2dd34b4007bc63ccd235"
+license = "ZenKakuGothicNew-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/zenkakugothicnew/ZenKakuGothicNew-Bold.ttf"
+
+[[font]]
+family = "Zen Kaku Gothic New"
+file = "ZenKakuGothicNew-Black.ttf"
+sha256 = "795819a979184981842994d8f4eb9e14ce443d687bd5e731d6ca67ded8f92261"
+license = "ZenKakuGothicNew-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/zenkakugothicnew/ZenKakuGothicNew-Black.ttf"
+
+[[font]]
+family = "Playfair Display"
+file = "PlayfairDisplay[wght].ttf"
+sha256 = "c40f2293766a503bc70cce9e512ef844a4ccb7cbcde792fe2ea31d191917d8d6"
+license = "PlayfairDisplay-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"
+
+[[font]]
+family = "Playfair Display"
+file = "PlayfairDisplay-Italic[wght].ttf"
+sha256 = "a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b"
+license = "PlayfairDisplay-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/playfairdisplay/PlayfairDisplay-Italic%5Bwght%5D.ttf"
+
+[[font]]
+family = "Montserrat"
+file = "Montserrat[wght].ttf"
+sha256 = "0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7"
+license = "Montserrat-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/montserrat/Montserrat%5Bwght%5D.ttf"
+
+[[font]]
+family = "Montserrat"
+file = "Montserrat-Italic[wght].ttf"
+sha256 = "51607f316bc020e59f03cbf51543eecffbea501c0b31d73e5b82927c5cca442c"
+license = "Montserrat-OFL.txt"
+source = "https://github.com/google/fonts/blob/66928797f271fed5ee428544e7229685e2d90127/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf"
+
 [[license]]
 file = "BIZUDPGothic-OFL.txt"
 sha256 = "e753d7155d53c747d037a445e584c8ecfca6dd79846db610417e282a736b28bc"
@@ -29,3 +93,19 @@ sha256 = "e753d7155d53c747d037a445e584c8ecfca6dd79846db610417e282a736b28bc"
 [[license]]
 file = "JetBrainsMono-OFL.txt"
 sha256 = "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"
+
+[[license]]
+file = "ShipporiMincho-OFL.txt"
+sha256 = "41fba056279be5f45ff9a99e44b7b53897b42732f5806d8e666e0ab49ac6bd38"
+
+[[license]]
+file = "ZenKakuGothicNew-OFL.txt"
+sha256 = "0fac78a235c98d640cb06332eb5362c211d86fa03c011df438c35005d22ad2c7"
+
+[[license]]
+file = "PlayfairDisplay-OFL.txt"
+sha256 = "566be814f8e96e93dfa16101331557eb6b5467e9e03f627c0910fe93ca12300e"
+
+[[license]]
+file = "Montserrat-OFL.txt"
+sha256 = "8b7141c03fa4f8d44e6345d5d4931709290f0f67875e452e95ac1fd3a027802e"

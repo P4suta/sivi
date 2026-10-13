@@ -26,6 +26,20 @@ mod raw {
         }
         Ok((bytes, over))
     }
+
+    /// Whether a file sits at `path`, telling absence from any other failure.
+    pub(super) fn is_file(path: &Path) -> std::io::Result<bool> {
+        match std::fs::metadata(path) {
+            Ok(metadata) => Ok(metadata.is_file()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Creates the directory at `path` and every parent it lacks.
+    pub(super) fn create_dir_all(path: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(path)
+    }
 }
 
 /// Why a file could not be read.
@@ -91,6 +105,30 @@ pub fn read_to_string(path: &Path) -> Result<String, ReadError> {
     String::from_utf8(read(path)?).map_err(|_invalid| ReadError {
         path: path.to_path_buf(),
         kind: ReadErrorKind::NotUtf8,
+    })
+}
+
+/// Whether a file sits at `path`; absence is `false`, any other failure an error.
+///
+/// # Errors
+///
+/// Returns the path with why the file's presence could not be told.
+pub fn is_file(path: &Path) -> Result<bool, ReadError> {
+    raw::is_file(path).map_err(|error| ReadError {
+        path: path.to_path_buf(),
+        kind: ReadErrorKind::Io(error),
+    })
+}
+
+/// Creates the directory at `path` and every parent it lacks.
+///
+/// # Errors
+///
+/// Returns the path with why a directory could not be created.
+pub fn create_dir_all(path: &Path) -> Result<(), ReadError> {
+    raw::create_dir_all(path).map_err(|error| ReadError {
+        path: path.to_path_buf(),
+        kind: ReadErrorKind::Io(error),
     })
 }
 

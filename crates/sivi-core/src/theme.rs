@@ -87,6 +87,96 @@ impl fmt::Display for FamilyName {
     }
 }
 
+/// The families a run of text is set in: the primary for every glyph it has, then each fallback for the glyphs the earlier ones lack.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct FontStack {
+    primary: FamilyName,
+    fallbacks: Vec<FamilyName>,
+}
+
+impl FontStack {
+    /// The stack over `families`, or `None` when there is none.
+    #[must_use]
+    pub fn new(mut families: Vec<FamilyName>) -> Option<Self> {
+        if families.is_empty() {
+            return None;
+        }
+        let primary = families.remove(0);
+        Some(Self {
+            primary,
+            fallbacks: families,
+        })
+    }
+
+    /// The stack of one family.
+    #[must_use]
+    pub const fn single(family: FamilyName) -> Self {
+        Self {
+            primary: family,
+            fallbacks: Vec::new(),
+        }
+    }
+
+    /// The family every glyph is first looked up in, whose metrics set the line.
+    #[must_use]
+    pub const fn primary(&self) -> &FamilyName {
+        &self.primary
+    }
+
+    /// The families after the primary, in order.
+    #[must_use]
+    pub fn fallbacks(&self) -> &[FamilyName] {
+        &self.fallbacks
+    }
+
+    /// Every family, the primary first.
+    pub fn families(&self) -> impl Iterator<Item = &FamilyName> {
+        core::iter::once(&self.primary).chain(self.fallbacks.iter())
+    }
+
+    /// Whether the stack names `family`.
+    #[must_use]
+    pub fn names(&self, family: &FamilyName) -> bool {
+        self.families().any(|known| known == family)
+    }
+}
+
+impl fmt::Display for FontStack {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (index, family) in self.families().enumerate() {
+            if index > 0 {
+                formatter.write_str(", ")?;
+            }
+            formatter.write_str(family.as_str())?;
+        }
+        Ok(())
+    }
+}
+
+/// The weights a font file provides: one for a static face, a span for a variable one.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct WeightRange {
+    pub lowest: Weight,
+    pub highest: Weight,
+}
+
+impl WeightRange {
+    /// The range of one weight.
+    #[must_use]
+    pub const fn single(weight: Weight) -> Self {
+        Self {
+            lowest: weight,
+            highest: weight,
+        }
+    }
+
+    /// Whether `weight` lies within the range.
+    #[must_use]
+    pub fn contains(self, weight: Weight) -> bool {
+        self.lowest <= weight && weight <= self.highest
+    }
+}
+
 /// A color, as `#rrggbb` spells it.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Color {
@@ -147,7 +237,7 @@ impl Weight {
 /// How a run of text is set.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TextStyle {
-    pub font: FamilyName,
+    pub font: FontStack,
     pub size: Length,
     pub weight: Weight,
     pub color: StyleName,
@@ -162,7 +252,7 @@ pub struct Mark {
     pub italic: bool,
     pub color: Option<StyleName>,
     pub weight: Option<Weight>,
-    pub font: Option<FamilyName>,
+    pub font: Option<FontStack>,
     pub background: Option<StyleName>,
     pub underline: bool,
 }
@@ -187,7 +277,7 @@ pub struct ListStyle {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CodeStyle {
-    pub font: FamilyName,
+    pub font: FontStack,
     pub size: Length,
     pub line_height: Thousandths,
     pub background: StyleName,
@@ -447,15 +537,46 @@ impl Theme {
             .find(|(known, _)| known == name)
             .map(|(_, style)| style)
     }
+
+    /// Every family the theme sets text in, each once, in the order the theme names them.
+    #[must_use]
+    pub fn families(&self) -> Vec<&FamilyName> {
+        let mut found: Vec<&FamilyName> = Vec::new();
+        let stacks = self
+            .text
+            .iter()
+            .map(|(_, style)| &style.font)
+            .chain(core::iter::once(&self.code.font))
+            .chain(
+                [
+                    &self.inline.emphasis,
+                    &self.inline.strong,
+                    &self.inline.code,
+                    &self.inline.link,
+                ]
+                .into_iter()
+                .filter_map(|mark| mark.font.as_ref()),
+            );
+        for family in stacks
+            .flat_map(FontStack::families)
+            .chain(self.typography.fallback.iter())
+            .chain(self.fonts.iter().map(|file| &file.family))
+        {
+            if !found.contains(&family) {
+                found.push(family);
+            }
+        }
+        found
+    }
 }
 
 /// A small theme and its parts, which the tests of this crate build on.
 #[cfg(test)]
 pub mod fixture {
     use super::{
-        Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, FamilyName, InlineStyles,
-        ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName, TableStyle, TextStyle,
-        Theme, Thousandths, Typography, VerticalAlign, Weight,
+        Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, FamilyName, FontStack,
+        InlineStyles, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName,
+        TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
     };
     use crate::ir::BlockKind;
     use crate::length::{Length, Rect, Size};
@@ -478,7 +599,7 @@ pub mod fixture {
 
     pub(crate) fn text_style(size: i64) -> TextStyle {
         TextStyle {
-            font: family(),
+            font: FontStack::single(family()),
             size: Length::from_millipoints(size),
             weight: Weight::new(400).unwrap(),
             color: style("ink"),
@@ -559,7 +680,7 @@ pub mod fixture {
                 gap: Measure::Em(Thousandths(350)),
             },
             code: CodeStyle {
-                font: family(),
+                font: FontStack::single(family()),
                 size: Length::from_millipoints(18_000),
                 line_height: Thousandths::ONE,
                 background: style("paper"),
@@ -586,10 +707,15 @@ pub mod fixture {
 
 #[cfg(test)]
 mod tests {
-    use super::fixture::{id, style, tiny};
-    use super::{BlockKindSet, Color, Digest, FamilyName, InvalidName, StyleName, Weight};
+    use super::fixture::{family, id, style, tiny};
+    use super::{
+        BlockKindSet, Color, Digest, FamilyName, FontStack, InvalidName, StyleName, Weight,
+        WeightRange,
+    };
     use crate::ir::BlockKind;
-    use alloc::string::String;
+    use alloc::string::{String, ToString};
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     const KINDS: [BlockKind; 7] = [
         BlockKind::Heading,
@@ -692,5 +818,39 @@ mod tests {
         assert!(!set.contains(BlockKind::Code));
         assert!(!set.is_empty());
         assert!(BlockKindSet::EMPTY.is_empty());
+    }
+
+    #[test]
+    fn a_font_stack_names_its_families_in_order_and_a_weight_range_holds_its_ends() {
+        let gothic = family();
+        let mincho = FamilyName::new("Shippori Mincho").unwrap();
+        let stack = FontStack::new(vec![gothic.clone(), mincho.clone()]).unwrap();
+        assert_eq!(stack.primary(), &gothic);
+        assert_eq!(stack.fallbacks(), core::slice::from_ref(&mincho));
+        assert_eq!(stack.families().collect::<Vec<_>>(), vec![&gothic, &mincho]);
+        assert!(stack.names(&mincho));
+        assert!(!stack.names(&FamilyName::new("Montserrat").unwrap()));
+        assert_eq!(stack.to_string(), "BIZ UDPGothic, Shippori Mincho");
+        assert_eq!(
+            FontStack::single(gothic.clone()).to_string(),
+            "BIZ UDPGothic"
+        );
+        assert!(FontStack::new(Vec::new()).is_none());
+        let range = WeightRange {
+            lowest: Weight::new(300).unwrap(),
+            highest: Weight::new(700).unwrap(),
+        };
+        assert!(range.contains(Weight::new(300).unwrap()));
+        assert!(range.contains(Weight::new(500).unwrap()));
+        assert!(range.contains(Weight::new(700).unwrap()));
+        assert!(!range.contains(Weight::new(299).unwrap()));
+        assert!(!range.contains(Weight::new(701).unwrap()));
+        let single = WeightRange::single(Weight::new(400).unwrap());
+        assert!(single.contains(Weight::new(400).unwrap()));
+        assert!(!single.contains(Weight::new(401).unwrap()));
+        let mut theme = tiny();
+        assert_eq!(theme.families(), vec![&gothic]);
+        theme.typography.fallback = vec![mincho.clone(), gothic.clone()];
+        assert_eq!(theme.families(), vec![&gothic, &mincho]);
     }
 }

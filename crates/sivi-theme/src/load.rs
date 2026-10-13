@@ -1,7 +1,7 @@
 //! The theme file read into the model, with every refused value named by its path in the file.
 
 use crate::schema::{
-    CodeSection, DecorSection, FontSection, InlineSection, ListsSection, MarkSection,
+    CodeSection, DecorSection, FontSection, FontSpec, InlineSection, ListsSection, MarkSection,
     MasterSection, QuotesSection, RegionSection, SlotSection, TablesSection, TextSection,
     ThemeFile, TypographySection,
 };
@@ -13,8 +13,8 @@ use sivi_core::length::{Length, Point, Rect, Size};
 use sivi_core::text::Identifier;
 use sivi_core::theme::{
     Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, Decor, Digest, FamilyName, Field,
-    FontFile, InlineStyles, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName,
-    TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
+    FontFile, FontStack, InlineStyles, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot,
+    StyleName, TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
 };
 use sivi_core::theme_rules::{self, FollowsFault};
 
@@ -102,6 +102,33 @@ impl Loader {
                 None
             }
         }
+    }
+
+    /// The families `spec` names in order, refusing an empty list and every name outside the grammar.
+    fn stack(&mut self, path: &str, spec: &FontSpec) -> Option<FontStack> {
+        let mut families = Vec::new();
+        let mut valid = true;
+        for (index, text) in spec.families().into_iter().enumerate() {
+            let at = match spec {
+                FontSpec::One(_) => String::from(path),
+                FontSpec::Many(_) => format!("{path}[{index}]"),
+            };
+            match self.family(&at, text) {
+                Some(family) => families.push(family),
+                None => valid = false,
+            }
+        }
+        let stack = FontStack::new(families);
+        if stack.is_none() {
+            self.refuse(
+                path,
+                value(
+                    String::from("the font list names no family"),
+                    "name the family to set the text in first, then any family to fall back to",
+                ),
+            );
+        }
+        if valid { stack } else { None }
     }
 
     fn identifier(&mut self, path: &str, text: &str) -> Option<Identifier> {
@@ -370,7 +397,7 @@ impl Loader {
 }
 
 fn text_style(loader: &mut Loader, path: &str, section: &TextSection) -> Option<TextStyle> {
-    let font = loader.family(&format!("{path}.font"), &section.font);
+    let font = loader.stack(&format!("{path}.font"), &section.font);
     let size = loader.points(&format!("{path}.size"), &section.size);
     let weight = loader.weight(&format!("{path}.weight"), section.weight);
     let color = loader.color_ref(&format!("{path}.color"), &section.color);
@@ -413,8 +440,8 @@ fn mark(loader: &mut Loader, path: &str, section: &MarkSection) -> Option<Mark> 
     let weight = section.weight.map_or(Some(None), |number| {
         loader.weight(&format!("{path}.weight"), number).map(Some)
     });
-    let font = section.font.as_ref().map_or(Some(None), |text| {
-        loader.family(&format!("{path}.font"), text).map(Some)
+    let font = section.font.as_ref().map_or(Some(None), |spec| {
+        loader.stack(&format!("{path}.font"), spec).map(Some)
     });
     let background = section.background.as_ref().map_or(Some(None), |text| {
         loader
@@ -466,7 +493,7 @@ fn lists(loader: &mut Loader, section: &ListsSection) -> Option<ListStyle> {
 }
 
 fn code(loader: &mut Loader, section: &CodeSection, min_size: Option<Length>) -> Option<CodeStyle> {
-    let font = loader.family("code.font", &section.font);
+    let font = loader.stack("code.font", &section.font);
     let size = loader.points("code.size", &section.size);
     let line_height = loader.ratio("code.line_height", section.line_height);
     let background = loader.color_ref("code.background", &section.background);

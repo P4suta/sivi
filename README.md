@@ -16,6 +16,7 @@ cargo install --locked --path crates/sivi
 sivi build deck.md
 sivi check deck.md --format json
 sivi theme check themes/plain
+sivi fonts install "Noto Sans JP"
 ```
 
 ## License

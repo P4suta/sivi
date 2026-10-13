@@ -71,6 +71,8 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [E0606](#e0606) | error | `ImageUnreadable` | an image file that cannot be decoded |
 | [E0607](#e0607) | error | `ImageKind` | an image whose header does not match its extension |
 | [E0608](#e0608) | error | `FamilyMismatch` | a font whose family name differs from the theme's |
+| [E0609](#e0609) | error | `FamilyUnknown` | a font family that is neither bundled, declared by the theme, nor in the catalog |
+| [E0610](#e0610) | error | `FontNotInstalled` | a catalog family the theme sets text in that is not installed |
 | [E0901](#e0901) | error | `TypstCompile` | the generated Typst source failed to compile |
 | [E0902](#e0902) | error | `MarkerMissing` | a measurement marker missing or malformed |
 | [E0903](#e0903) | error | `OracleDisagreement` | the measure and the frame walk disagree |
@@ -85,6 +87,7 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [W0107](#w0107) | warning | `CjkWithoutLang` | East Asian text in a deck whose language is not East Asian |
 | [W0108](#w0108) | warning | `NoLang` | a deck without a language |
 | [W0501](#w0501) | warning | `UnusedFont` | a font the theme loads and never uses |
+| [W0502](#w0502) | warning | `FallbackWeight` | a fallback family without the exact weight a style sets |
 
 ## E0001
 
@@ -396,6 +399,16 @@ An image whose header does not match its extension.
 `FamilyMismatch`, an error.
 A font whose family name differs from the theme's.
 
+## E0609
+
+`FamilyUnknown`, an error.
+A font family that is neither bundled, declared by the theme, nor in the catalog.
+
+## E0610
+
+`FontNotInstalled`, an error.
+A catalog family the theme sets text in that is not installed.
+
 ## E0901
 
 `TypstCompile`, an error.
@@ -465,3 +478,8 @@ A deck without a language.
 
 `UnusedFont`, a warning.
 A font the theme loads and never uses.
+
+## W0502
+
+`FallbackWeight`, a warning.
+A fallback family without the exact weight a style sets.

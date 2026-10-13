@@ -9,6 +9,7 @@ cargo install --locked --path crates/sivi"""
 usage = """
 sivi build deck.md
 sivi check deck.md --format json
-sivi theme check themes/plain"""
+sivi theme check themes/plain
+sivi fonts install "Noto Sans JP""""
 copyright = "Yasunobu"
 license = "MIT OR Apache-2.0"

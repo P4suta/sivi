@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/P4suta/sivi/docs/schema/fonts-1.json",
+  "title": "sivi.fonts version 1",
+  "description": "The document `sivi fonts list --format json` writes: every family of the catalog with its state on this host.",
+  "type": "object",
+  "required": ["format", "version", "commit", "families"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "sivi.fonts" },
+    "version": { "const": 1 },
+    "commit": {
+      "type": "string",
+      "description": "The commit of google/fonts the catalog pins."
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "listed", "category", "scripts", "weights", "italic", "bytes", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "The family name as Typst lists it, which a theme writes." },
+          "listed": { "type": "string", "description": "The name Google Fonts lists the family under." },
+          "category": { "enum": ["sans", "serif", "display", "handwriting", "mono"] },
+          "scripts": { "type": "array", "items": { "type": "string" } },
+          "weights": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 100, "maximum": 900 },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "The lowest and the highest weight any file provides."
+          },
+          "italic": { "type": "boolean", "description": "Whether any file is italic." },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "state": { "enum": ["bundled", "installed", "available"] }
+        }
+      }
+    }
+  }
+}

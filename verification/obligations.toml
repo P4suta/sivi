@@ -144,6 +144,14 @@ probes = [
 ]
 
 [[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/home_rules.rs"
+harnesses = [
+  { name = "proofs::the_data_directory_follows_the_first_usable_variable_in_precedence", covers = 2, contract = "the data directory stands on SIVI_HOME, else on LOCALAPPDATA under Windows, else on XDG_DATA_HOME, else under HOME, with the tail its base owns; an empty variable never names a directory", input_domain = "every variable unset, empty, or set, on either kind of host", bound = "the four variables and the host kind, with drawn names of up to nine bytes" },
+]
+probes = [{ harness = "proofs::rejects_an_empty_sivi_home", assertion = "NEGATIVE_HOME_CONTROL" }]
+
+[[obligation]]
 verifier = "quint"
 spec = "specs/binder.qnt"
 main = "binder"

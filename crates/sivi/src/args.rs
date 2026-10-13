@@ -42,6 +42,36 @@ pub enum Command {
         #[command(subcommand)]
         command: ThemeCommand,
     },
+    /// Font commands: the catalog of Google Fonts families and the library they install into.
+    Fonts {
+        #[command(subcommand)]
+        command: FontsCommand,
+    },
+}
+
+#[derive(Clone, Debug, Subcommand)]
+pub enum FontsCommand {
+    /// Lists the families of the catalog with their state: bundled, installed, or available.
+    List {
+        /// Only families covering this writing system, such as `japanese`.
+        #[arg(long)]
+        script: Option<String>,
+        /// Only bundled and installed families.
+        #[arg(long)]
+        installed: bool,
+        #[command(flatten)]
+        rendering: Rendering,
+    },
+    /// Installs families from Google Fonts into the library, checking every digest the catalog pins.
+    Install {
+        /// The families, as `sivi fonts list` names them.
+        #[arg(required = true)]
+        families: Vec<String>,
+        #[command(flatten)]
+        rendering: Rendering,
+    },
+    /// Prints the directory installed fonts live in.
+    Dir,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -91,6 +121,14 @@ pub enum ColorChoice {
 pub const SOURCE_DATE_EPOCH: &str = "SOURCE_DATE_EPOCH";
 /// The variable that disables color when set to anything but the empty string.
 pub const NO_COLOR: &str = "NO_COLOR";
+/// The variable that names the data directory outright.
+pub const SIVI_HOME: &str = "SIVI_HOME";
+/// The data base of Unix desktops.
+pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
+/// The home directory, under which `.local/share` is the conventional data base.
+pub const HOME: &str = "HOME";
+/// The per-user data base of Windows.
+pub const LOCALAPPDATA: &str = "LOCALAPPDATA";
 
 /// What the binary read from its environment, once, before any decision.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -98,16 +136,31 @@ pub struct Environment {
     pub source_date_epoch: Option<String>,
     pub no_color: bool,
     pub stderr_is_terminal: bool,
+    pub sivi_home: Option<String>,
+    pub xdg_data_home: Option<String>,
+    pub home: Option<String>,
+    pub local_app_data: Option<String>,
+    /// Whether the host is Windows, where `LOCALAPPDATA` is the data base.
+    pub windows: bool,
+}
+
+/// The value of a variable as text, when it is set.
+fn variable(name: &str) -> Option<String> {
+    std::env::var_os(name).map(|value| value.to_string_lossy().into_owned())
 }
 
 /// Reads the environment the binary honors.
 #[must_use]
 pub fn environment() -> Environment {
     Environment {
-        source_date_epoch: std::env::var_os(SOURCE_DATE_EPOCH)
-            .map(|value| value.to_string_lossy().into_owned()),
+        source_date_epoch: variable(SOURCE_DATE_EPOCH),
         no_color: std::env::var_os(NO_COLOR).is_some_and(|value| !value.is_empty()),
         stderr_is_terminal: std::io::stderr().is_terminal(),
+        sivi_home: variable(SIVI_HOME),
+        xdg_data_home: variable(XDG_DATA_HOME),
+        home: variable(HOME),
+        local_app_data: variable(LOCALAPPDATA),
+        windows: cfg!(windows),
     }
 }
 
@@ -125,7 +178,7 @@ impl ColorChoice {
 
 #[cfg(test)]
 mod tests {
-    use super::{Arguments, ColorChoice, Command, Environment, Format, ThemeCommand};
+    use super::{Arguments, ColorChoice, Command, Environment, FontsCommand, Format, ThemeCommand};
     use clap::{CommandFactory, Parser};
 
     #[test]
@@ -157,6 +210,26 @@ mod tests {
             panic!("a theme check");
         };
         assert_eq!(target, "themes/mine");
+        let fonts =
+            Arguments::try_parse_from(["sivi", "fonts", "install", "Noto Sans JP", "Inter"])
+                .unwrap();
+        let Command::Fonts {
+            command: FontsCommand::Install { families, .. },
+        } = fonts.command
+        else {
+            panic!("a font installation");
+        };
+        assert_eq!(families, vec!["Noto Sans JP", "Inter"]);
+        Arguments::try_parse_from(["sivi", "fonts", "install"]).unwrap_err();
+        let listing =
+            Arguments::try_parse_from(["sivi", "fonts", "list", "--script", "japanese"]).unwrap();
+        let Command::Fonts {
+            command: FontsCommand::List { script, .. },
+        } = listing.command
+        else {
+            panic!("a font listing");
+        };
+        assert_eq!(script.as_deref(), Some("japanese"));
     }
 
     #[test]
@@ -168,9 +241,8 @@ mod tests {
     #[test]
     fn color_follows_the_choice_then_the_terminal_and_no_color() {
         let terminal = Environment {
-            source_date_epoch: None,
-            no_color: false,
             stderr_is_terminal: true,
+            ..Environment::default()
         };
         assert!(ColorChoice::Auto.styled(&terminal));
         assert!(!ColorChoice::Auto.styled(&Environment {

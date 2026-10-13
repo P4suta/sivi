@@ -2,6 +2,7 @@
 //!
 //! It reads a theme file into the core's theme model, refuses every value outside the format, and reads font faces for the checks that need their metrics.
 
+pub mod catalog;
 pub mod faces;
 pub mod load;
 pub mod schema;

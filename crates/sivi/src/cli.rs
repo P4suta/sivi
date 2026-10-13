@@ -2,6 +2,7 @@
 
 use crate::args::{Arguments, Command, Environment, Format, Rendering, ThemeCommand};
 use crate::build::{self, Outcome, Request, Sink};
+use crate::library;
 use crate::render::{self, Sources};
 use crate::themes;
 use sivi_core::calendar;
@@ -162,6 +163,7 @@ fn deck_run(deck: &Path, sink: Sink, theme: Option<&str>, setting: Setting<'_>) 
         theme,
         sink,
         timestamp,
+        fonts_dir: library::fonts_dir(setting.environment),
     };
     let outcome = build::run(&request);
     if let Some(failure) = &outcome.failure {
@@ -172,7 +174,8 @@ fn deck_run(deck: &Path, sink: Sink, theme: Option<&str>, setting: Setting<'_>) 
 
 fn theme_run(theme: &str, setting: Setting<'_>) -> Run {
     let choice = themes::choose(Some(theme), None, Path::new("."));
-    let (label, text, diagnostics) = match themes::load(&choice) {
+    let fonts_dir = library::fonts_dir(setting.environment);
+    let (label, text, diagnostics) = match themes::load(&choice, fonts_dir.as_deref()) {
         Ok((loaded, warnings)) => (loaded.label, loaded.text, warnings),
         Err(diagnostics) => (String::from(theme), String::new(), diagnostics),
     };
@@ -224,6 +227,7 @@ pub fn run(arguments: Arguments, environment: &Environment) -> Run {
                 environment,
             },
         ),
+        Command::Fonts { command } => library::run(command, environment),
     }
 }
 

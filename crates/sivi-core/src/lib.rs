@@ -31,6 +31,7 @@ pub mod fit_rules;
 pub mod front_matter;
 pub mod front_matter_rules;
 pub mod geometry_rules;
+pub mod home_rules;
 pub mod image;
 pub mod ir;
 pub mod length;

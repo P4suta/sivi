@@ -14,7 +14,7 @@ pub struct BundledFont {
 }
 
 /// Every bundled font, in the order the font book lists them.
-pub const BUNDLED: [BundledFont; 3] = [
+pub const BUNDLED: [BundledFont; 12] = [
     BundledFont {
         family: "BIZ UDPGothic",
         file: "BIZUDPGothic-Regular.ttf",
@@ -29,6 +29,51 @@ pub const BUNDLED: [BundledFont; 3] = [
         family: "JetBrains Mono",
         file: "JetBrainsMono-Regular.ttf",
         bytes: include_bytes!("../../../fonts/JetBrainsMono-Regular.ttf"),
+    },
+    BundledFont {
+        family: "Shippori Mincho",
+        file: "ShipporiMincho-Regular.ttf",
+        bytes: include_bytes!("../../../fonts/ShipporiMincho-Regular.ttf"),
+    },
+    BundledFont {
+        family: "Shippori Mincho",
+        file: "ShipporiMincho-Bold.ttf",
+        bytes: include_bytes!("../../../fonts/ShipporiMincho-Bold.ttf"),
+    },
+    BundledFont {
+        family: "Zen Kaku Gothic New",
+        file: "ZenKakuGothicNew-Regular.ttf",
+        bytes: include_bytes!("../../../fonts/ZenKakuGothicNew-Regular.ttf"),
+    },
+    BundledFont {
+        family: "Zen Kaku Gothic New",
+        file: "ZenKakuGothicNew-Bold.ttf",
+        bytes: include_bytes!("../../../fonts/ZenKakuGothicNew-Bold.ttf"),
+    },
+    BundledFont {
+        family: "Zen Kaku Gothic New",
+        file: "ZenKakuGothicNew-Black.ttf",
+        bytes: include_bytes!("../../../fonts/ZenKakuGothicNew-Black.ttf"),
+    },
+    BundledFont {
+        family: "Playfair Display",
+        file: "PlayfairDisplay[wght].ttf",
+        bytes: include_bytes!("../../../fonts/PlayfairDisplay[wght].ttf"),
+    },
+    BundledFont {
+        family: "Playfair Display",
+        file: "PlayfairDisplay-Italic[wght].ttf",
+        bytes: include_bytes!("../../../fonts/PlayfairDisplay-Italic[wght].ttf"),
+    },
+    BundledFont {
+        family: "Montserrat",
+        file: "Montserrat[wght].ttf",
+        bytes: include_bytes!("../../../fonts/Montserrat[wght].ttf"),
+    },
+    BundledFont {
+        family: "Montserrat",
+        file: "Montserrat-Italic[wght].ttf",
+        bytes: include_bytes!("../../../fonts/Montserrat-Italic[wght].ttf"),
     },
 ];
 
@@ -67,6 +112,10 @@ mod tests {
         let book = book(&fonts);
         assert!(book.contains_family("biz udpgothic"));
         assert!(book.contains_family("jetbrains mono"));
+        assert!(book.contains_family("shippori mincho"));
+        assert!(book.contains_family("zen kaku gothic new"));
+        assert!(book.contains_family("playfair display"));
+        assert!(book.contains_family("montserrat"));
         assert!(!book.contains_family("libertinus serif"));
     }
 }

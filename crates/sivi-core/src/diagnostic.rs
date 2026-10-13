@@ -145,6 +145,10 @@ pub enum Code {
     ImageKind,
     /// E0608: a font whose family name differs from the theme's.
     FamilyMismatch,
+    /// E0609: a font family that is neither bundled, declared by the theme, nor in the catalog.
+    FamilyUnknown,
+    /// E0610: a catalog family the theme sets text in that is not installed.
+    FontNotInstalled,
     /// E0901: the generated Typst source failed to compile.
     TypstCompile,
     /// E0902: a measurement marker missing or malformed.
@@ -173,11 +177,13 @@ pub enum Code {
     NoLang,
     /// W0501: a font the theme loads and never uses.
     UnusedFont,
+    /// W0502: a fallback family without the exact weight a style sets.
+    FallbackWeight,
 }
 
 impl Code {
     /// Every code, in the order of the catalog.
-    pub const ALL: [Self; 76] = [
+    pub const ALL: [Self; 79] = [
         Self::Internal,
         Self::NotUtf8,
         Self::UnclosedFrontMatter,
@@ -240,6 +246,8 @@ impl Code {
         Self::ImageUnreadable,
         Self::ImageKind,
         Self::FamilyMismatch,
+        Self::FamilyUnknown,
+        Self::FontNotInstalled,
         Self::TypstCompile,
         Self::MarkerMissing,
         Self::OracleDisagreement,
@@ -254,6 +262,7 @@ impl Code {
         Self::CjkWithoutLang,
         Self::NoLang,
         Self::UnusedFont,
+        Self::FallbackWeight,
     ];
 
     /// The stable code, such as `E0401`.
@@ -322,6 +331,8 @@ impl Code {
             Self::ImageUnreadable => "E0606",
             Self::ImageKind => "E0607",
             Self::FamilyMismatch => "E0608",
+            Self::FamilyUnknown => "E0609",
+            Self::FontNotInstalled => "E0610",
             Self::TypstCompile => "E0901",
             Self::MarkerMissing => "E0902",
             Self::OracleDisagreement => "E0903",
@@ -336,6 +347,7 @@ impl Code {
             Self::CjkWithoutLang => "W0107",
             Self::NoLang => "W0108",
             Self::UnusedFont => "W0501",
+            Self::FallbackWeight => "W0502",
         }
     }
 

@@ -1,0 +1,529 @@
+# The Google Fonts families the catalog carries, chosen for slides: every family that covers Japanese, and a curated range of Latin and other East Asian families.
+# `cargo xtask fonts catalog` reads this list, fetches each family from google/fonts at the pinned commit, and writes `fonts/catalog.toml` with the digest of every file.
+# A family lives under `ofl/`, `apache/`, or `ufl/` with its name lowercased and its spaces removed; `path` overrides that rule.
+
+commit = "66928797f271fed5ee428544e7229685e2d90127"
+
+# Japanese
+[[family]]
+name = "Aoboshi One"
+
+[[family]]
+name = "BIZ UDGothic"
+
+[[family]]
+name = "BIZ UDMincho"
+
+[[family]]
+name = "BIZ UDPGothic"
+
+[[family]]
+name = "BIZ UDPMincho"
+
+[[family]]
+name = "Cherry Bomb One"
+
+[[family]]
+name = "Chokokutai"
+
+[[family]]
+name = "Darumadrop One"
+
+[[family]]
+name = "Dela Gothic One"
+
+[[family]]
+name = "DotGothic16"
+
+[[family]]
+name = "Hachi Maru Pop"
+
+[[family]]
+name = "Hina Mincho"
+
+[[family]]
+name = "IBM Plex Sans JP"
+
+[[family]]
+name = "Kaisei Decol"
+
+[[family]]
+name = "Kaisei HarunoUmi"
+
+[[family]]
+name = "Kaisei Opti"
+
+[[family]]
+name = "Kaisei Tokumin"
+
+[[family]]
+name = "Kapakana"
+
+[[family]]
+name = "Kiwi Maru"
+
+[[family]]
+name = "Klee One"
+
+[[family]]
+name = "Kosugi"
+
+[[family]]
+name = "Kosugi Maru"
+
+[[family]]
+name = "LINE Seed JP"
+
+[[family]]
+name = "M PLUS 1"
+
+[[family]]
+name = "M PLUS 1 Code"
+
+[[family]]
+name = "M PLUS 1p"
+
+[[family]]
+name = "M PLUS 2"
+
+[[family]]
+name = "M PLUS Rounded 1c"
+family = "Rounded Mplus 1c"
+
+[[family]]
+name = "M PLUS U"
+
+[[family]]
+name = "Mochiy Pop One"
+
+[[family]]
+name = "Mochiy Pop P One"
+
+[[family]]
+name = "Monomaniac One"
+
+[[family]]
+name = "Murecho"
+
+[[family]]
+name = "New Tegomin"
+
+[[family]]
+name = "Noto Sans JP"
+
+[[family]]
+name = "Noto Serif JP"
+
+[[family]]
+name = "Palette Mosaic"
+
+[[family]]
+name = "Potta One"
+
+[[family]]
+name = "Rampart One"
+
+[[family]]
+name = "Reggae One"
+
+[[family]]
+name = "Rock 3D"
+
+[[family]]
+name = "RocknRoll One"
+
+[[family]]
+name = "Sawarabi Gothic"
+
+[[family]]
+name = "Sawarabi Mincho"
+
+[[family]]
+name = "Shippori Antique"
+
+[[family]]
+name = "Shippori Antique B1"
+
+[[family]]
+name = "Shippori Mincho"
+
+[[family]]
+name = "Shippori Mincho B1"
+
+[[family]]
+name = "Shizuru"
+
+[[family]]
+name = "Slackside One"
+
+[[family]]
+name = "Stick"
+
+[[family]]
+name = "Train One"
+
+[[family]]
+name = "Tsukimi Rounded"
+
+[[family]]
+name = "WDXL Lubrifont JP N"
+family = "WDXL 滑油字 JP N"
+
+[[family]]
+name = "Yomogi"
+
+[[family]]
+name = "Yuji Boku"
+
+[[family]]
+name = "Yuji Hentaigana Akari"
+
+[[family]]
+name = "Yuji Hentaigana Akebono"
+
+[[family]]
+name = "Yuji Mai"
+
+[[family]]
+name = "Yuji Syuku"
+
+[[family]]
+name = "Yusei Magic"
+
+[[family]]
+name = "Zen Antique"
+
+[[family]]
+name = "Zen Antique Soft"
+
+[[family]]
+name = "Zen Kaku Gothic Antique"
+
+[[family]]
+name = "Zen Kaku Gothic New"
+
+[[family]]
+name = "Zen Kurenaido"
+
+[[family]]
+name = "Zen Maru Gothic"
+
+[[family]]
+name = "Zen Old Mincho"
+
+# Korean and Chinese
+[[family]]
+name = "Noto Sans KR"
+
+[[family]]
+name = "Noto Serif KR"
+
+[[family]]
+name = "Noto Sans SC"
+
+[[family]]
+name = "Noto Serif SC"
+
+[[family]]
+name = "Noto Sans TC"
+
+[[family]]
+name = "Noto Serif TC"
+
+[[family]]
+name = "Nanum Gothic"
+family = "NanumGothic"
+
+[[family]]
+name = "Nanum Myeongjo"
+family = "NanumMyeongjo"
+
+[[family]]
+name = "Gothic A1"
+
+[[family]]
+name = "Black Han Sans"
+
+[[family]]
+name = "ZCOOL XiaoWei"
+
+[[family]]
+name = "ZCOOL KuaiLe"
+
+[[family]]
+name = "Ma Shan Zheng"
+
+# Latin sans
+[[family]]
+name = "Inter"
+
+[[family]]
+name = "Roboto"
+
+[[family]]
+name = "Open Sans"
+
+[[family]]
+name = "Lato"
+
+[[family]]
+name = "Montserrat"
+
+[[family]]
+name = "Poppins"
+
+[[family]]
+name = "Raleway"
+
+[[family]]
+name = "Nunito"
+
+[[family]]
+name = "Nunito Sans"
+family = "Nunito Sans 12pt"
+
+[[family]]
+name = "Work Sans"
+
+[[family]]
+name = "DM Sans"
+family = "DM Sans 9pt"
+
+[[family]]
+name = "Manrope"
+
+[[family]]
+name = "Space Grotesk"
+
+[[family]]
+name = "Plus Jakarta Sans"
+
+[[family]]
+name = "Outfit"
+
+[[family]]
+name = "Figtree"
+
+[[family]]
+name = "Sora"
+
+[[family]]
+name = "Urbanist"
+
+[[family]]
+name = "Lexend"
+
+[[family]]
+name = "Rubik"
+
+[[family]]
+name = "Karla"
+
+[[family]]
+name = "Mulish"
+
+[[family]]
+name = "Josefin Sans"
+
+[[family]]
+name = "Archivo"
+
+[[family]]
+name = "Barlow"
+
+[[family]]
+name = "Fira Sans"
+
+[[family]]
+name = "Source Sans 3"
+
+[[family]]
+name = "IBM Plex Sans"
+
+[[family]]
+name = "Noto Sans"
+
+[[family]]
+name = "Public Sans"
+
+[[family]]
+name = "Red Hat Display"
+
+[[family]]
+name = "Red Hat Text"
+
+[[family]]
+name = "Oswald"
+
+[[family]]
+name = "Bebas Neue"
+
+[[family]]
+name = "Anton"
+
+[[family]]
+name = "Syne"
+
+[[family]]
+name = "Unbounded"
+
+# Latin serif
+[[family]]
+name = "Playfair Display"
+
+[[family]]
+name = "Lora"
+
+[[family]]
+name = "Merriweather"
+
+[[family]]
+name = "Libre Baskerville"
+
+[[family]]
+name = "EB Garamond"
+
+[[family]]
+name = "Cormorant Garamond"
+
+[[family]]
+name = "Crimson Pro"
+
+[[family]]
+name = "Source Serif 4"
+
+[[family]]
+name = "Fraunces"
+
+[[family]]
+name = "DM Serif Display"
+
+[[family]]
+name = "DM Serif Text"
+
+[[family]]
+name = "Abril Fatface"
+
+[[family]]
+name = "Bodoni Moda"
+
+[[family]]
+name = "Libre Caslon Text"
+
+[[family]]
+name = "Spectral"
+
+[[family]]
+name = "Newsreader"
+family = "Newsreader 16pt"
+
+[[family]]
+name = "Instrument Serif"
+
+[[family]]
+name = "Noto Serif"
+
+[[family]]
+name = "IBM Plex Serif"
+
+[[family]]
+name = "Literata"
+
+[[family]]
+name = "Zilla Slab"
+
+[[family]]
+name = "Roboto Slab"
+
+[[family]]
+name = "Bitter"
+
+# Monospace
+[[family]]
+name = "JetBrains Mono"
+
+[[family]]
+name = "Fira Code"
+
+[[family]]
+name = "Source Code Pro"
+
+[[family]]
+name = "Roboto Mono"
+
+[[family]]
+name = "Space Mono"
+
+[[family]]
+name = "Inconsolata"
+
+[[family]]
+name = "IBM Plex Mono"
+
+[[family]]
+name = "DM Mono"
+
+[[family]]
+name = "Red Hat Mono"
+
+[[family]]
+name = "Ubuntu Mono"
+
+[[family]]
+name = "Courier Prime"
+
+# Handwriting and display
+[[family]]
+name = "Caveat"
+
+[[family]]
+name = "Pacifico"
+
+[[family]]
+name = "Dancing Script"
+
+[[family]]
+name = "Lobster"
+
+[[family]]
+name = "Permanent Marker"
+
+[[family]]
+name = "Shadows Into Light"
+family = "Shadows Into"
+
+[[family]]
+name = "Kalam"
+
+[[family]]
+name = "Satisfy"
+
+[[family]]
+name = "Great Vibes"
+
+[[family]]
+name = "Righteous"
+
+[[family]]
+name = "Bangers"
+
+[[family]]
+name = "Zen Dots"
+
+[[family]]
+name = "Orbitron"
+
+[[family]]
+name = "Alfa Slab One"
+
+[[family]]
+name = "Bungee"
+
+[[family]]
+name = "Press Start 2P"
+
+[[family]]
+name = "Silkscreen"
+
+[[family]]
+name = "VT323"

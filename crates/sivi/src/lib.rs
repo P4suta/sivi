@@ -9,6 +9,8 @@ pub mod cli;
 pub mod digest;
 pub mod fonts;
 pub mod io;
+pub mod library;
+pub mod net;
 pub mod output;
 pub mod publish;
 pub mod render;

@@ -12,7 +12,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
 | TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
-| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme and the bundled fonts are skipped, since Miri interprets each in minutes, and a small theme stands in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
+| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme, the bundled fonts, and the carried font catalog are skipped, since Miri interprets each in minutes, and a small theme and a small catalog stand in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
 | cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
@@ -35,6 +35,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `slot_rules` | a slot admits a block exactly when the kind and every measure fit; the follower of the last slot comes first and the first flow slot otherwise, for three slots | — |
 | `master_rules` | the edit distance is zero only between equal names, symmetric, and bounded, for names of up to four bytes | — |
 | `publish_rules` | the output is replaced only by the rename, which follows the sync; every stage reaches the end; a failure removes the staging file exactly when it exists | `specs/publish.tla` under TLC owns the interleavings with a crash |
+| `home_rules` | the data directory stands on the first usable variable in precedence, with the tail its base owns, and an empty variable never names a directory, for every combination of unset, empty, and set variables on either kind of host | — |
 
 ## What the fuzz targets replay
 
@@ -56,8 +57,8 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 204 tests passed and the one PDF dump test skipped |
-| Kani | 26 harnesses verified, and every probe and the negative fixture refused |
+| `cargo xtask check` | clean, with 224 tests passed and the one PDF dump test skipped |
+| Kani | 27 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
@@ -66,9 +67,9 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 787 mutants, 390 caught, 397 unviable, none missed |
+| cargo-mutants over `sivi-core` | 821 mutants, 403 caught, 418 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 111 mutants, 44 caught, 67 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 189 mutants, 61 caught, 128 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 238 mutants, 84 caught, 154 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.

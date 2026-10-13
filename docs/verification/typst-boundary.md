@@ -19,6 +19,8 @@ A Typst upgrade that breaks an assumption fails that test before it can change a
 | Two exports of the same document with the same identity and timestamp are byte-identical, and the timestamp is the only date in the PDF | `the_pdf_bytes_depend_on_the_inputs_alone` |
 | A `raw` element sets its own font, which no bundled file provides, so only a `show raw: set text(font: ...)` rule gives it a bundled font; with `fallback: false` a plain `set text(font: ...)` leaves it without glyphs | `raw_takes_its_font_only_from_a_show_set_rule` |
 | A `heading` element adds its own block spacing and text size, which `show heading: set ...` rules remove, so a title measures as its lines alone | `a_heading_under_show_set_rules_measures_as_its_lines` |
+| A variable font sets the weight the text asks for along its axis, so one file serves every weight a theme sets | `a_variable_font_sets_the_weight_the_text_asks_for` |
+| A font list falls through per glyph to the first family that has the glyph, with `fallback: false` keeping the host's fonts out | `a_font_stack_falls_through_to_the_family_that_has_the_glyph` |
 
 ## What the adapter trusts and what it checks
 

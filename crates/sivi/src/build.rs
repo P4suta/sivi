@@ -40,6 +40,8 @@ pub struct Request<'a> {
     pub sink: Sink,
     /// The creation date of the PDF, from `SOURCE_DATE_EPOCH`, or none.
     pub timestamp: Option<UtcTimestamp>,
+    /// The library of installed fonts, when the environment names a data directory.
+    pub fonts_dir: Option<PathBuf>,
 }
 
 /// What a successful build produced.
@@ -187,7 +189,8 @@ impl Build<'_> {
             deck.head.theme.as_ref(),
             self.deck_dir(),
         );
-        let (loaded, warnings) = self.take(themes::load(&choice))?;
+        let (loaded, warnings) =
+            self.take(themes::load(&choice, self.request.fonts_dir.as_deref()))?;
         self.outcome.diagnostics.extend(warnings);
         self.outcome.theme_text.clone_from(&loaded.text);
         self.outcome.theme_label.clone_from(&loaded.label);

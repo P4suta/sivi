@@ -15,7 +15,8 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | color | `#rrggbb` |
 | weight | one hundred to nine hundred |
 | style name | a lowercase letter, then lowercase letters, digits, or underscores |
-| family | a font family as its files name it |
+| family | a font family as Typst lists it: the plain family record of its files with the style words trimmed, such as `Shippori Mincho` |
+| font list | a family, or a list of families; text is set in the first and each glyph it lacks falls through to the next |
 | identifier | a lowercase letter, then up to thirty-one lowercase letters, digits, or dashes |
 
 ## Tables
@@ -26,17 +27,19 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | `page` | `width`, `height`, `background`, a color name |
 | `colors` | color names to colors |
 | `typography` | `min_size`, `paragraph_gap`, `fallback`, a list of families |
-| `text.<name>` | `font`, `size`, `weight`, `color`, `line_height`, `align` |
+| `text.<name>` | `font`, a font list, `size`, `weight`, `color`, `line_height`, `align` |
 | `inline` | `emphasis`, `strong`, `code`, `link`, each a mark |
 | `lists` | `bullets`, `ordered`, `indent`, `gap` |
 | `code` | `font`, `size`, `line_height`, `background`, `padding`, `highlight`, `tab_width` |
 | `tables` | `text`, `header_weight`, `rule`, `padding` |
 | `quotes` | `bar`, `bar_width`, `indent` |
-| `fonts` | an array of `family`, `path`, `sha256` |
+| `fonts` | an array of `family`, `path`, `sha256`, the files the theme ships beside itself |
 | `masters.<name>.slots.<slot>` | a slot |
 | `masters.<name>.decor` | an array of decor |
 
-A mark sets any of `style`, which is `italic` or `color`, `color`, `weight`, `font`, `background`, and `underline`.
+A mark sets any of `style`, which is `italic` or `color`, `color`, `weight`, `font`, a font list, `background`, and `underline`.
+
+A style sets text in a bundled family, a family of the theme's own `fonts`, or a family of the font catalog, which `sivi fonts list` shows and `sivi fonts install` places in the library.
 
 ## Slots
 

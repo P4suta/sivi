@@ -18,8 +18,8 @@ use crate::protocol::{
 };
 use crate::softbreak_rules::{Joiner, joiner};
 use crate::theme::{
-    Align, Decor, FamilyName, Field, Mark, Measure, Slot, StyleName, TextStyle, Theme, Thousandths,
-    VerticalAlign,
+    Align, Decor, FamilyName, Field, FontStack, Mark, Measure, Slot, StyleName, TextStyle, Theme,
+    Thousandths, VerticalAlign,
 };
 use alloc::format;
 use alloc::string::String;
@@ -203,11 +203,14 @@ impl Emitter<'_> {
         )
     }
 
-    /// The font list starting at `first` and continuing with the theme's fallback families.
-    fn families(&self, first: &FamilyName) -> String {
-        let mut listed = alloc::vec![lit(first.as_str())];
+    /// The font list of `stack`, continuing with the theme's fallback families it does not already name.
+    fn families(&self, stack: &FontStack) -> String {
+        let mut listed: Vec<String> = stack
+            .families()
+            .map(|family| lit(family.as_str()))
+            .collect();
         for family in &self.theme.typography.fallback {
-            if family != first {
+            if !stack.names(family) {
                 listed.push(lit(family.as_str()));
             }
         }
@@ -227,7 +230,7 @@ impl Emitter<'_> {
 
     /// The set rules that put a block in `style`, aligned by `align` when it overrides the style.
     fn settings(&mut self, style: &TextStyle, align: Option<Align>) -> String {
-        let leading = self.leading(&style.font, style.size, style.line_height);
+        let leading = self.leading(style.font.primary(), style.size, style.line_height);
         let fill = self.rgb(&style.color);
         format!(
             "set text(font: {}, size: {}, weight: {}, fill: {}); set par(leading: {leading}, justify: false); set align({});",
@@ -254,7 +257,9 @@ impl Emitter<'_> {
             .typography
             .fallback
             .first()
-            .or_else(|| theme.text.first().map(|(_, style)| &style.font));
+            .cloned()
+            .map(FontStack::single)
+            .or_else(|| theme.text.first().map(|(_, style)| style.font.clone()));
         let lang = self.deck.head.lang.as_ref().map_or(String::new(), |lang| {
             let region = lang
                 .as_str()
@@ -264,10 +269,10 @@ impl Emitter<'_> {
                 });
             format!(", lang: {}{region}", lit(lang.primary()))
         });
-        if let Some(family) = first {
+        if let Some(stack) = first {
             self.push(&format!(
                 "#set text(font: {}, fallback: false, top-edge: \"ascender\", bottom-edge: \"descender\"{lang})\n",
-                self.families(family)
+                self.families(&stack)
             ));
         }
         self.push("#set par(justify: false, spacing: 0pt)\n");
@@ -559,7 +564,7 @@ impl Emitter<'_> {
         };
         let inner = self.inlines(&heading.inlines);
         let fill = self.rgb(&style.color);
-        let leading = self.leading(&style.font, style.size, style.line_height);
+        let leading = self.leading(style.font.primary(), style.size, style.line_height);
         let rules = format!(
             "show heading: set text(font: {}, size: {}, weight: {}, fill: {fill}); show heading: set block(above: 0pt, below: 0pt); show heading: set par(leading: {leading}, justify: false);",
             self.families(&style.font),
@@ -593,7 +598,11 @@ impl Emitter<'_> {
 
     fn code(&mut self, style: &TextStyle, code: &CodeBlock) -> (String, String) {
         let theme = self.theme;
-        let leading = self.leading(&theme.code.font, theme.code.size, theme.code.line_height);
+        let leading = self.leading(
+            theme.code.font.primary(),
+            theme.code.size,
+            theme.code.line_height,
+        );
         let fill = self.rgb(&style.color);
         let background = self.rgb(&theme.code.background);
         let lang = code.language.as_ref().map_or(String::new(), |language| {

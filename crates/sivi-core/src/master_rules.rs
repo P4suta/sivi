@@ -81,10 +81,19 @@ fn edits(a: &[u8], b: &[u8]) -> Option<usize> {
 /// The known name closest to `wanted` within two edits, when there is exactly one closest.
 #[must_use]
 pub fn closest<'a>(wanted: &Identifier, known: &'a [Identifier]) -> Option<&'a Identifier> {
-    let mut best: Option<(&Identifier, usize)> = None;
+    closest_text(wanted.as_str(), known.iter().map(Identifier::as_str))
+        .and_then(|found| known.iter().find(|candidate| candidate.as_str() == found))
+}
+
+/// The candidate text closest to `wanted` within two edits, when there is exactly one closest; a text longer than a name has no distance.
+pub fn closest_text<'a>(
+    wanted: &str,
+    candidates: impl Iterator<Item = &'a str>,
+) -> Option<&'a str> {
+    let mut best: Option<(&str, usize)> = None;
     let mut tied = false;
-    for candidate in known {
-        let far = distance(wanted, candidate);
+    for candidate in candidates {
+        let far = edits(wanted.as_bytes(), candidate.as_bytes()).unwrap_or(usize::MAX);
         if far > MAX_SUGGESTION_DISTANCE {
             continue;
         }

@@ -9,6 +9,7 @@ pub mod check;
 pub mod ci;
 pub mod commit_msg;
 pub mod diagnostics;
+pub mod font_catalog;
 pub mod fonts;
 pub mod fs;
 pub mod obligations;

@@ -26,10 +26,13 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | --- | --- | --- |
 | `sivi-core` | nothing | Values in, values out. `#![no_std]`, no dependencies, the panic lints denied. |
 | `sivi-markdown` | `sivi-core`, `comrak` | Deck scanning, CommonMark parsing, source spans, refusal of forbidden constructs. |
-| `sivi-theme` | `sivi-core`, `toml`, `serde`, `ttf-parser` | Theme files into validated masters, with font metrics. |
+| `sivi-theme` | `sivi-core`, `toml`, `serde`, `ttf-parser` | Theme files into validated masters, with font metrics, and the catalog of installable families. |
 | `sivi-typst` | `sivi-core`, `typst` | The Typst `World`, bundled fonts, compilation, measurement read-back, frame walk, PDF export. |
-| `sivi` | all of the above, `clap`, `annotate-snippets`, `serde_json`, `sha2` | The command line, file reads, diagnostics rendering, atomic publication. |
-| `xtask` | none of the above | The gates. |
+| `sivi` | all of the above, `clap`, `annotate-snippets`, `serde_json`, `sha2`, `ureq` | The command line, file reads, diagnostics rendering, atomic publication, and the font library with its one network owner. |
+| `xtask` | `sivi-core`, `sivi-markdown`, `sivi-theme` | The gates and the generators, among them the font catalog. |
+
+Each effect has one owner in `sivi`: `io.rs` reads files, `publish.rs` writes them, `output.rs` reaches the streams, and `net.rs` reaches the network for `sivi fonts install` alone.
+A build never touches the network; a family the library lacks is a diagnostic that names the installing command.
 
 `cargo xtask structure` refuses a dependency of the core, a `std` path in the core, a weakened deny list, a rule module outside the core, a protocol step outside `binder.rs`, and a dependency against the direction above.
 

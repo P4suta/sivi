@@ -38,6 +38,9 @@ avoid-breaking-exported-api = false
 pass-by-value-size-limit = 128
 
 disallowed-methods = [
+  { path = "ureq::Agent::config_builder", reason = "reach the network only through the net owner, which bounds and reports each fetch" },
+  { path = "ureq::Agent::new_with_defaults", reason = "reach the network only through the net owner, which bounds and reports each fetch" },
+  { path = "ureq::get", reason = "reach the network only through the net owner, which bounds and reports each fetch" },
   { path = "std::fs::read", reason = "read files only through the io owner, which bounds and reports each read" },
   { path = "std::fs::read_to_string", reason = "read files only through the io owner, which bounds and reports each read" },
   { path = "std::fs::write", reason = "write files only through the publish owner, which stages, syncs, and renames" },

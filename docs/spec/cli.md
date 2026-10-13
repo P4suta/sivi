@@ -9,6 +9,9 @@ Every decision it reports is a diagnostic of the [catalog](../diagnostics.md).
 sivi build <DECK> [-o <OUT.pdf> | -o -] [--theme <NAME|DIR>] [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi check <DECK> [--theme <NAME|DIR>] [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi theme check <NAME|DIR> [--format human|json] [--deny-warnings] [--color auto|always|never]
+sivi fonts list [--script <SCRIPT>] [--installed] [--format human|json]
+sivi fonts install <FAMILY>... [--format human|json] [--color auto|always|never]
+sivi fonts dir
 ```
 
 `build` reads the deck, binds every slide to a master of its theme, lays the deck out through Typst, reads the layout back, and writes the PDF when no error was reported.
@@ -16,6 +19,9 @@ Without `-o` the PDF goes beside the deck as `<DECK>.pdf` with the `.md` replace
 `check` runs the same pipeline through the layout verdicts and writes nothing.
 `theme check` validates a theme: the built-in `plain` by name, or a directory holding `theme.toml` and the files it names.
 `--theme` replaces the deck's `theme:`; a built-in name or a directory.
+`fonts list` shows every family of the font catalog with its state on this host: bundled in the binary, installed in the library, or available.
+`fonts install` fetches the files of each named family from google/fonts at the commit the catalog pins, refuses any file whose digest differs, and places them in the library.
+`fonts dir` prints the library, the directory installed fonts live in.
 
 ## Streams
 
@@ -38,9 +44,12 @@ Diagnostics for a person go to standard error, in the style of rustc, with the d
 | --- | --- |
 | `SOURCE_DATE_EPOCH` | Seconds since the Unix epoch that become the PDF creation date; without it the PDF carries no date |
 | `NO_COLOR` | Disables styling when set to anything but the empty string |
+| `SIVI_HOME` | The data directory, under which `fonts/` is the library of installed fonts |
+| `XDG_DATA_HOME`, `HOME` | Without `SIVI_HOME`, the library lives under `/sivi` or `/.local/share/sivi` |
+| `LOCALAPPDATA` | On Windows, without `SIVI_HOME`, the library lives under `%LOCALAPPDATA%\sivi` |
 
-sivi reads no other variable, no clock, no network, and no font of the host.
-The PDF bytes depend on the deck, the theme and its files, the images, the bundled fonts, `SOURCE_DATE_EPOCH`, and the sivi version alone.
+sivi reads no other variable, no clock, and no font of the host, and only `fonts install` reaches the network.
+The PDF bytes depend on the deck, the theme and its files, the images, the bundled and installed fonts, `SOURCE_DATE_EPOCH`, and the sivi version alone.
 
 ## The JSON document
 

@@ -44,6 +44,10 @@ fuzz target runs="20000": trust
 gen *args: trust
     mise x -- cargo xtask gen {{args}}
 
+# Regenerate the font catalog from google/fonts at the pinned commit, which reaches the network.
+fonts-catalog: trust
+    mise x -- cargo xtask fonts catalog
+
 # Build one deck with the development binary.
 build deck *args: trust
     mise x -- cargo run --quiet --locked --package sivi -- build {{quote(deck)}} {{args}}

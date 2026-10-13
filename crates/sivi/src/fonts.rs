@@ -62,9 +62,9 @@ mod tests {
     use sivi_core::theme::{FamilyName, Thousandths};
 
     #[test]
-    fn the_bundled_fonts_describe_two_families_with_line_boxes_of_at_least_one_em() {
+    fn the_bundled_fonts_describe_six_families_with_line_boxes_of_at_least_one_em() {
         let faces = bundled_faces().unwrap();
-        assert_eq!(faces.len(), 3);
+        assert_eq!(faces.len(), 12);
         let boxes = line_boxes(&faces);
         let gothic = boxes.of(&FamilyName::new("BIZ UDPGothic").unwrap());
         let mono = boxes.of(&FamilyName::new("JetBrains Mono").unwrap());

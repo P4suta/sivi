@@ -378,3 +378,58 @@ fn a_heading_under_show_set_rules_measures_as_its_lines() {
         measurement.regions[1].required
     );
 }
+
+/// The width of the widest text leaf of each of two slides laid out from `first` and `second`.
+fn text_widths(first: &str, second: &str) -> Result<(Length, Length), String> {
+    let source = format!(
+        "{STRICT_PAGE}{}#pagebreak()\n{}",
+        scaffold(0, 0, (10, 10, 200), &[first]),
+        scaffold(1, 0, (10, 10, 200), &[second])
+    );
+    let compiled = build(&source).map_err(|error| error.to_string())?;
+    let expected = Expected {
+        slides: 2,
+        regions: vec![
+            region(0, 0, (10, 10, 200, 100), 1),
+            region(1, 0, (10, 10, 200, 100), 1),
+        ],
+    };
+    let measurement = measure(&compiled.document, &expected).map_err(|error| error.to_string())?;
+    let widest = |page: u32| {
+        measurement
+            .leaves
+            .iter()
+            .filter(|leaf| leaf.kind == ItemKind::Text && leaf.page == PageNumber(page))
+            .map(|leaf| leaf.bounds.size.width)
+            .max()
+            .ok_or_else(|| format!("page {page} shows no text"))
+    };
+    Ok((widest(1)?, widest(2)?))
+}
+
+#[test]
+fn a_variable_font_sets_the_weight_the_text_asks_for() {
+    let regular = "#text(font: \"Montserrat\", weight: 400)[Weighty words]";
+    let bold = "#text(font: \"Montserrat\", weight: 700)[Weighty words]";
+    let (light, heavy) = text_widths(regular, bold).unwrap();
+    assert!(heavy > light, "{heavy:?} is not wider than {light:?}");
+}
+
+#[test]
+fn a_font_stack_falls_through_to_the_family_that_has_the_glyph() {
+    let stacked = "#text(font: (\"Playfair Display\", \"Shippori Mincho\"))[Mincho 明朝]";
+    let source = format!("{STRICT_PAGE}{}", scaffold(0, 0, (10, 10, 200), &[stacked]));
+    let compiled = build(&source).unwrap();
+    let expected = Expected {
+        slides: 1,
+        regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
+    };
+    let measurement = measure(&compiled.document, &expected).unwrap();
+    assert_eq!(measurement.missing_glyphs, Vec::new());
+    let shown: String = measurement
+        .leaves
+        .iter()
+        .filter_map(|leaf| leaf.text.clone())
+        .collect();
+    assert!(shown.contains("明朝"), "{shown}");
+}

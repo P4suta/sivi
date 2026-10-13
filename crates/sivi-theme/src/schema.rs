@@ -51,10 +51,29 @@ pub struct TypographySection {
     pub fallback: Vec<String>,
 }
 
+/// One family, or the families a run of text falls through, the first for every glyph it has.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum FontSpec {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl FontSpec {
+    /// The families in order.
+    #[must_use]
+    pub fn families(&self) -> Vec<&str> {
+        match self {
+            Self::One(family) => vec![family.as_str()],
+            Self::Many(families) => families.iter().map(String::as_str).collect(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TextSection {
-    pub font: String,
+    pub font: FontSpec,
     pub size: String,
     pub weight: u16,
     pub color: String,
@@ -68,7 +87,7 @@ pub struct MarkSection {
     pub style: Option<String>,
     pub color: Option<String>,
     pub weight: Option<u16>,
-    pub font: Option<String>,
+    pub font: Option<FontSpec>,
     pub background: Option<String>,
     #[serde(default)]
     pub underline: bool,
@@ -95,7 +114,7 @@ pub struct ListsSection {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CodeSection {
-    pub font: String,
+    pub font: FontSpec,
     pub size: String,
     pub line_height: f64,
     pub background: String,
