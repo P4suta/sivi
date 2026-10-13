@@ -14,7 +14,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
 | Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme and the bundled fonts are skipped, since Miri interprets each in minutes, and a small theme stands in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
-| cargo-mutants | 27.1.0 | The campaign over `sivi-core`, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
+| cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
 Each run writes a receipt under `target/proofs/receipts/` with the verifier's version and a digest of the core sources and the manifest.
 
@@ -48,3 +48,28 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `image_header` | `sivi_core::image::dimensions` | no panic; a header reads the same twice; a header that names pixels holds more than a signature |
 
 The Typst layout engine is an external boundary; `docs/verification/typst-boundary.md` lists the assumptions and the tests that keep them.
+
+## The last full run
+
+`just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with every version above.
+The receipts under `target/proofs/receipts/` name one input digest for every verifier of that run.
+
+| Gate | Outcome |
+| --- | --- |
+| `cargo xtask check` | clean, with 204 tests passed and the one PDF dump test skipped |
+| Kani | 26 harnesses verified, and every probe and the negative fixture refused |
+| Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
+| Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
+| Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
+| Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
+| Prolog | 235 slides bind the same way under the binder and the reference, and a tampered binding differs |
+| TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
+| Miri | every test of the pure crates passed, and the fixture refused |
+| cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
+| cargo-mutants over `sivi-core` | 787 mutants, 390 caught, 397 unviable, none missed |
+| cargo-mutants over `sivi-markdown` | 111 mutants, 44 caught, 67 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 189 mutants, 61 caught, 128 unviable, none missed |
+| cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
+
+The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.
+No other operating system has run the gates yet, so the byte-identical PDF is shown on one host only.

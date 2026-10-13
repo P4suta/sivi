@@ -31,7 +31,7 @@ Every property has exactly one owning verifier, declared in `verification/obliga
 | Prolog | An independent executable reference of slot binding, compared on fixtures and generated inputs |
 | Miri | Undefined behavior in the pure crates and the Typst adapter's own units |
 | cargo-fuzz | Every parser entry point, with a committed corpus replayed before each push |
-| cargo-mutants | The strength of the core's tests, with a ceiling of zero missed and zero timed-out mutants |
+| cargo-mutants | The strength of the tests of the pure crates, with a ceiling of zero missed and zero timed-out mutants |
 
 Each verifier has a negative control: a fixture or probe that asserts a false claim, which `cargo xtask proofs` requires the verifier to refuse before any of its results count.
 Lean 4 and Loom are not used in the first version.

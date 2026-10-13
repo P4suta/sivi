@@ -883,4 +883,37 @@ mod tests {
         assert_eq!(codes(&alt), vec![Code::MissingAlt]);
         assert_eq!(kinds(&alt), vec![BlockKind::Image]);
     }
+
+    #[test]
+    fn a_refusal_names_its_own_construct_without_a_parser_note() {
+        let html = slide("<div>x</div>\n");
+        assert_eq!(
+            html.diagnostics[0].message,
+            "a raw HTML block is not content"
+        );
+        assert_eq!(html.diagnostics[0].notes, Vec::<String>::new());
+        let math = slide("$x$\n");
+        assert_eq!(math.diagnostics[0].message, "a math span is not content");
+    }
+
+    #[test]
+    fn an_image_among_text_is_refused_for_its_paragraph_alone() {
+        let shared = slide("a ![x](y.png) b\n");
+        let messages: Vec<&str> = shared
+            .diagnostics
+            .iter()
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(
+            messages,
+            vec!["an image shares its paragraph with other content"]
+        );
+    }
+
+    #[test]
+    fn a_list_item_may_be_empty_but_never_a_block_alone() {
+        assert_eq!(codes(&slide("-\n")), vec![Code::EmptyBlock]);
+        let block = slide("- ```\n  code\n  ```\n");
+        assert_eq!(codes(&block), vec![Code::ListItemContent]);
+    }
 }

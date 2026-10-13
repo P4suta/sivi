@@ -39,7 +39,7 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | --- | --- |
 | `cargo xtask check` | rustfmt, taplo, typos, clippy with warnings denied, `structure`, the decision records, the generated repository files and the diagnostics catalog, actionlint and zizmor, nextest, cargo-deny, cargo-audit |
 | `cargo xtask check --staged` | The quick subset over the staged files |
-| `cargo xtask proofs` | Every verifier of `verification/obligations.toml` with its rejecting probe: Kani, Verus, Z3, Alloy, Quint with the trace replay, the Prolog reference, TLC over the publication model, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the core; each verifier also refuses its fixture under `xtask/proofs/` |
+| `cargo xtask proofs` | Every verifier of `verification/obligations.toml` with its rejecting probe: Kani, Verus, Z3, Alloy, Quint with the trace replay, the Prolog reference, TLC over the publication model, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the pure crates; each verifier also refuses its fixture under `xtask/proofs/` |
 | `cargo xtask push-check` | `check` and then `proofs` |
 
 The machine-wide hooks of the owner's dotfiles run first on every commit and push: the assurance shapes, the structural catalog, the comment and prose checks.

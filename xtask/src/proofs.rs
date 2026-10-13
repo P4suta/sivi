@@ -46,6 +46,9 @@ const MUTANT_TEST_THREADS: &str = "1";
 const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
 const MIRI_TARGET: &str = "target/miri";
 const MUTANTS_OUTPUT: &str = "target/proofs/mutants";
+/// The crates the mutation campaign runs over, each judged by its own tests alone.
+const MUTANT_PACKAGES: [&str; 3] = ["sivi-core", "sivi-markdown", "sivi-theme"];
+const CORE_PACKAGE: &str = "sivi-core";
 const FIXTURE_OUTPUT: &str = "target/proofs/fixtures";
 
 /// One verifier the gate runs.
@@ -706,7 +709,8 @@ fn campaign(
         command.arg("--manifest-path").arg(manifest);
     }
     if let Some(package) = package {
-        command.args(["--package", package]);
+        // The crate's own tests decide every outcome, so a mutant survives whatever another crate happens to exercise.
+        command.args(["--package", package, "--test-package", package]);
     }
     command.arg("--output").arg(output);
     tool::status(&mut command, "cargo mutants")?;
@@ -736,47 +740,61 @@ pub const fn within(count: u64, ceiling: u64) -> bool {
     count <= ceiling
 }
 
+/// What a campaign over `package` leaves to fix, with its counts when anything does.
+fn package_findings(package: &str, outcomes: &Outcomes) -> Vec<String> {
+    let mut findings = Vec::new();
+    if !within(outcomes.missed, MISSED_CEILING) {
+        findings.extend(
+            outcomes.named(MISSED_SUMMARY).iter().map(|mutant| {
+                format!("{package}: `{mutant}` survived; add the test that detects it")
+            }),
+        );
+    }
+    if !within(outcomes.timeout, TIMEOUT_CEILING) {
+        findings.extend(outcomes.named(TIMEOUT_SUMMARY).iter().map(|mutant| {
+            format!(
+                "{package}: `{mutant}` ran past the timeout; make the loop it changes end by construction"
+            )
+        }));
+    }
+    if !findings.is_empty() {
+        findings.push(format!(
+            "{package}: {} missed, {} timed out, {} of {} caught",
+            outcomes.missed, outcomes.timeout, outcomes.caught, outcomes.total_mutants
+        ));
+    }
+    findings
+}
+
 fn verify_mutants(root: &Path) -> Result<()> {
     tool::require_version(
         Tool::Cargo.command(root).arg("mutants"),
         "cargo-mutants",
         MUTANTS_VERSION,
     )?;
-    let outcomes = campaign(root, None, Some("sivi-core"), &root.join(MUTANTS_OUTPUT))?;
-    if discover(root)?.is_empty() && outcomes.total_mutants == 0 {
-        eprintln!("mutants: the core defines no rule module yet, so only the fixture runs");
-    } else {
+    let mut findings = Vec::new();
+    for package in MUTANT_PACKAGES {
+        let outcomes = campaign(
+            root,
+            None,
+            Some(package),
+            &root.join(MUTANTS_OUTPUT).join(package),
+        )?;
+        if package == CORE_PACKAGE && discover(root)?.is_empty() && outcomes.total_mutants == 0 {
+            eprintln!("mutants: the core defines no rule module yet, so only the fixture runs");
+            continue;
+        }
         ensure!(
             outcomes.total_mutants > 0,
-            "the mutation campaign found nothing to mutate"
+            "the mutation campaign over {package} found nothing to mutate"
         );
-        let mut findings = Vec::new();
-        if !within(outcomes.missed, MISSED_CEILING) {
-            findings.extend(
-                outcomes
-                    .named(MISSED_SUMMARY)
-                    .iter()
-                    .map(|mutant| format!("`{mutant}` survived; add the test that detects it")),
-            );
-        }
-        if !within(outcomes.timeout, TIMEOUT_CEILING) {
-            findings.extend(outcomes.named(TIMEOUT_SUMMARY).iter().map(|mutant| {
-                format!(
-                    "`{mutant}` ran past the timeout; make the loop it changes end by construction"
-                )
-            }));
-        }
-        ensure!(
-            findings.is_empty(),
-            "the mutation campaign over the core is not clean ({} missed, {} timed out, {} of {} caught); see {}:\n{}",
-            outcomes.missed,
-            outcomes.timeout,
-            outcomes.caught,
-            outcomes.total_mutants,
-            MUTANTS_OUTPUT,
-            findings.join("\n")
-        );
+        findings.extend(package_findings(package, &outcomes));
     }
+    ensure!(
+        findings.is_empty(),
+        "the mutation campaign is not clean; see {MUTANTS_OUTPUT}:\n{}",
+        findings.join("\n")
+    );
     let fixture = campaign(
         root,
         Some(&root.join(MUTANTS_FIXTURE).join("Cargo.toml")),

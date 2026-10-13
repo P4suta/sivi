@@ -39,3 +39,12 @@ by = "crates/sivi/tests/binder_replay.rs"
 [[budget]]
 name = "unsafe-sites"
 ceiling = 0
+
+# The mutation campaign of `just proofs` over the pure crates leaves no mutant alive and none timed out.
+[[budget]]
+name = "mutants-missed"
+ceiling = 0
+
+[[budget]]
+name = "mutants-timed-out"
+ceiling = 0

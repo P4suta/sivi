@@ -192,7 +192,7 @@ pub fn parse(input: &[u8]) -> Parsed {
 
 #[cfg(test)]
 mod tests {
-    use super::{DECK_LIMIT, Parsed, parse};
+    use super::{DECK_LIMIT, Parsed, SLIDE_LIMIT, parse};
     use sivi_core::diagnostic::Code;
     use sivi_core::text::Identifier;
 
@@ -250,5 +250,32 @@ mod tests {
         let head = parse(b"---\nmaster: x\n---\n# A\n");
         assert_eq!(codes(&head), vec![Code::UnknownKey]);
         assert!(head.deck.is_none());
+    }
+
+    /// The deck limit the documents promise, in bytes.
+    const FOUR_MEBIBYTES: usize = 4_194_304;
+
+    fn slides(count: usize) -> String {
+        let slides: Vec<&str> = (0..count).map(|_| "# A\n").collect();
+        slides.join("\n---\n")
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore = "a deck at the byte limit parses in minutes under Miri")]
+    fn a_deck_at_its_byte_limit_still_parses() {
+        assert_eq!(DECK_LIMIT, FOUR_MEBIBYTES);
+        let full = parse(&vec![b'a'; DECK_LIMIT]);
+        assert_eq!(codes(&full), Vec::<Code>::new());
+        assert!(full.deck.is_some());
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore = "a thousand slides parse in minutes under Miri")]
+    fn a_deck_at_its_slide_limit_still_parses_and_one_more_slide_is_refused() {
+        let full = parse(slides(SLIDE_LIMIT).as_bytes());
+        assert_eq!(codes(&full), Vec::<Code>::new());
+        assert_eq!(full.deck.map(|deck| deck.slides.len()), Some(SLIDE_LIMIT));
+        let beyond = parse(slides(SLIDE_LIMIT.saturating_add(1)).as_bytes());
+        assert_eq!(codes(&beyond), vec![Code::LimitExceeded]);
     }
 }

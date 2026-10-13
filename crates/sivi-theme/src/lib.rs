@@ -118,7 +118,7 @@ pub fn parse(text: &str) -> Result<Theme, Vec<Diagnostic>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PLAIN, builtin, parse, position};
+    use super::{PLAIN, THEME_LIMIT, builtin, parse, position};
     use sivi_core::diagnostic::Code;
     use sivi_core::ir::BlockKind;
     use sivi_core::span::LineColumn;
@@ -364,5 +364,83 @@ mod tests {
                 .iter()
                 .any(|d| d.code == Code::BindingConflict && d.message.contains("blank2"))
         );
+    }
+
+    /// The theme limit the documents promise, in bytes.
+    const ONE_MEBIBYTE: usize = 1_048_576;
+
+    #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "a theme at the byte limit parses in minutes under Miri"
+    )]
+    fn a_theme_at_its_byte_limit_still_loads_and_one_byte_more_is_refused() {
+        assert_eq!(THEME_LIMIT, ONE_MEBIBYTE);
+        let comment = "#".repeat(THEME_LIMIT.saturating_sub(SMALL.len()).saturating_sub(1));
+        let at_limit = format!("{SMALL}\n{comment}");
+        assert_eq!(at_limit.len(), THEME_LIMIT);
+        parse(&at_limit).unwrap();
+        assert_eq!(codes(&format!("{at_limit}#")), vec![Code::LimitExceeded]);
+    }
+
+    #[test]
+    fn a_flow_slot_may_accept_headings() {
+        let headings = SMALL.replacen("accepts = [\"paragraph\"]", "accepts = [\"heading\"]", 1);
+        let theme = parse(&headings).unwrap();
+        assert!(
+            theme.masters[0].slots[0]
+                .accepts
+                .contains(BlockKind::Heading)
+        );
+    }
+
+    #[test]
+    fn an_image_decor_names_a_file_with_an_image_extension() {
+        let half = SMALL.replacen("height = \"100%\"", "height = \"50%\"", 1);
+        let logo = format!(
+            "{half}\n[[masters.only.decor]]\nkind = \"image\"\npath = \"logo.png\"\nregion = {{ x = \"0pt\", y = \"50pt\", width = \"100pt\", height = \"50pt\" }}\n"
+        );
+        parse(&logo).unwrap();
+        let text_file = logo.replacen("logo.png", "logo.txt", 1);
+        assert_eq!(codes(&text_file), vec![Code::ThemeValue]);
+    }
+
+    #[test]
+    fn code_below_the_minimum_size_is_refused_and_above_it_loads() {
+        const CODE_SIZE: &str = "size = \"18pt\"\nline_height = 1.3";
+        let small = SMALL.replacen(CODE_SIZE, "size = \"16pt\"\nline_height = 1.3", 1);
+        assert_eq!(codes(&small), vec![Code::BelowMinimumSize]);
+        let large = SMALL.replacen(CODE_SIZE, "size = \"20pt\"\nline_height = 1.3", 1);
+        parse(&large).unwrap();
+    }
+
+    #[test]
+    fn two_subtitle_slots_conflict_as_two_title_slots_do() {
+        let slot = |name: &str, binds: &str, y: &str| {
+            format!(
+                "[masters.only.slots.{name}]\nbinds = \"{binds}\"\nregion = {{ x = \"0pt\", y = \"{y}\", width = \"100pt\", height = \"20pt\" }}\ntext = \"body\"\n"
+            )
+        };
+        let start = SMALL.find("[masters.only.slots.body]").unwrap();
+        let head = SMALL.get(..start).unwrap();
+        let subtitles = format!(
+            "{head}{}{}{}",
+            slot("title", "title", "0pt"),
+            slot("first", "subtitle", "20pt"),
+            slot("second", "subtitle", "40pt")
+        );
+        assert_eq!(codes(&subtitles), vec![Code::BindingConflict]);
+        let titles = format!(
+            "{head}{}{}",
+            slot("title", "title", "0pt"),
+            slot("again", "title", "20pt")
+        );
+        assert_eq!(codes(&titles), vec![Code::BindingConflict]);
+    }
+
+    #[test]
+    fn a_page_without_a_size_withholds_the_masters_and_their_faults() {
+        let wide = SMALL.replacen("width = \"100pt\"", "width = \"wide\"", 1);
+        assert_eq!(codes(&wide), vec![Code::ThemeValue]);
     }
 }
