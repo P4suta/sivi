@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-link-slide/deck.md","diagnostics":[{"code":"E0308","doc":"docs/diagnostics.md#e0308","helps":["set `id: summary` in the front matter of the slide the link should reach"],"message":"a link to `#summary`, which no slide carries as its id","notes":[],"severity":"error","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":29,"line":9},"file":"../../fixtures/decks/fail-link-slide/deck.md","primary":true,"start":{"column":7,"line":9},"text":"this link names the slide"}]}],"format":"sivi.diagnostics","output":null,"version":1}

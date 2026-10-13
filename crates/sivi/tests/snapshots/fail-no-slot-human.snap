@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0303]: no slot of master `bullets` accepts image blocks
+ --> ../../fixtures/decks/fail-no-slot/deck.md:9:1
+  |
+9 | ![A figure where no slot takes one](assets/figure.svg)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this image block has no slot
+  |
+  = note: slide 1, master `bullets`
+  = help: use a master whose slots accept image blocks: `figure`, `blank`
+
+error: aborting due to 1 errors

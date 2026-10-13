@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-theme-missing/deck.md","diagnostics":[{"code":"E0501","doc":"docs/diagnostics.md#e0501","helps":["name a directory that holds `theme.toml`, or a built-in theme"],"message":"the theme file cannot be read: cannot read ../../fixtures/decks/fail-theme-missing/themes/nowhere/theme.toml: No such file or directory (os error 2)","notes":[],"severity":"error","slide":null,"spans":[]}],"format":"sivi.diagnostics","output":null,"version":1}

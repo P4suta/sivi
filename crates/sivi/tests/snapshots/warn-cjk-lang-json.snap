@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/warn-cjk-lang/deck.md","diagnostics":[{"code":"W0107","doc":"docs/diagnostics.md#w0107","helps":["set `lang: ja`, `lang: zh`, or `lang: ko` in the head so line breaking follows the script"],"message":"East Asian text in a deck whose `lang` is `en`","notes":[],"severity":"warning","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":35,"line":7},"file":"../../fixtures/decks/warn-cjk-lang/deck.md","primary":true,"start":{"column":1,"line":7},"text":"this block holds East Asian text"}]}],"format":"sivi.diagnostics","output":{"pages":1,"path":null,"sha256":null},"version":1}

@@ -1,0 +1,92 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0203]: an HTML comment, which carries no directive is not content
+ --> ../../fixtures/decks/fail-html/deck.md:6:1
+  |
+6 | <!-- _class: lead -->
+  | ^^^^^^^^^^^^^^^^^^^^^ written here
+  |
+  = note: slide 1
+  = help: name the master in the slide's front matter, as `master: <name>` right after the `---` that starts the slide
+
+error[E0201]: a raw HTML block is not content
+ --> ../../fixtures/decks/fail-html/deck.md:8:1
+  |
+8 | <div class="x">no</div>
+  | ^^^^^^^^^^^^^^^^^^^^^^^ written here
+  |
+  = note: slide 1
+  = help: write the content in Markdown; the theme decides how it looks
+
+error[E0202]: raw inline HTML is not content
+  --> ../../fixtures/decks/fail-html/deck.md:10:8
+   |
+10 | Inline <b>bold</b> here.
+   |        ^^^ written here
+   |
+   = note: slide 1
+   = help: write the content in Markdown; the theme decides how it looks
+
+error[E0202]: raw inline HTML is not content
+  --> ../../fixtures/decks/fail-html/deck.md:10:15
+   |
+10 | Inline <b>bold</b> here.
+   |               ^^^^ written here
+   |
+   = note: slide 1
+   = help: write the content in Markdown; the theme decides how it looks
+
+error[E0207]: a task list item is not content
+  --> ../../fixtures/decks/fail-html/deck.md:12:1
+   |
+12 | - [ ] task
+   | ^^^^^^^^^^ written here
+   |
+   = note: slide 1
+   = help: write a plain list item; the theme decides the marker
+
+error[E0214]: a hard line break is not content
+  --> ../../fixtures/decks/fail-html/deck.md:14:10
+   |
+14 |   Text with  
+   |  __________^
+15 | | hard break.
+   | |_^ written here
+   |
+   = note: slide 1
+   = help: end the line without a backslash or trailing spaces; the layout decides where lines break
+
+error[E0216]: a thematic break, which is not a slide separator is not content
+  --> ../../fixtures/decks/fail-html/deck.md:17:1
+   |
+17 | ***
+   | ^^^ written here
+   |
+   = note: slide 1
+   = help: separate slides with `---` at the start of its own line, after a blank line
+
+error[E0205]: a heading below level two is not content
+  --> ../../fixtures/decks/fail-html/deck.md:19:1
+   |
+19 | ### Deep
+   | ^^^^^^^^ written here
+   |
+   = note: slide 1
+   = help: a slide holds `#` for its title and `##` for a section; split deeper structure into slides
+
+error[E0221]: a reference link `[ ]` without a definition
+  --> ../../fixtures/decks/fail-html/deck.md:4:1
+   |
+ 4 | / # Raw
+ 5 | |
+ 6 | | <!-- _class: lead -->
+...  |
+19 | | ### Deep
+   | |________^ somewhere on this slide
+   |
+   = note: slide 1
+   = help: write the link as `[text](https://...)`, or escape the brackets as `\[` and `\]`
+
+error: aborting due to 9 errors

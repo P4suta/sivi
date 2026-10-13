@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0305]: this `##` opens section 3, but master `comparison` has 2 section slots
+  --> ../../fixtures/decks/fail-section-count/deck.md:17:1
+   |
+17 | ## Beyond
+   | ^^^^^^^^^ this heading opens one section too many
+   |
+   = note: slide 1, master `comparison`
+   = help: use a master with 3 section slots, or merge this section into the one before
+
+error: aborting due to 1 errors

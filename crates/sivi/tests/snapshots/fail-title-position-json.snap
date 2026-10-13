@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-title-position/deck.md","diagnostics":[{"code":"E0307","doc":"docs/diagnostics.md#e0307","helps":["move the heading to the top of the slide, or make it a `##` section heading"],"message":"a `#` heading may only open the slide","notes":[],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":18,"line":9},"file":"../../fixtures/decks/fail-title-position/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this heading comes after other content"}]},{"code":"E0304","doc":"docs/diagnostics.md#e0304","helps":["open the slide with a `#` heading"],"message":"slot `title` of master `bullets` is required but holds nothing","notes":[],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":18,"line":9},"file":"../../fixtures/decks/fail-title-position/deck.md","primary":true,"start":{"column":1,"line":7},"text":"this slide leaves it empty"}]}],"format":"sivi.diagnostics","output":null,"version":1}

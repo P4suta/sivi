@@ -47,3 +47,7 @@ gen *args: trust
 # Build one deck with the development binary.
 build deck *args: trust
     mise x -- cargo run --quiet --locked --package sivi -- build {{quote(deck)}} {{args}}
+
+# Review the fixture snapshots after a change of a verdict, a number, or a wording, and accept them.
+snapshots *args: trust
+    mise x -- cargo insta test --package sivi --test snapshots --review {{args}}

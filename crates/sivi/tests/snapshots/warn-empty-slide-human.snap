@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0101]: a slide with no content
+  --> ../../fixtures/decks/warn-empty-slide/deck.md:10:1
+   |
+10 | ---
+   | ^^^ this slide is empty
+   |
+   = note: slide 2
+   = help: write the slide's content, or remove the separator that opens it
+
+warning: 1 warnings emitted

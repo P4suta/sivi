@@ -27,6 +27,11 @@ path = "crates/sivi-theme/src/lib.rs"
 by = "fuzz/fuzz_targets/theme_toml.rs"
 
 [[owner]]
+shape = "parser"
+path = "crates/sivi-core/src/image.rs"
+by = "fuzz/fuzz_targets/image_header.rs"
+
+[[owner]]
 shape = "protocol"
 path = "crates/sivi-core/src/binder.rs"
 by = "crates/sivi/tests/binder_replay.rs"

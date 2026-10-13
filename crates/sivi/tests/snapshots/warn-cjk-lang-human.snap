@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0107]: East Asian text in a deck whose `lang` is `en`
+ --> ../../fixtures/decks/warn-cjk-lang/deck.md:7:1
+  |
+7 | # 言語の指定が英語のまま
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ this block holds East Asian text
+  |
+  = note: slide 1
+  = help: set `lang: ja`, `lang: zh`, or `lang: ko` in the head so line breaking follows the script
+
+warning: 1 warnings emitted

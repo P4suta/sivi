@@ -1,9 +1,11 @@
-//! Reading the images a deck and its theme name, each checked against the kind its extension claims.
+//! Reading the images a deck and its theme name, each checked against the kind its extension claims and the resolution it prints at.
 
 use crate::io::{self, ReadErrorKind};
-use sivi_core::diagnostic::{Code, Diagnostic, SlideRef};
+use sivi_core::diagnostic::{Code, Diagnostic, SlideRef, has_error};
 use sivi_core::emit::{AssetOrigin, AssetUse};
+use sivi_core::image::{self, MIN_PIXELS_PER_INCH};
 use sivi_core::ir::{AssetRef, BlockBody, Deck};
+use sivi_core::length::Length;
 use sivi_core::span::Span;
 use sivi_typst::Asset;
 use std::path::Path;
@@ -17,6 +19,13 @@ const UTF8_BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
 pub struct Dirs<'a> {
     pub deck: &'a Path,
     pub theme: Option<&'a Path>,
+}
+
+/// The files the source names, with the diagnostics their reading earned; no file when any diagnostic is an error.
+#[derive(Debug, Default)]
+pub struct Loaded {
+    pub assets: Vec<Asset>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Whether `bytes` start as a file of `extension` does.
@@ -89,28 +98,60 @@ fn read_error(error: &io::ReadError, path: &Path, shown: &str) -> Diagnostic {
     }
 }
 
-fn deck_image(deck: &Deck, dir: &Path, reference: &AssetRef) -> Result<Vec<u8>, Box<Diagnostic>> {
+/// The warning an image too coarse for its printed width earns, when its header names its pixels.
+fn coarse(shown: &str, bytes: &[u8], width: Length) -> Option<Diagnostic> {
+    let pixels = image::dimensions(bytes)?;
+    let per_inch = image::pixels_per_inch(pixels.width, width)?;
+    if !image::is_coarse(per_inch) {
+        return None;
+    }
+    Some(
+        Diagnostic::new(
+            Code::LowResolution,
+            format!(
+                "the image `{shown}` prints at {per_inch} pixels per inch, below {MIN_PIXELS_PER_INCH}"
+            ),
+        )
+        .note(format!(
+            "the image is {} × {} pixels, shown {width} wide",
+            pixels.width, pixels.height
+        ))
+        .help(String::from(
+            "use an image with more pixels, or show it in a narrower slot",
+        )),
+    )
+}
+
+/// The bytes of a deck image, with the warning its resolution earns.
+fn deck_image(
+    deck: &Deck,
+    dir: &Path,
+    used: &AssetUse,
+    reference: &AssetRef,
+) -> Result<(Vec<u8>, Option<Diagnostic>), Box<Diagnostic>> {
     let site = site(deck, reference);
     let path = dir.join(reference.as_str());
     let bytes = io::read(&path)
         .map_err(|error| located(read_error(&error, &path, reference.as_str()), site.clone()))?;
-    if kind_matches(reference.extension(), &bytes) {
-        return Ok(bytes);
+    if !kind_matches(reference.extension(), &bytes) {
+        return Err(located(
+            Diagnostic::new(
+                Code::ImageKind,
+                format!(
+                    "the image `{}` is not a {} file",
+                    reference.as_str(),
+                    reference.extension()
+                ),
+            )
+            .help(String::from(
+                "name the file by the kind it holds: png, jpg, jpeg, or svg",
+            )),
+            site,
+        ));
     }
-    Err(located(
-        Diagnostic::new(
-            Code::ImageKind,
-            format!(
-                "the image `{}` is not a {} file",
-                reference.as_str(),
-                reference.extension()
-            ),
-        )
-        .help(String::from(
-            "name the file by the kind it holds: png, jpg, jpeg, or svg",
-        )),
-        site,
-    ))
+    let warning =
+        coarse(reference.as_str(), &bytes, used.width).map(|warning| *located(warning, site));
+    Ok((bytes, warning))
 }
 
 fn theme_image(theme_dir: Option<&Path>, path: &str) -> Result<Vec<u8>, Box<Diagnostic>> {
@@ -126,36 +167,46 @@ fn theme_image(theme_dir: Option<&Path>, path: &str) -> Result<Vec<u8>, Box<Diag
     })
 }
 
-fn load_one(deck: &Deck, dirs: Dirs<'_>, used: &AssetUse) -> Result<Asset, Box<Diagnostic>> {
-    let bytes = match &used.origin {
-        AssetOrigin::Deck(reference) => deck_image(deck, dirs.deck, reference)?,
-        AssetOrigin::Theme(path) => theme_image(dirs.theme, path)?,
+fn load_one(
+    deck: &Deck,
+    dirs: Dirs<'_>,
+    used: &AssetUse,
+) -> Result<(Asset, Option<Diagnostic>), Box<Diagnostic>> {
+    let (bytes, warning) = match &used.origin {
+        AssetOrigin::Deck(reference) => deck_image(deck, dirs.deck, used, reference)?,
+        AssetOrigin::Theme(path) => {
+            let bytes = theme_image(dirs.theme, path)?;
+            let warning = coarse(path, &bytes, used.width)
+                .map(|warning| warning.note(String::from("the theme names the image")));
+            (bytes, warning)
+        }
     };
-    Ok(Asset {
-        path: used.path.clone(),
-        bytes,
-    })
+    Ok((
+        Asset {
+            path: used.path.clone(),
+            bytes,
+        },
+        warning,
+    ))
 }
 
-/// Reads every file the source names, or every reason one cannot be read.
-///
-/// # Errors
-///
-/// Returns one diagnostic per file that is missing, unreadable, too large, or not of its claimed kind.
-pub fn load(uses: &[AssetUse], deck: &Deck, dirs: Dirs<'_>) -> Result<Vec<Asset>, Vec<Diagnostic>> {
-    let mut assets = Vec::new();
-    let mut diagnostics = Vec::new();
+/// Reads every file the source names, with a diagnostic for each that is missing, unreadable, too large, not of its claimed kind, or too coarse.
+#[must_use]
+pub fn load(uses: &[AssetUse], deck: &Deck, dirs: Dirs<'_>) -> Loaded {
+    let mut loaded = Loaded::default();
     for used in uses {
         match load_one(deck, dirs, used) {
-            Ok(asset) => assets.push(asset),
-            Err(diagnostic) => diagnostics.push(*diagnostic),
+            Ok((asset, warning)) => {
+                loaded.assets.push(asset);
+                loaded.diagnostics.extend(warning);
+            }
+            Err(diagnostic) => loaded.diagnostics.push(*diagnostic),
         }
     }
-    if diagnostics.is_empty() {
-        Ok(assets)
-    } else {
-        Err(diagnostics)
+    if has_error(&loaded.diagnostics) {
+        loaded.assets.clear();
     }
+    loaded
 }
 
 #[cfg(test)]
@@ -164,6 +215,7 @@ mod tests {
     use sivi_core::diagnostic::Code;
     use sivi_core::emit::{AssetOrigin, AssetUse};
     use sivi_core::ir::{AssetRef, Deck, Head};
+    use sivi_core::length::Length;
     use std::path::Path;
 
     #[test]
@@ -183,23 +235,27 @@ mod tests {
             head: Head::default(),
             slides: Vec::new(),
         };
+        let width = Length::from_millipoints(100_000);
         let used = AssetUse {
             path: String::from("deck/missing.png"),
             origin: AssetOrigin::Deck(AssetRef::new("missing.png").unwrap()),
+            width,
         };
         let dirs = Dirs {
             deck: Path::new("/nonexistent/sivi"),
             theme: None,
         };
-        let errors = load(&[used], &deck, dirs).unwrap_err();
-        assert_eq!(errors[0].code, Code::ImageMissing);
-        assert!(errors[0].message.contains("missing.png"));
+        let loaded = load(&[used], &deck, dirs);
+        assert_eq!(loaded.assets, Vec::new());
+        assert_eq!(loaded.diagnostics[0].code, Code::ImageMissing);
+        assert!(loaded.diagnostics[0].message.contains("missing.png"));
         let themed = AssetUse {
             path: String::from("theme/logo.png"),
             origin: AssetOrigin::Theme(String::from("logo.png")),
+            width,
         };
         assert_eq!(
-            load(&[themed], &deck, dirs).unwrap_err()[0].code,
+            load(&[themed], &deck, dirs).diagnostics[0].code,
             Code::ImageMissing
         );
     }

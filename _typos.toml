@@ -14,6 +14,8 @@ extend-exclude = [
   "target/",
   "*.lock",
   "fuzz/corpus/",
+  "fixtures/decks/",
+  "crates/sivi/tests/snapshots/",
   "fonts/",
   "fixtures/**/snapshots/",
   "specs/traces/",

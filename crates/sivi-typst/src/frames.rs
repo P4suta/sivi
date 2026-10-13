@@ -107,6 +107,7 @@ fn walk(
                     page,
                     kind: ItemKind::Text,
                     bounds: bounds(text.bbox(), placed, page)?,
+                    text: Some(text.text.to_string()),
                 });
             }
             FrameItem::Shape(shape, _) => {
@@ -114,6 +115,7 @@ fn walk(
                     page,
                     kind: ItemKind::Shape,
                     bounds: bounds(shape.bbox(true), placed, page)?,
+                    text: None,
                 });
             }
             FrameItem::Image(_, size, _) => {
@@ -122,6 +124,7 @@ fn walk(
                     page,
                     kind: ItemKind::Image,
                     bounds: bounds(local, placed, page)?,
+                    text: None,
                 });
             }
             FrameItem::Link(..) | FrameItem::Tag(_) => {}

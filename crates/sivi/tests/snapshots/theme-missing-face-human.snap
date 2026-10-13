@@ -1,0 +1,9 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0510]: no font provides `BIZ UDPGothic` at weight 300 upright, which `text.body` needs
+  |
+  = help: add a font file with that face under `[[fonts]]`, or set the style to a face the fonts provide
+
+error: aborting due to 1 errors

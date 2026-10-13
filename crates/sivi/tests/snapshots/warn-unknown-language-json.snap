@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/warn-unknown-language/deck.md","diagnostics":[{"code":"W0104","doc":"docs/diagnostics.md#w0104","helps":["name a language Typst highlights, or leave the fence bare"],"message":"the language `klingon` is not one the highlighter knows, so the code shows without highlighting","notes":[],"severity":"warning","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":3,"line":11},"file":"../../fixtures/decks/warn-unknown-language/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this fence names the language"}]}],"format":"sivi.diagnostics","output":{"pages":1,"path":null,"sha256":null},"version":1}

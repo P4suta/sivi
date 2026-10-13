@@ -45,5 +45,6 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `markdown_ir` | `sivi_markdown::parse` | no panic; the model is withheld exactly on an error; slides are numbered in order; the parse is deterministic |
 | `theme_units` | `sivi_theme::units::parse` | no panic; a unit that reads prints back to text that reads to the same unit |
 | `theme_toml` | `sivi_theme::parse` | no panic; a theme that loads has masters with slots; a refusal names a diagnostic; the load is deterministic |
+| `image_header` | `sivi_core::image::dimensions` | no panic; a header reads the same twice; a header that names pixels holds more than a signature |
 
 The Typst layout engine is an external boundary; `docs/verification/typst-boundary.md` lists the assumptions and the tests that keep them.

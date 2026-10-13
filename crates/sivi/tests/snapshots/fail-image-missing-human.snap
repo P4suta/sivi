@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0605]: the image `assets/chart.png` is missing at ../../fixtures/decks/fail-image-missing/assets/chart.png
+ --> ../../fixtures/decks/fail-image-missing/deck.md:9:1
+  |
+9 | ![A chart that was never exported](assets/chart.png)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this image names the file
+  |
+  = note: slide 1
+  = help: check the path, which is relative to the deck
+
+error: aborting due to 1 errors

@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/warn-head/deck.md","diagnostics":[{"code":"W0106","doc":"docs/diagnostics.md#w0106","helps":["write `title: ...` in the head; the PDF and the title decor of a master show it"],"message":"the deck has no `title`","notes":[],"severity":"warning","slide":null,"spans":[{"end":{"column":1,"line":1},"file":"../../fixtures/decks/warn-head/deck.md","primary":true,"start":{"column":1,"line":1},"text":"the head starts here"}]},{"code":"W0108","doc":"docs/diagnostics.md#w0108","helps":["write `lang: en`, `lang: ja`, or the language of the deck in the head; line breaking follows it"],"message":"the deck has no `lang`","notes":[],"severity":"warning","slide":null,"spans":[{"end":{"column":1,"line":1},"file":"../../fixtures/decks/warn-head/deck.md","primary":true,"start":{"column":1,"line":1},"text":"the head starts here"}]}],"format":"sivi.diagnostics","output":{"pages":1,"path":null,"sha256":null},"version":1}

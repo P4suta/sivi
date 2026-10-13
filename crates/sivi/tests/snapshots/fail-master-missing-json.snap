@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-master-missing/deck.md","diagnostics":[{"code":"E0301","doc":"docs/diagnostics.md#e0301","helps":["write `master: <name>` in the slide's front matter, or `default_master: <name>` in the head of the deck"],"message":"slide 1 names no master, and the deck sets no `default_master`","notes":["theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`"],"severity":"error","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":67,"line":8},"file":"../../fixtures/decks/fail-master-missing/deck.md","primary":true,"start":{"column":1,"line":6},"text":"this slide"}]}],"format":"sivi.diagnostics","output":null,"version":1}

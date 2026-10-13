@@ -24,6 +24,8 @@ When a new class of bug appears, the fix adds a rule to this list, not only a pa
 | A fix lands with a test that fails without it | The same bug returning in a rewrite | The `commit-msg` hook (`cargo xtask commit-msg`) |
 | A durable decision is a dated record named by its decision | A decision that lives only in a conversation, and numbered records that collide between branches | `cargo xtask check` through the record gate |
 | Each test runs in its own process | Shared state between tests that passes only in one order | `cargo nextest` in every gate |
+| Every diagnostic ships with a fixture deck or theme that earns it, and every fixture's output is a snapshot | A verdict, a number, or a wording that changes unnoticed | `crates/sivi/tests/snapshots.rs` and `crates/sivi/tests/geometry.rs`, reviewed with `just snapshots` |
+| The diagnostics catalog is generated from the enum of codes | A code documented in one place and defined in another | `cargo xtask gen --check` inside `cargo xtask check` |
 
 ## Effects
 

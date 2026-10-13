@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-image-kind/deck.md","diagnostics":[{"code":"E0607","doc":"docs/diagnostics.md#e0607","helps":["name the file by the kind it holds: png, jpg, jpeg, or svg"],"message":"the image `assets/not.png` is not a png file","notes":[],"severity":"error","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":39,"line":9},"file":"../../fixtures/decks/fail-image-kind/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this image names the file"}]}],"format":"sivi.diagnostics","output":null,"version":1}

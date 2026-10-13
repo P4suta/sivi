@@ -37,6 +37,11 @@ version = "0.13.2"
 backend = "cargo:cargo-fuzz"
 specifiers = ["0.13.2"]
 
+[[tools."cargo:cargo-insta"]]
+version = "1.48.0"
+backend = "cargo:cargo-insta"
+specifiers = ["1.48.0"]
+
 [[tools."cargo:cargo-mutants"]]
 version = "27.1.0"
 backend = "cargo:cargo-mutants"

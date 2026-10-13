@@ -1,0 +1,43 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0102]: this slide's front matter has no closing `---`
+ --> ../../fixtures/decks/fail-front-matter/deck.md:7:1
+  |
+7 | id: Cover
+  | ^^^^^^^^^ the front matter starts here
+  |
+  = help: close the front matter with `---` on its own line right after its last `key: value` line
+
+error[E0105]: `theme` is not `plain` or a relative path with a slash, such as `themes/corp`
+ --> ../../fixtures/decks/fail-front-matter/deck.md:2:8
+  |
+2 | theme: /abs/theme
+  |        ^^^^^^^^^^ `theme` is this value
+  |
+  = note: an absolute path would tie the deck to one machine; name the theme directory relative to the deck
+
+error[E0104]: `master` does not belong in the head of the deck
+ --> ../../fixtures/decks/fail-front-matter/deck.md:3:1
+  |
+3 | master: bullets
+  | ^^^^^^^^^^^^^^^ `master` is set here
+  |
+  = help: set `default_master` in the head of the deck, or `master:` in each slide's front matter
+
+error[E0106]: `lang` is set twice
+ --> ../../fixtures/decks/fail-front-matter/deck.md:5:1
+  |
+4 | lang: ja
+  | -------- first set here
+5 | lang: en
+  | ^^^^^^^^ set again here
+
+error[E0105]: `id` is not a lowercase letter, then up to thirty-one lowercase letters, digits, or dashes
+ --> ../../fixtures/decks/fail-front-matter/deck.md:7:5
+  |
+7 | id: Cover
+  |     ^^^^^ `id` is this value
+
+error: aborting due to 5 errors

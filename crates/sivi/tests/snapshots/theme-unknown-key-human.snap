@@ -1,0 +1,13 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0502]: the theme file cannot be read: unknown field `margin`, expected one of `width`, `height`, `background`
+ --> ../../fixtures/themes/unknown-key:1:1
+  |
+1 |
+  | ^ here
+  |
+  = help: see the theme format for the keys and values of a theme file
+
+error: aborting due to 1 errors

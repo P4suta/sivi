@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "sivi diagnostics, version 1",
+  "description": "The one document `sivi build` and `sivi check` write to standard output under `--format json`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "deck", "diagnostics", "output"],
+  "properties": {
+    "format": { "const": "sivi.diagnostics" },
+    "version": { "const": 1 },
+    "deck": { "type": "string", "description": "The deck path as the command line named it." },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/definitions/diagnostic" } },
+    "output": {
+      "description": "What the build produced, or null when it stopped on an error or was a check.",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/output" }]
+    }
+  },
+  "definitions": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1, "description": "A byte column, counted from one." }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "start", "end", "text", "primary"],
+      "properties": {
+        "file": { "type": "string", "description": "The deck path, or the theme name or path for a theme diagnostic." },
+        "start": { "$ref": "#/definitions/position" },
+        "end": { "$ref": "#/definitions/position", "description": "The last position the span covers, inclusive." },
+        "text": { "type": "string", "description": "The label the span carries." },
+        "primary": { "type": "boolean", "description": "Whether the span is the one the message is about." }
+      }
+    },
+    "slide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "id", "master"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "id": { "type": ["string", "null"] },
+        "master": { "type": ["string", "null"] }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message", "slide", "spans", "notes", "helps", "doc"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[EW][0-9]{4}$" },
+        "severity": { "type": "string", "enum": ["error", "warning"] },
+        "message": { "type": "string" },
+        "slide": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/slide" }] },
+        "spans": { "type": "array", "items": { "$ref": "#/definitions/span" } },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "helps": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "string", "description": "The catalog entry of the code, as a path and anchor inside the repository." }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "pages", "sha256"],
+      "properties": {
+        "path": { "type": ["string", "null"], "description": "Where the PDF was published, or null for standard output or a check." },
+        "pages": { "type": "integer", "minimum": 0 },
+        "sha256": {
+          "description": "The digest of the PDF bytes, or null for a check.",
+          "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }]
+        }
+      }
+    }
+  }
+}

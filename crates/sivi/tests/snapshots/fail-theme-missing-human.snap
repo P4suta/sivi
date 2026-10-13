@@ -1,0 +1,9 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0501]: the theme file cannot be read: cannot read ../../fixtures/decks/fail-theme-missing/themes/nowhere/theme.toml: No such file or directory (os error 2)
+  |
+  = help: name a directory that holds `theme.toml`, or a built-in theme
+
+error: aborting due to 1 errors

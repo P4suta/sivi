@@ -1,0 +1,25 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0307]: a `#` heading may only open the slide
+ --> ../../fixtures/decks/fail-title-position/deck.md:9:1
+  |
+9 | # Then the heading
+  | ^^^^^^^^^^^^^^^^^^ this heading comes after other content
+  |
+  = note: slide 1, master `bullets`
+  = help: move the heading to the top of the slide, or make it a `##` section heading
+
+error[E0304]: slot `title` of master `bullets` is required but holds nothing
+ --> ../../fixtures/decks/fail-title-position/deck.md:7:1
+  |
+7 | / A paragraph comes first
+8 | |
+9 | | # Then the heading
+  | |__________________^ this slide leaves it empty
+  |
+  = note: slide 1, master `bullets`
+  = help: open the slide with a `#` heading
+
+error: aborting due to 2 errors

@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-no-slot/deck.md","diagnostics":[{"code":"E0303","doc":"docs/diagnostics.md#e0303","helps":["use a master whose slots accept image blocks: `figure`, `blank`"],"message":"no slot of master `bullets` accepts image blocks","notes":[],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":54,"line":9},"file":"../../fixtures/decks/fail-no-slot/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this image block has no slot"}]}],"format":"sivi.diagnostics","output":null,"version":1}

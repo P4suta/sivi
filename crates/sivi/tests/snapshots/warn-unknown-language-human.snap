@@ -1,0 +1,16 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0104]: the language `klingon` is not one the highlighter knows, so the code shows without highlighting
+  --> ../../fixtures/decks/warn-unknown-language/deck.md:9:1
+   |
+ 9 | / ```klingon
+10 | | nuqneH 'ej qapla'
+11 | | ```
+   | |___^ this fence names the language
+   |
+   = note: slide 1
+   = help: name a language Typst highlights, or leave the fence bare
+
+warning: 1 warnings emitted

@@ -1,0 +1,10 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0504]: the slot `body` leaves the page
+  |
+  = note: at `masters.only.slots.body.region` in the theme
+  = help: keep the region inside the page size
+
+error: aborting due to 1 errors

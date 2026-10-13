@@ -1,0 +1,21 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0306]: no slot of master `bullets` has room for this list block
+  --> ../../fixtures/decks/fail-capacity/deck.md:9:1
+   |
+ 9 | / - One
+10 | | - Two
+11 | | - Three
+12 | | - Four
+...  |
+16 | | - Eight
+17 | | - Nine
+   | |______^ this block exceeds every slot that accepts it
+   |
+   = note: slide 1, master `bullets`
+   = note: slot `body` takes at most 8 items (`max_items`); this block has 9
+   = help: shorten the block, split the slide, or use a master with a larger slot
+
+error: aborting due to 1 errors

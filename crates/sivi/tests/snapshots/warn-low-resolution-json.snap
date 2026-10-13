@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/warn-low-resolution/deck.md","diagnostics":[{"code":"W0103","doc":"docs/diagnostics.md#w0103","helps":["use an image with more pixels, or show it in a narrower slot"],"message":"the image `assets/coarse.png` prints at 0 pixels per inch, below 144","notes":["the image is 10 × 5 pixels, shown 840.000pt wide"],"severity":"warning","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":60,"line":9},"file":"../../fixtures/decks/warn-low-resolution/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this image names the file"}]}],"format":"sivi.diagnostics","output":{"pages":1,"path":null,"sha256":null},"version":1}

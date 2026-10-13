@@ -1,0 +1,10 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0602]: the font file `fonts/JetBrainsMono-Regular.ttf` does not match the `sha256` the theme declares
+  |
+  = note: the file's digest is a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f
+  = help: write the digest of the file you ship, as `shasum -a 256` prints it
+
+error: aborting due to 1 errors

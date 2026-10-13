@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-glyph/deck.md","diagnostics":[{"code":"E0604","doc":"docs/diagnostics.md#e0604","helps":["replace the character, or add a font that has it under `[[fonts]]`"],"message":"no font of the theme has a glyph for `🦀` (U+1F980)","notes":["the fonts tried: `BIZ UDPGothic`"],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":42,"line":9},"file":"../../fixtures/decks/fail-glyph/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this text shows the character"}]}],"format":"sivi.diagnostics","output":null,"version":1}

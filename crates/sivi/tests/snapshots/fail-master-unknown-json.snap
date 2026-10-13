@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-master-unknown/deck.md","diagnostics":[{"code":"E0302","doc":"docs/diagnostics.md#e0302","helps":["did you mean `bullets`?"],"message":"theme `plain` has no master `bullet`","notes":["theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`"],"severity":"error","slide":{"id":null,"master":"bullet","number":1},"spans":[{"end":{"column":39,"line":11},"file":"../../fixtures/decks/fail-master-unknown/deck.md","primary":true,"start":{"column":1,"line":7},"text":"this slide names it"}]}],"format":"sivi.diagnostics","output":null,"version":1}

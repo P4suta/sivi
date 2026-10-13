@@ -1,0 +1,25 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0401]: content bound to slot `body` is 483.600pt taller than its region
+  --> ../../fixtures/decks/fail-overflow-body/deck.md:9:1
+   |
+ 9 | / - Enterprise tier grew twelve percent year over year, driven by three new logos in the retail segment and two renewals that expanded their...
+10 | | - Headcount stayed flat at forty-two while the support queue doubled, which the new routing rules absorbed without a change in response time
+11 | | - Hiring resumes in the first quarter with two engineers and one designer, all three already identified through the referral program
+12 | | - The platform migration finished a week early and under the budget, with the last customer moved on the final Friday of the quarter
+...  |
+15 | | - Marketing spend held steady while the cost per lead dropped by a third, which the team attributes to the webinar series
+16 | | - Next quarter the plan is to ship the reporting overhaul, open the second region, and close the three enterprise deals in the pipeline
+   | |_______________________________________________________________________________________________________________________________________^ content bound to `body` starts here
+   |
+   = note: slide 1, master `bullets`
+   = note: region 840.000pt × 324.000pt at (60.000pt, 156.000pt); content needs 807.600pt
+   = note: 23 rendered lines at 24.000pt × 1.450 = 34.800pt pitch; 9 lines fit
+   = note: sivi never shrinks or splits content; see docs/diagnostics.md#e0401
+   = help: remove 14 lines
+   = help: shorten the first block, which alone overflows the region
+   = help: no master in theme `plain` has a slot of 807.600pt or more for this content; split the slide
+
+error: aborting due to 1 errors

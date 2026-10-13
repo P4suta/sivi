@@ -8,6 +8,7 @@ pub mod alloy;
 pub mod check;
 pub mod ci;
 pub mod commit_msg;
+pub mod diagnostics;
 pub mod fonts;
 pub mod fs;
 pub mod obligations;

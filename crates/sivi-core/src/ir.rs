@@ -386,6 +386,40 @@ fn append_plain(text: &mut String, inlines: &[Inline]) {
     }
 }
 
+fn list_text(list: &List) -> String {
+    let mut text = String::new();
+    for item in &list.items {
+        text.push_str(plain_text(&item.inlines).as_str());
+        if let Some(nested) = &item.nested {
+            text.push_str(&list_text(nested));
+        }
+    }
+    text
+}
+
+/// The plain text of a block, with every mark removed and every cell and item joined.
+#[must_use]
+pub fn block_text(block: &Block) -> PlainText {
+    PlainText(match &block.body {
+        BlockBody::Heading(heading) => String::from(plain_text(&heading.inlines).as_str()),
+        BlockBody::Paragraph(paragraph) | BlockBody::Quote(paragraph) => {
+            String::from(plain_text(&paragraph.inlines).as_str())
+        }
+        BlockBody::List(list) => list_text(list),
+        BlockBody::Code(code) => code.text.clone(),
+        BlockBody::Image(image) => String::from(image.alt.as_str()),
+        BlockBody::Table(table) => {
+            let mut text = String::new();
+            for row in core::iter::once(&table.header).chain(table.rows.iter()) {
+                for cell in &row.cells {
+                    text.push_str(plain_text(cell).as_str());
+                }
+            }
+            text
+        }
+    })
+}
+
 /// The plain text of inlines.
 #[must_use]
 pub fn plain_text(inlines: &[Inline]) -> PlainText {

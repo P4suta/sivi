@@ -651,7 +651,7 @@ impl<'a> Reporter<'a> {
                     let span = shown
                         .blocks
                         .iter()
-                        .find(|block| text_of(block).contains(glyph.character))
+                        .find(|block| ir::block_text(block).as_str().contains(glyph.character))
                         .map_or(shown.span, |block| block.span);
                     Some((span, self.reference(*index)))
                 });
@@ -694,39 +694,6 @@ impl<'a> Reporter<'a> {
             self.diagnostics.push(diagnostic);
         }
     }
-}
-
-/// The plain text of a block, in which a missing glyph is sought.
-fn text_of(block: &Block) -> String {
-    match &block.body {
-        BlockBody::Heading(heading) => String::from(ir::plain_text(&heading.inlines).as_str()),
-        BlockBody::Paragraph(paragraph) | BlockBody::Quote(paragraph) => {
-            String::from(ir::plain_text(&paragraph.inlines).as_str())
-        }
-        BlockBody::List(list) => list_text(list),
-        BlockBody::Code(code) => code.text.clone(),
-        BlockBody::Image(image) => String::from(image.alt.as_str()),
-        BlockBody::Table(table) => {
-            let mut text = String::new();
-            for row in core::iter::once(&table.header).chain(table.rows.iter()) {
-                for cell in &row.cells {
-                    text.push_str(ir::plain_text(cell).as_str());
-                }
-            }
-            text
-        }
-    }
-}
-
-fn list_text(list: &ir::List) -> String {
-    let mut text = String::new();
-    for item in &list.items {
-        text.push_str(ir::plain_text(&item.inlines).as_str());
-        if let Some(nested) = &item.nested {
-            text.push_str(&list_text(nested));
-        }
-    }
-    text
 }
 
 /// The diagnostics a measured deck earns: nothing when every region fits on its page.
@@ -945,6 +912,7 @@ mod tests {
                     height: mp(size.1),
                 },
             ),
+            text: None,
         }
     }
 

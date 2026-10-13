@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/warn-empty-slide/deck.md","diagnostics":[{"code":"W0101","doc":"docs/diagnostics.md#w0101","helps":["write the slide's content, or remove the separator that opens it"],"message":"a slide with no content","notes":[],"severity":"warning","slide":{"id":null,"master":null,"number":2},"spans":[{"end":{"column":3,"line":10},"file":"../../fixtures/decks/warn-empty-slide/deck.md","primary":true,"start":{"column":1,"line":10},"text":"this slide is empty"}]}],"format":"sivi.diagnostics","output":{"pages":3,"path":null,"sha256":null},"version":1}

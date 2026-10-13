@@ -1,0 +1,68 @@
+# A font file whose digest does not match the one the theme declares, which the theme check refuses.
+schema = 1
+
+[theme]
+name = "font-digest"
+
+[page]
+width = "100pt"
+height = "100pt"
+background = "paper"
+
+[[fonts]]
+family = "JetBrains Mono"
+path = "fonts/JetBrainsMono-Regular.ttf"
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[colors]
+paper = "#ffffff"
+ink = "#000000"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "0.5em"
+
+[text.body]
+font = "JetBrains Mono"
+size = "24pt"
+weight = 400
+color = "ink"
+line_height = 1.4
+
+[inline]
+emphasis = { style = "color", color = "ink" }
+strong = { weight = 400 }
+code = { font = "JetBrains Mono" }
+link = { color = "ink", underline = true }
+
+[lists]
+bullets = ["•"]
+ordered = "1."
+indent = "1em"
+gap = "0.2em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.4
+background = "paper"
+padding = "4pt"
+highlight = false
+tab_width = 2
+
+[tables]
+text = "body"
+header_weight = 400
+rule = "ink"
+padding = "2pt"
+
+[quotes]
+bar = "ink"
+bar_width = "2pt"
+indent = "10pt"
+
+[masters.only.slots.body]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "0pt", y = "0pt", width = "100%", height = "100%" }
+text = "body"

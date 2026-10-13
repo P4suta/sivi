@@ -15,6 +15,9 @@ exclude = [
   "fuzz/corpus/**",
   "fonts/**",
   "fixtures/decks/**",
+  "fixtures/themes/**",
+  "crates/sivi/tests/snapshots/**",
+  "docs/diagnostics.md",
   "fixtures/**/snapshots/**",
   "specs/traces/**",
 ]

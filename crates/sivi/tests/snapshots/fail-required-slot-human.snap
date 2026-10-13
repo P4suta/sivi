@@ -1,0 +1,15 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0304]: slot `title` of master `bullets` is required but holds nothing
+ --> ../../fixtures/decks/fail-required-slot/deck.md:7:1
+  |
+7 | / - A bullets slide without its `#` heading
+8 | | - The title slot is required and holds nothing
+  | |______________________________________________^ this slide leaves it empty
+  |
+  = note: slide 1, master `bullets`
+  = help: open the slide with a `#` heading
+
+error: aborting due to 1 errors

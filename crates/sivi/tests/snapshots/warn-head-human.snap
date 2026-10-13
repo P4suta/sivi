@@ -1,0 +1,21 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0106]: the deck has no `title`
+ --> ../../fixtures/decks/warn-head/deck.md:1:1
+  |
+1 | ---
+  | ^ the head starts here
+  |
+  = help: write `title: ...` in the head; the PDF and the title decor of a master show it
+
+warning[W0108]: the deck has no `lang`
+ --> ../../fixtures/decks/warn-head/deck.md:1:1
+  |
+1 | ---
+  | ^ the head starts here
+  |
+  = help: write `lang: en`, `lang: ja`, or the language of the deck in the head; line breaking follows it
+
+warning: 2 warnings emitted

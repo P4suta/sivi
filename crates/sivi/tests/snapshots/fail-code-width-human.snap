@@ -1,0 +1,20 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0402]: a code line in slot `code` is 628.800pt wider than its region
+  --> ../../fixtures/decks/fail-code-width/deck.md:9:1
+   |
+ 9 | / ```rust
+10 | | fn main() {
+11 | |     let configuration = Configuration::builder().with_region("eu-west-1").with_timeout(Duration::from_secs(30)).with_retries(3).bu...
+12 | | }
+13 | | ```
+   | |___^ this code block holds the line
+   |
+   = note: slide 1, master `code`
+   = note: the longest line is line 2 of the block, 136 characters wide; about 77 characters fit
+   = note: sivi never wraps or shrinks code; see docs/diagnostics.md#e0402
+   = help: break the line, or use a master with a wider slot
+
+error: aborting due to 1 errors

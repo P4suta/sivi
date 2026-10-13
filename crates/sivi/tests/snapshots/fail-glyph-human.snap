@@ -1,0 +1,15 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0604]: no font of the theme has a glyph for `🦀` (U+1F980)
+ --> ../../fixtures/decks/fail-glyph/deck.md:9:1
+  |
+9 | - The bundled fonts have no glyph for 🦀
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this text shows the character
+  |
+  = note: slide 1, master `bullets`
+  = note: the fonts tried: `BIZ UDPGothic`
+  = help: replace the character, or add a font that has it under `[[fonts]]`
+
+error: aborting due to 1 errors

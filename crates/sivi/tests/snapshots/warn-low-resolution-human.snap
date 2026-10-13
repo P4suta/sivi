@@ -1,0 +1,15 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0103]: the image `assets/coarse.png` prints at 0 pixels per inch, below 144
+ --> ../../fixtures/decks/warn-low-resolution/deck.md:9:1
+  |
+9 | ![A blue rectangle of ten by five pixels](assets/coarse.png)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this image names the file
+  |
+  = note: slide 1
+  = note: the image is 10 × 5 pixels, shown 840.000pt wide
+  = help: use an image with more pixels, or show it in a narrower slot
+
+warning: 1 warnings emitted

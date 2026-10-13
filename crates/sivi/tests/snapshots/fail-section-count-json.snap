@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-section-count/deck.md","diagnostics":[{"code":"E0305","doc":"docs/diagnostics.md#e0305","helps":["use a master with 3 section slots, or merge this section into the one before"],"message":"this `##` opens section 3, but master `comparison` has 2 section slots","notes":[],"severity":"error","slide":{"id":null,"master":"comparison","number":1},"spans":[{"end":{"column":9,"line":17},"file":"../../fixtures/decks/fail-section-count/deck.md","primary":true,"start":{"column":1,"line":17},"text":"this heading opens one section too many"}]}],"format":"sivi.diagnostics","output":null,"version":1}

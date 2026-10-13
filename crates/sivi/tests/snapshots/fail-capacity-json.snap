@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-capacity/deck.md","diagnostics":[{"code":"E0306","doc":"docs/diagnostics.md#e0306","helps":["shorten the block, split the slide, or use a master with a larger slot"],"message":"no slot of master `bullets` has room for this list block","notes":["slot `body` takes at most 8 items (`max_items`); this block has 9"],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":6,"line":17},"file":"../../fixtures/decks/fail-capacity/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this block exceeds every slot that accepts it"}]}],"format":"sivi.diagnostics","output":null,"version":1}

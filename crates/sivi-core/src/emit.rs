@@ -77,6 +77,8 @@ pub enum AssetOrigin {
 pub struct AssetUse {
     pub path: String,
     pub origin: AssetOrigin,
+    /// The width the file is shown at, from which its resolution follows.
+    pub width: Length,
 }
 
 /// The source, what the adapter must read back from it, and the files it names.
@@ -383,6 +385,7 @@ impl Emitter<'_> {
                 self.assets.push(AssetUse {
                     path: virtual_path.clone(),
                     origin: AssetOrigin::Theme(path.clone()),
+                    width,
                 });
                 format!(
                     "image({}, width: {width}, height: {height}, fit: \"contain\")",
@@ -618,6 +621,7 @@ impl Emitter<'_> {
             self.assets.push(AssetUse {
                 path: virtual_path.clone(),
                 origin: AssetOrigin::Deck(image.path.clone()),
+                width: bounds.size.width,
             });
         }
         let size = if sole {

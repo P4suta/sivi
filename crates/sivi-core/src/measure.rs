@@ -2,6 +2,7 @@
 
 use crate::length::{Length, Rect};
 use crate::protocol::{RegionIndex, SlideIndex};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 /// A page of the compiled document, counted from one.
@@ -97,11 +98,13 @@ pub enum ItemKind {
 }
 
 /// A laid-out item with its box in page coordinates.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Leaf {
     pub page: PageNumber,
     pub kind: ItemKind,
     pub bounds: Rect,
+    /// The text a text item shows, for the checks that read what a line starts with.
+    pub text: Option<String>,
 }
 
 /// A character the bundled and theme fonts cannot show.

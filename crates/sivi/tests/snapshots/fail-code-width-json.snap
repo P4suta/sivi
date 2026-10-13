@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-code-width/deck.md","diagnostics":[{"code":"E0402","doc":"docs/diagnostics.md#e0402","helps":["break the line, or use a master with a wider slot"],"message":"a code line in slot `code` is 628.800pt wider than its region","notes":["the longest line is line 2 of the block, 136 characters wide; about 77 characters fit","sivi never wraps or shrinks code; see docs/diagnostics.md#e0402"],"severity":"error","slide":{"id":null,"master":"code","number":1},"spans":[{"end":{"column":3,"line":13},"file":"../../fixtures/decks/fail-code-width/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this code block holds the line"}]}],"format":"sivi.diagnostics","output":null,"version":1}

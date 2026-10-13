@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-overflow-body/deck.md","diagnostics":[{"code":"E0401","doc":"docs/diagnostics.md#e0401","helps":["remove 14 lines","shorten the first block, which alone overflows the region","no master in theme `plain` has a slot of 807.600pt or more for this content; split the slide"],"message":"content bound to slot `body` is 483.600pt taller than its region","notes":["region 840.000pt × 324.000pt at (60.000pt, 156.000pt); content needs 807.600pt","23 rendered lines at 24.000pt × 1.450 = 34.800pt pitch; 9 lines fit","sivi never shrinks or splits content; see docs/diagnostics.md#e0401"],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":135,"line":16},"file":"../../fixtures/decks/fail-overflow-body/deck.md","primary":true,"start":{"column":1,"line":9},"text":"content bound to `body` starts here"}]}],"format":"sivi.diagnostics","output":null,"version":1}

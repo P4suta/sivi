@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0607]: the image `assets/not.png` is not a png file
+ --> ../../fixtures/decks/fail-image-kind/deck.md:9:1
+  |
+9 | ![A vector in disguise](assets/not.png)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this image names the file
+  |
+  = note: slide 1
+  = help: name the file by the kind it holds: png, jpg, jpeg, or svg
+
+error: aborting due to 1 errors

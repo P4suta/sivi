@@ -1,0 +1,17 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0301]: slide 1 names no master, and the deck sets no `default_master`
+ --> ../../fixtures/decks/fail-master-missing/deck.md:6:1
+  |
+6 | / # A slide that names no master
+7 | |
+8 | | - The head sets no `default_master`, and the slide sets no `master`
+  | |___________________________________________________________________^ this slide
+  |
+  = note: slide 1
+  = note: theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`
+  = help: write `master: <name>` in the slide's front matter, or `default_master: <name>` in the head of the deck
+
+error: aborting due to 1 errors

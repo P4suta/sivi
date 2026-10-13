@@ -1,0 +1,19 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+error[E0302]: theme `plain` has no master `bullet`
+  --> ../../fixtures/decks/fail-master-unknown/deck.md:7:1
+   |
+ 7 | / master: bullet
+ 8 | | ---
+ 9 | | # A slide that misspells its master
+10 | |
+11 | | - The theme has `bullets`, not `bullet`
+   | |_______________________________________^ this slide names it
+   |
+   = note: slide 1, master `bullet`
+   = note: theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`
+   = help: did you mean `bullets`?
+
+error: aborting due to 1 errors

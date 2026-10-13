@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-required-slot/deck.md","diagnostics":[{"code":"E0304","doc":"docs/diagnostics.md#e0304","helps":["open the slide with a `#` heading"],"message":"slot `title` of master `bullets` is required but holds nothing","notes":[],"severity":"error","slide":{"id":null,"master":"bullets","number":1},"spans":[{"end":{"column":46,"line":8},"file":"../../fixtures/decks/fail-required-slot/deck.md","primary":true,"start":{"column":1,"line":7},"text":"this slide leaves it empty"}]}],"format":"sivi.diagnostics","output":null,"version":1}

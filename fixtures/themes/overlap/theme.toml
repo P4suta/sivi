@@ -1,0 +1,69 @@
+# Two slots that share the same region, which the theme check refuses.
+schema = 1
+
+[theme]
+name = "overlap"
+
+[page]
+width = "100pt"
+height = "100pt"
+background = "paper"
+
+[colors]
+paper = "#ffffff"
+ink = "#000000"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "0.5em"
+
+[text.body]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "ink"
+line_height = 1.4
+
+[inline]
+emphasis = { style = "italic" }
+strong = { weight = 700 }
+code = { font = "JetBrains Mono" }
+link = { color = "ink", underline = true }
+
+[lists]
+bullets = ["•"]
+ordered = "1."
+indent = "1em"
+gap = "0.2em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.3
+background = "paper"
+padding = "4pt"
+highlight = false
+tab_width = 2
+
+[tables]
+text = "body"
+header_weight = 700
+rule = "ink"
+padding = "2pt"
+
+[quotes]
+bar = "ink"
+bar_width = "2pt"
+indent = "10pt"
+
+[masters.only.slots.body]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "0pt", y = "0pt", width = "100%", height = "100%" }
+text = "body"
+
+[masters.only.slots.other]
+binds = "flow"
+accepts = ["list"]
+region = { x = "10pt", y = "10pt", width = "50pt", height = "50pt" }
+text = "body"

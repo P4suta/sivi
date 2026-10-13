@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/fail-image-missing/deck.md","diagnostics":[{"code":"E0605","doc":"docs/diagnostics.md#e0605","helps":["check the path, which is relative to the deck"],"message":"the image `assets/chart.png` is missing at ../../fixtures/decks/fail-image-missing/assets/chart.png","notes":[],"severity":"error","slide":{"id":null,"master":null,"number":1},"spans":[{"end":{"column":52,"line":9},"file":"../../fixtures/decks/fail-image-missing/deck.md","primary":true,"start":{"column":1,"line":9},"text":"this image names the file"}]}],"format":"sivi.diagnostics","output":null,"version":1}

@@ -7,11 +7,13 @@ use crate::io;
 use crate::publish::{self, Disk};
 use crate::themes::{self, LoadedTheme};
 use sivi_core::bind::{self, BoundDeck};
-use sivi_core::diagnostic::{Code, Diagnostic, has_error};
+use sivi_core::diagnostic::{Code, Diagnostic, SlideRef, has_error};
 use sivi_core::emit::{self, Emitted};
-use sivi_core::ir::Deck;
+use sivi_core::ir::{BlockBody, Deck};
+use sivi_core::lints;
 use sivi_core::measure::Measurement;
 use sivi_core::report::{self, Measured};
+use sivi_typst::raw;
 use sivi_typst::{
     CompileError, Compiled, PdfSettings, SiviWorld, UtcTimestamp, compile, export, measure,
 };
@@ -100,6 +102,42 @@ fn typst_diagnostic(found: &sivi_typst::Diagnostic, source: &str) -> Diagnostic 
     ))
 }
 
+/// The warning each code block whose fence names a language the highlighter does not know earns.
+fn language_warnings(deck: &Deck) -> Vec<Diagnostic> {
+    let mut found = Vec::new();
+    for slide in &deck.slides {
+        for block in &slide.blocks {
+            let BlockBody::Code(code) = &block.body else {
+                continue;
+            };
+            let Some(language) = &code.language else {
+                continue;
+            };
+            if raw::knows_language(language) {
+                continue;
+            }
+            found.push(
+                Diagnostic::new(
+                    Code::UnknownLanguage,
+                    format!(
+                        "the language `{language}` is not one the highlighter knows, so the code shows without highlighting"
+                    ),
+                )
+                .at(block.span, String::from("this fence names the language"))
+                .help(String::from(
+                    "name a language Typst highlights, or leave the fence bare",
+                ))
+                .on_slide(SlideRef {
+                    number: slide.number,
+                    id: slide.id.clone(),
+                    master: slide.master.clone(),
+                }),
+            );
+        }
+    }
+    found
+}
+
 struct Build<'a> {
     request: &'a Request<'a>,
     outcome: Outcome,
@@ -137,7 +175,10 @@ impl Build<'_> {
         if has_error(&self.outcome.diagnostics) {
             return None;
         }
-        parsed.deck
+        let deck = parsed.deck?;
+        self.outcome.diagnostics.extend(lints::deck_warnings(&deck));
+        self.outcome.diagnostics.extend(language_warnings(&deck));
+        Some(deck)
     }
 
     fn theme(&mut self, deck: &Deck) -> Option<LoadedTheme> {
@@ -166,7 +207,12 @@ impl Build<'_> {
             deck: self.deck_dir(),
             theme: composed.theme.dir.as_deref(),
         };
-        let assets = self.take(assets::load(&composed.emitted.assets, &composed.deck, dirs))?;
+        let loaded = assets::load(&composed.emitted.assets, &composed.deck, dirs);
+        self.outcome.diagnostics.extend(loaded.diagnostics);
+        if has_error(&self.outcome.diagnostics) {
+            return None;
+        }
+        let assets = loaded.assets;
         let mut parts: Vec<&[u8]> = vec![
             self.outcome.deck_text.as_bytes(),
             composed.theme.text.as_bytes(),

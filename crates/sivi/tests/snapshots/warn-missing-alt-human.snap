@@ -1,0 +1,14 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&outcome.diagnostics, &sources, false)"
+---
+warning[W0105]: an image without alternative text
+ --> ../../fixtures/decks/warn-missing-alt/deck.md:9:1
+  |
+9 | ![](assets/figure.svg)
+  | ^^^^^^^^^^^^^^^^^^^^^^ this image has no alternative text
+  |
+  = note: slide 1
+  = help: write what the image shows between the brackets: `![what it shows](path)`
+
+warning: 1 warnings emitted
