@@ -166,10 +166,26 @@ pub fn witnessed(report: &str, name: &str) -> Result<Option<u64>> {
     })?))
 }
 
+/// The key under which a trace carries the run's own metadata.
+const META: &str = "#meta";
+/// The metadata fields that name the run rather than the model, which the committed traces leave out.
+const VOLATILE: [&str; 2] = ["description", "timestamp"];
+
 /// The states of a trace, which leave out the run's own metadata.
 fn states(text: &str) -> Result<Value> {
     let document: Value = serde_json::from_str(text).context("parse a trace")?;
     Ok(document.get("states").cloned().unwrap_or(Value::Null))
+}
+
+/// The trace without the fields that name the run, so the file reads the same whenever the states do.
+fn settled(text: &[u8]) -> Result<Vec<u8>> {
+    let mut document: Value = serde_json::from_slice(text).context("parse a trace")?;
+    if let Some(meta) = document.get_mut(META).and_then(Value::as_object_mut) {
+        for field in VOLATILE {
+            meta.remove(field);
+        }
+    }
+    serde_json::to_vec(&document).context("write a trace")
 }
 
 /// The file name of the trace `index` of `main`, which the gate writes and the repository commits.
@@ -455,7 +471,7 @@ pub fn generate(root: &Path) -> Result<()> {
         for name in Session::trace_names(quint) {
             let fresh = fs::read(&output.path().join("traces").join(&name))
                 .with_context(|| format!("Quint wrote no trace {name}"))?;
-            fs::write(&root.join(TRACES).join(&name), &fresh)?;
+            fs::write(&root.join(TRACES).join(&name), &settled(&fresh)?)?;
         }
     }
     Ok(())
@@ -463,8 +479,26 @@ pub fn generate(root: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Session, distinct_states, probe_trace_name, run_arguments, trace_name, witnessed};
+    use super::{
+        Session, distinct_states, probe_trace_name, run_arguments, settled, states, trace_name,
+        witnessed,
+    };
     use std::path::Path;
+
+    #[test]
+    fn a_settled_trace_keeps_its_states_and_forgets_the_run() {
+        let text = br##"{"#meta":{"format":"ITF","description":"Created by Quint on Tue","timestamp":1,"source":"x"},"vars":["a"],"states":[{"a":{"#bigint":"1"}}]}"##;
+        let once = settled(text).unwrap();
+        let written = String::from_utf8(once.clone()).unwrap();
+        assert!(!written.contains("timestamp"), "{written}");
+        assert!(!written.contains("Created by"), "{written}");
+        assert!(written.contains(r#""source":"x""#), "{written}");
+        assert_eq!(
+            states(&written).unwrap(),
+            states(std::str::from_utf8(text).unwrap()).unwrap()
+        );
+        assert_eq!(settled(&once).unwrap(), once);
+    }
 
     #[test]
     fn the_reports_yield_their_counts_and_the_run_mounts_the_checkout_read_only() {
