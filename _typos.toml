@@ -1,0 +1,20 @@
+[default]
+extend-ignore-identifiers-re = ["[A-Fa-f0-9]{7,}"]
+
+[default.extend-words]
+Yasunobu = "Yasunobu"
+sivi = "sivi"
+typst = "typst"
+Typst = "Typst"
+comrak = "comrak"
+als = "als"
+
+[files]
+extend-exclude = [
+  "target/",
+  "*.lock",
+  "fuzz/corpus/",
+  "fonts/",
+  "fixtures/**/snapshots/",
+  "specs/traces/",
+]

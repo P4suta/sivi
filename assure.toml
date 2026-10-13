@@ -1,0 +1,6 @@
+# What owns each code shape that the shape catalog of `~/.config/assure/shapes.toml` finds in this repository, and the budgets no change may weaken.
+# Each rule module of crates/sivi-core owns its decisions through its own Kani harnesses, so only the other shapes need an entry.
+
+[[budget]]
+name = "unsafe-sites"
+ceiling = 0

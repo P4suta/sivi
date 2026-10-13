@@ -1,0 +1,14 @@
+# `dotfiles repository generate` writes `README.md`, `LICENSE-MIT`, and `LICENSE-APACHE` from this file, and `just check` refuses any drift from them.
+
+name = "sivi"
+summary = "A Markdown to PDF slide compiler that refuses any slide its master cannot hold"
+install = """
+git clone https://github.com/P4suta/sivi.git
+cd sivi
+cargo install --locked --path crates/sivi"""
+usage = """
+sivi build deck.md
+sivi check deck.md --format json
+sivi theme check themes/plain"""
+copyright = "Yasunobu"
+license = "MIT OR Apache-2.0"

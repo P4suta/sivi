@@ -1,0 +1,867 @@
+//! The proof gate: every verifier of the obligation manifest, each shown to refuse a false claim.
+
+use crate::obligations::{self, Harness, Manifest, Obligation, Probe};
+use crate::report::Report;
+use crate::structure::{self, CORE, Harnesses};
+use crate::tool::{self, FUZZ_VERSION, KANI_VERSION, MUTANTS_VERSION, Tool};
+use crate::{fs, portable};
+use anyhow::{Context, Result, bail, ensure};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+/// Where each verifier writes the receipt of its last run.
+pub const RECEIPTS: &str = "target/proofs/receipts";
+
+/// A crate whose one harness asserts a false claim, which the Kani gate must refuse.
+pub const KANI_FIXTURE: &str = "xtask/proofs/kani-negative";
+pub const KANI_FIXTURE_HARNESS: &str = "the_gate_refuses_a_false_claim";
+pub const KANI_FIXTURE_ASSERTION: &str = "NEGATIVE_FIXTURE_CONTROL";
+
+/// A fuzz target whose committed corpus makes it panic, which the replay must refuse.
+pub const FUZZ_FIXTURE: &str = "xtask/proofs/fuzz-fixture";
+pub const FUZZ_FIXTURE_TARGET: &str = "crash";
+
+/// A crate with undefined behavior, which the Miri gate must refuse.
+pub const MIRI_FIXTURE: &str = "xtask/proofs/miri-fixture";
+
+/// A crate whose test asserts nothing, which the mutation gate must refuse.
+pub const MUTANTS_FIXTURE: &str = "xtask/proofs/mutants-fixture";
+
+/// The separate cargo-fuzz workspace of the product.
+pub const FUZZ: &str = "fuzz";
+
+/// The crates Miri interprets, each pure enough to finish within the budget.
+pub const MIRI_CRATES: [&str; 3] = ["sivi-core", "sivi-markdown", "sivi-theme"];
+
+/// The budgets of the mutation campaign over the decision core, which `assure.toml` declares once they are met.
+pub const MISSED_CEILING: u64 = 0;
+pub const TIMEOUT_CEILING: u64 = 0;
+
+const HARNESS_TIMEOUT: &str = "60s";
+const MUTANT_JOBS: &str = "2";
+const MUTANT_TEST_THREADS: &str = "1";
+const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
+const MIRI_TARGET: &str = "target/miri";
+const MUTANTS_OUTPUT: &str = "target/proofs/mutants";
+const FIXTURE_OUTPUT: &str = "target/proofs/fixtures";
+
+/// One verifier the gate runs.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Step {
+    Kani,
+    Miri,
+    Fuzz,
+    Mutants,
+}
+
+impl Step {
+    pub const ALL: [Self; 4] = [Self::Kani, Self::Miri, Self::Fuzz, Self::Mutants];
+
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Kani => "kani",
+            Self::Miri => "miri",
+            Self::Fuzz => "fuzz",
+            Self::Mutants => "mutants",
+        }
+    }
+
+    #[must_use]
+    pub fn named(word: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|step| step.name() == word)
+    }
+}
+
+/// Which verifiers run.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Options {
+    /// A hosted run, which skips the mutation campaign that stays local.
+    pub ci: bool,
+    pub only: Option<Step>,
+}
+
+impl Options {
+    /// Reads `--ci` and `--only STEP`, refusing anything else.
+    #[must_use]
+    pub fn from_words(words: &[&str]) -> Option<Self> {
+        let mut options = Self {
+            ci: false,
+            only: None,
+        };
+        let mut words = words.iter();
+        while let Some(word) = words.next() {
+            match *word {
+                "--ci" => options.ci = true,
+                "--only" => options.only = Some(Step::named(words.next()?)?),
+                _ => return None,
+            }
+        }
+        Some(options)
+    }
+
+    #[must_use]
+    pub fn selected(self) -> Vec<Step> {
+        match self.only {
+            Some(step) => vec![step],
+            None => Step::ALL
+                .into_iter()
+                .filter(|step| !(self.ci && *step == Step::Mutants))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniReport {
+    metadata: KaniMetadata,
+    property_details: Vec<KaniProperties>,
+    verification_results: KaniResults,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniMetadata {
+    kani_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniProperties {
+    harness_id: String,
+    property_details: KaniCounts,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniCounts {
+    failed: u64,
+    undetermined: u64,
+    solver_error: u64,
+    satisfied: u64,
+    unsatisfiable: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniResults {
+    summary: KaniSummary,
+    results: Vec<KaniHarnessResult>,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniSummary {
+    total_harnesses: u64,
+    executed: u64,
+    status: String,
+    successful: u64,
+    failed: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniHarnessResult {
+    harness_id: String,
+    status: String,
+    checks: Vec<KaniCheck>,
+}
+
+#[derive(Debug, Deserialize)]
+struct KaniCheck {
+    status: String,
+    description: String,
+    category: String,
+}
+
+fn read_report(path: &Path) -> Result<KaniReport> {
+    let bytes = fs::read(path)?;
+    ensure!(
+        u64::try_from(bytes.len()).is_ok_and(|length| length <= MAX_REPORT_BYTES),
+        "the Kani report at {} exceeds {MAX_REPORT_BYTES} bytes",
+        path.display()
+    );
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse the Kani report at {}", path.display()))
+}
+
+fn check_positive(report: &KaniReport, harnesses: &[&Harness]) -> Result<()> {
+    let summary = &report.verification_results.summary;
+    let count = u64::try_from(harnesses.len()).context("count the harnesses")?;
+    ensure!(
+        count > 0
+            && report.metadata.kani_version == KANI_VERSION
+            && summary.status == "completed"
+            && summary.total_harnesses == count
+            && summary.executed == count
+            && summary.successful == count
+            && summary.failed == 0
+            && report.property_details.len() == harnesses.len()
+            && report.verification_results.results.len() == harnesses.len(),
+        "the proof inventory requires every declared Kani harness to complete and pass"
+    );
+    for harness in harnesses {
+        let name = &harness.name;
+        let properties: Vec<_> = report
+            .property_details
+            .iter()
+            .filter(|item| &item.harness_id == name)
+            .collect();
+        let results: Vec<_> = report
+            .verification_results
+            .results
+            .iter()
+            .filter(|item| &item.harness_id == name)
+            .collect();
+        let ([properties], [result]) = (properties.as_slice(), results.as_slice()) else {
+            bail!("missing or duplicate proof: {name}");
+        };
+        let counts = &properties.property_details;
+        ensure!(
+            result.status == "Success"
+                && result
+                    .checks
+                    .iter()
+                    .any(|check| check.category == "assertion" && check.status == "Success")
+                && counts.failed == 0
+                && counts.undetermined == 0
+                && counts.solver_error == 0
+                && counts.unsatisfiable == 0
+                && counts.satisfied == harness.covers
+                && result.checks.iter().all(|check| {
+                    matches!(
+                        check.status.as_str(),
+                        "Success" | "Satisfied" | "Unreachable"
+                    )
+                }),
+            "the proof {name} has incomplete checks or reaches other covers than the {} it declares",
+            harness.covers
+        );
+    }
+    Ok(())
+}
+
+fn check_negative(report: &KaniReport, harness: &str, assertion: &str) -> Result<()> {
+    let summary = &report.verification_results.summary;
+    let [result] = report.verification_results.results.as_slice() else {
+        bail!("a negative control executes exactly one harness");
+    };
+    let [properties] = report.property_details.as_slice() else {
+        bail!("a negative control reports one complete property summary");
+    };
+    let counts = &properties.property_details;
+    ensure!(
+        report.metadata.kani_version == KANI_VERSION
+            && summary.status == "completed"
+            && summary.total_harnesses == 1
+            && summary.executed == 1
+            && summary.failed == 1
+            && summary.successful == 0
+            && result.harness_id == harness
+            && result.status == "Failure"
+            && properties.harness_id == harness
+            && counts.failed == 1
+            && counts.undetermined == 0
+            && counts.solver_error == 0
+            && result.checks.iter().any(|check| {
+                check.status == "Failure"
+                    && check.category == "assertion"
+                    && check.description.contains(assertion)
+            }),
+        "the negative control {harness} needs the expected assertion counterexample `{assertion}`, not a tool error"
+    );
+    Ok(())
+}
+
+fn kani_command(root: &Path, manifest: Option<&Path>, target: &Path, report: &Path) -> Command {
+    let mut command = Tool::Cargo.command(root);
+    command.arg("kani");
+    match manifest {
+        Some(manifest) => {
+            command.arg("--manifest-path").arg(manifest);
+        }
+        None => {
+            command.args(["--package", "sivi-core"]);
+        }
+    }
+    command
+        .args([
+            "--exact",
+            "--output-format=terse",
+            "-Z",
+            "unstable-options",
+            &format!("--harness-timeout={HARNESS_TIMEOUT}"),
+        ])
+        .arg("--target-dir")
+        .arg(target)
+        .arg("--export-json")
+        .arg(report);
+    command
+}
+
+/// Every rule module of the core with the harnesses it defines, keyed by its portable path.
+///
+/// # Errors
+///
+/// Returns an error when a module cannot be read or parsed.
+pub fn discover(root: &Path) -> Result<Vec<(String, Harnesses)>> {
+    let mut found = Vec::new();
+    for path in fs::files_with_suffix(&root.join(CORE).join("src"), "_rules.rs")? {
+        let relative = path
+            .strip_prefix(root)
+            .with_context(|| format!("{} lies in the checkout", path.display()))?;
+        found.push((
+            portable(relative),
+            structure::harnesses(&fs::read_to_string(&path)?)?,
+        ));
+    }
+    Ok(found)
+}
+
+fn sorted(names: &[String]) -> Vec<String> {
+    let mut names = names.to_vec();
+    names.sort();
+    names
+}
+
+/// Every way the manifest disagrees with the harnesses the rule modules define.
+#[must_use]
+pub fn inventory_findings(
+    discovered: &[(String, Harnesses)],
+    manifest: &Manifest,
+    sources: &dyn Fn(&str) -> Result<String>,
+) -> Vec<String> {
+    let mut findings = Vec::new();
+    for (source, found) in discovered {
+        let Some(Obligation::Kani { harnesses, probes, .. }) = manifest
+            .obligation
+            .iter()
+            .find(|obligation| matches!(obligation, Obligation::Kani { source: declared, .. } if declared == source))
+        else {
+            findings.push(format!(
+                "{source} declares no Kani obligation in {}; add one naming its harnesses and probes",
+                obligations::MANIFEST
+            ));
+            continue;
+        };
+        let declared: Vec<String> = harnesses
+            .iter()
+            .map(|harness| harness.name.clone())
+            .collect();
+        if sorted(&declared) != sorted(&found.proofs) {
+            findings.push(format!(
+                "{source} defines the proofs {} but the manifest declares {}",
+                found.proofs.join(", "),
+                declared.join(", ")
+            ));
+        }
+        let declared_probes: Vec<String> =
+            probes.iter().map(|probe| probe.harness.clone()).collect();
+        if sorted(&declared_probes) != sorted(&found.probes) {
+            findings.push(format!(
+                "{source} defines the probes {} but the manifest declares {}",
+                found.probes.join(", "),
+                declared_probes.join(", ")
+            ));
+        }
+        for probe in probes {
+            match sources(source) {
+                Ok(text) if text.contains(&probe.assertion) => {}
+                Ok(_) => findings.push(format!(
+                    "{source} never asserts `{}`, which the probe {} declares",
+                    probe.assertion, probe.harness
+                )),
+                Err(error) => findings.push(format!("{source} cannot be read: {error:#}")),
+            }
+        }
+    }
+    for obligation in &manifest.obligation {
+        let Obligation::Kani { source, .. } = obligation;
+        if !discovered.iter().any(|(found, _)| found == source) {
+            findings.push(format!(
+                "the manifest declares {source}, which is not a rule module of the core"
+            ));
+        }
+    }
+    findings
+}
+
+fn run_probe(root: &Path, scratch: &Path, manifest: Option<&Path>, probe: &Probe) -> Result<()> {
+    let target = scratch.join(format!("probe-{}", probe.harness));
+    let report = scratch.join(format!("probe-{}.json", probe.harness));
+    let mut command = kani_command(root, manifest, &target, &report);
+    command.args(["--harness", &probe.harness]);
+    let passed = tool::status(&mut command, "cargo kani")?;
+    ensure!(
+        !passed,
+        "the deliberately false assertion passed: {}",
+        probe.harness
+    );
+    check_negative(&read_report(&report)?, &probe.harness, &probe.assertion)
+}
+
+fn verify_kani(root: &Path) -> Result<()> {
+    tool::require_version(
+        Tool::Cargo.command(root).arg("kani"),
+        "cargo-kani",
+        KANI_VERSION,
+    )?;
+    let discovered = discover(root)?;
+    let manifest = obligations::load(root)?;
+    let sources = |source: &str| fs::read_to_string(&root.join(source));
+    let findings = inventory_findings(&discovered, &manifest, &sources);
+    ensure!(
+        findings.is_empty(),
+        "the proof inventory is stale:\n{}",
+        findings.join("\n")
+    );
+    let scratch = tempfile::tempdir().context("create the proof scratch directory")?;
+    if manifest.obligation.is_empty() {
+        eprintln!("kani: the core defines no rule module yet, so only the fixture runs");
+    } else {
+        let harnesses: Vec<&Harness> = manifest
+            .obligation
+            .iter()
+            .flat_map(|obligation| {
+                let Obligation::Kani { harnesses, .. } = obligation;
+                harnesses.iter()
+            })
+            .collect();
+        let report = scratch.path().join("proofs.json");
+        let mut command = kani_command(root, None, &scratch.path().join("proofs"), &report);
+        for harness in &harnesses {
+            command.args(["--harness", &harness.name]);
+        }
+        tool::succeed(&mut command, "cargo kani")?;
+        check_positive(&read_report(&report)?, &harnesses)?;
+        for obligation in &manifest.obligation {
+            let Obligation::Kani { probes, .. } = obligation;
+            for probe in probes {
+                run_probe(root, scratch.path(), None, probe)?;
+            }
+        }
+    }
+    let fixture = Probe {
+        harness: KANI_FIXTURE_HARNESS.to_owned(),
+        assertion: KANI_FIXTURE_ASSERTION.to_owned(),
+    };
+    run_probe(
+        root,
+        scratch.path(),
+        Some(&root.join(KANI_FIXTURE).join("Cargo.toml")),
+        &fixture,
+    )
+    .context("the Kani fixture must be refused")
+}
+
+fn miri_command(root: &Path, manifest: Option<&Path>, target: &Path) -> Command {
+    let mut command = Tool::CargoNightly.command(root);
+    command.args(["miri", "test", "--locked"]);
+    if let Some(manifest) = manifest {
+        command.arg("--manifest-path").arg(manifest);
+    }
+    command.arg("--target-dir").arg(target);
+    command
+}
+
+fn verify_miri(root: &Path) -> Result<()> {
+    tool::capture(
+        Tool::CargoNightly
+            .command(root)
+            .arg("miri")
+            .arg("--version"),
+        "cargo miri",
+    )?;
+    let mut command = miri_command(root, None, &root.join(MIRI_TARGET));
+    for krate in MIRI_CRATES {
+        command.args(["--package", krate]);
+    }
+    tool::succeed(&mut command, "cargo miri test")?;
+    let fixture = root.join(MIRI_FIXTURE);
+    let mut fixture_command = miri_command(
+        root,
+        Some(&fixture.join("Cargo.toml")),
+        &root.join(FIXTURE_OUTPUT).join("miri"),
+    );
+    let passed = tool::status(&mut fixture_command, "cargo miri test on the fixture")?;
+    ensure!(
+        !passed,
+        "the Miri fixture with undefined behavior passed; the gate cannot show it fails"
+    );
+    Ok(())
+}
+
+fn fuzz_run(root: &Path, directory: &str, target: &str, arguments: &[&str]) -> Command {
+    let mut command = Tool::CargoNightly.command(root);
+    command
+        .args(["fuzz", "run", "--fuzz-dir", directory, target])
+        .arg(Path::new(directory).join("corpus").join(target))
+        .arg("--")
+        .args(arguments);
+    command
+}
+
+fn fuzz_targets(root: &Path, directory: &str) -> Result<Vec<String>> {
+    let mut targets = Vec::new();
+    for path in fs::files_with_suffix(&root.join(directory).join("fuzz_targets"), ".rs")? {
+        let stem = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .context("a fuzz target has a UTF-8 name")?;
+        targets.push(stem.to_owned());
+    }
+    Ok(targets)
+}
+
+fn verify_fuzz(root: &Path) -> Result<()> {
+    tool::require_version(
+        Tool::Cargo.command(root).arg("fuzz"),
+        "cargo-fuzz",
+        FUZZ_VERSION,
+    )?;
+    if fs::is_file(&root.join(FUZZ).join("Cargo.toml"))? {
+        let targets = fuzz_targets(root, FUZZ)?;
+        ensure!(!targets.is_empty(), "the fuzz workspace defines no target");
+        for target in targets {
+            let corpus = root.join(FUZZ).join("corpus").join(&target);
+            ensure!(
+                !fs::entries(&corpus)?.is_empty(),
+                "the fuzz target {target} has no committed corpus under {}",
+                portable(&corpus)
+            );
+            tool::succeed(
+                &mut fuzz_run(root, FUZZ, &target, &["-runs=0"]),
+                "cargo fuzz run",
+            )?;
+        }
+    } else {
+        eprintln!("fuzz: the product defines no fuzz workspace yet, so only the fixture runs");
+    }
+    let passed = tool::status(
+        &mut fuzz_run(root, FUZZ_FIXTURE, FUZZ_FIXTURE_TARGET, &["-runs=0"]),
+        "cargo fuzz run on the fixture",
+    )?;
+    ensure!(
+        !passed,
+        "the fuzz fixture whose corpus panics passed; the replay cannot show it fails"
+    );
+    Ok(())
+}
+
+/// The counts a mutation campaign reports.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+pub struct Outcomes {
+    pub total_mutants: u64,
+    pub missed: u64,
+    pub caught: u64,
+    pub timeout: u64,
+    pub unviable: u64,
+}
+
+fn campaign(
+    root: &Path,
+    manifest: Option<&Path>,
+    package: Option<&str>,
+    output: &Path,
+) -> Result<Outcomes> {
+    fs::remove_dir_all(output)?;
+    fs::create_dir_all(output)?;
+    let mut command = Tool::Cargo.command(root);
+    command.env("RUST_TEST_THREADS", MUTANT_TEST_THREADS);
+    command.args(["mutants", "--no-shuffle", "--jobs", MUTANT_JOBS]);
+    if let Some(manifest) = manifest {
+        command.arg("--manifest-path").arg(manifest);
+    }
+    if let Some(package) = package {
+        command.args(["--package", package]);
+    }
+    command.arg("--output").arg(output);
+    tool::status(&mut command, "cargo mutants")?;
+    let path = output.join("mutants.out/outcomes.json");
+    if !fs::is_file(&path)? {
+        return Ok(Outcomes::NONE);
+    }
+    let bytes = fs::read(&path)?;
+    serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display()))
+}
+
+impl Outcomes {
+    /// A campaign that found nothing to mutate, which writes no outcomes.
+    pub const NONE: Self = Self {
+        total_mutants: 0,
+        missed: 0,
+        caught: 0,
+        timeout: 0,
+        unviable: 0,
+    };
+}
+
+/// Whether a count stays within its ceiling.
+#[must_use]
+pub const fn within(count: u64, ceiling: u64) -> bool {
+    count <= ceiling
+}
+
+fn verify_mutants(root: &Path) -> Result<()> {
+    tool::require_version(
+        Tool::Cargo.command(root).arg("mutants"),
+        "cargo-mutants",
+        MUTANTS_VERSION,
+    )?;
+    let outcomes = campaign(root, None, Some("sivi-core"), &root.join(MUTANTS_OUTPUT))?;
+    if discover(root)?.is_empty() && outcomes.total_mutants == 0 {
+        eprintln!("mutants: the core defines no rule module yet, so only the fixture runs");
+    } else {
+        ensure!(
+            outcomes.total_mutants > 0,
+            "the mutation campaign found nothing to mutate"
+        );
+        ensure!(
+            within(outcomes.missed, MISSED_CEILING) && within(outcomes.timeout, TIMEOUT_CEILING),
+            "the mutation campaign over the core missed {} and timed out on {} mutants of {}; see {}",
+            outcomes.missed,
+            outcomes.timeout,
+            outcomes.total_mutants,
+            MUTANTS_OUTPUT
+        );
+    }
+    let fixture = campaign(
+        root,
+        Some(&root.join(MUTANTS_FIXTURE).join("Cargo.toml")),
+        None,
+        &root.join(FIXTURE_OUTPUT).join("mutants"),
+    )?;
+    ensure!(
+        fixture.missed >= 1,
+        "the mutation fixture whose test asserts nothing caught every mutant; the gate cannot show it fails"
+    );
+    Ok(())
+}
+
+fn digest(root: &Path) -> Result<String> {
+    let mut hasher = Sha256::new();
+    let mut paths = fs::files_with_suffix(&root.join(CORE).join("src"), ".rs")?;
+    paths.push(root.join(obligations::MANIFEST));
+    for path in paths {
+        if fs::is_file(&path)? {
+            let relative = path
+                .strip_prefix(root)
+                .with_context(|| format!("{} lies in the checkout", path.display()))?;
+            hasher.update(portable(relative).as_bytes());
+            hasher.update(fs::read(&path)?);
+        }
+    }
+    let mut text = String::new();
+    for byte in hasher.finalize() {
+        write!(text, "{byte:02x}").context("format the digest")?;
+    }
+    Ok(text)
+}
+
+fn receipt(root: &Path, step: Step) -> Result<()> {
+    let version = match step {
+        Step::Kani => KANI_VERSION,
+        Step::Miri => tool::NIGHTLY,
+        Step::Fuzz => FUZZ_VERSION,
+        Step::Mutants => MUTANTS_VERSION,
+    };
+    let receipt = serde_json::json!({
+        "step": step.name(),
+        "version": version,
+        "inputs": digest(root)?,
+        "result": "pass",
+    });
+    let path = root.join(RECEIPTS).join(format!("{}.json", step.name()));
+    fs::write(&path, serde_json::to_string_pretty(&receipt)?.as_bytes())
+}
+
+fn verify(root: &Path, step: Step) -> Result<()> {
+    match step {
+        Step::Kani => verify_kani(root)?,
+        Step::Miri => verify_miri(root)?,
+        Step::Fuzz => verify_fuzz(root)?,
+        Step::Mutants => verify_mutants(root)?,
+    }
+    receipt(root, step)
+}
+
+/// Runs the selected verifiers and reports every failure together.
+///
+/// # Errors
+///
+/// Returns an error naming each failed verifier.
+pub fn run(root: &Path, options: Options) -> Result<()> {
+    let mut report = Report::default();
+    for step in options.selected() {
+        report.stage(step.name(), || verify(root, step));
+    }
+    report.finish("proofs")
+}
+
+/// Fuzzes one product target beyond its corpus for `runs` runs with a fixed seed.
+///
+/// # Errors
+///
+/// Returns an error when the target is unknown, the count is not a number, or the run finds a crash.
+pub fn fuzz(root: &Path, target: &str, runs: &str) -> Result<()> {
+    let runs: u64 = runs.parse().context("the run count is a whole number")?;
+    ensure!(
+        fuzz_targets(root, FUZZ)?
+            .iter()
+            .any(|known| known == target),
+        "{target} is not a target of the fuzz workspace"
+    );
+    tool::succeed(
+        &mut fuzz_run(root, FUZZ, target, &[&format!("-runs={runs}"), "-seed=1"]),
+        "cargo fuzz run",
+    )
+}
+
+/// Where a scratch path for proof outputs lives, for tests and callers that keep diagnostics.
+#[must_use]
+pub fn scratch(root: &Path) -> PathBuf {
+    root.join(FIXTURE_OUTPUT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        Harness, Harnesses, KaniReport, Manifest, Options, Step, check_negative, check_positive,
+        inventory_findings,
+    };
+
+    fn harness(name: &str) -> Harness {
+        Harness {
+            name: name.to_owned(),
+            covers: 1,
+            contract: "fixture".to_owned(),
+            input_domain: "fixture".to_owned(),
+            bound: "fixture".to_owned(),
+        }
+    }
+
+    fn positive() -> KaniReport {
+        serde_json::from_str(r#"{"metadata":{"kani_version":"0.68.0"},"property_details":[{"harness_id":"contract","property_details":{"failed":0,"undetermined":0,"solver_error":0,"satisfied":1,"unsatisfiable":0}}],"verification_results":{"summary":{"total_harnesses":1,"executed":1,"status":"completed","successful":1,"failed":0},"results":[{"harness_id":"contract","status":"Success","checks":[{"status":"Success","description":"contract assertion","category":"assertion"}]}]}}"#).unwrap()
+    }
+
+    fn negative() -> KaniReport {
+        serde_json::from_str(r#"{"metadata":{"kani_version":"0.68.0"},"property_details":[{"harness_id":"rejects_x","property_details":{"failed":1,"undetermined":0,"solver_error":0,"satisfied":0,"unsatisfiable":0}}],"verification_results":{"summary":{"total_harnesses":1,"executed":1,"status":"completed","successful":0,"failed":1},"results":[{"harness_id":"rejects_x","status":"Failure","checks":[{"status":"Failure","description":"NEGATIVE_X_CONTROL","category":"assertion"}]}]}}"#).unwrap()
+    }
+
+    #[test]
+    fn options_read_ci_and_only() {
+        assert_eq!(
+            Options::from_words(&[]),
+            Some(Options {
+                ci: false,
+                only: None
+            })
+        );
+        assert_eq!(
+            Options::from_words(&["--ci", "--only", "miri"]),
+            Some(Options {
+                ci: true,
+                only: Some(Step::Miri)
+            })
+        );
+        assert_eq!(Options::from_words(&["--only"]), None);
+        assert_eq!(Options::from_words(&["--only", "lean"]), None);
+        assert_eq!(Options::from_words(&["--verbose"]), None);
+        assert_eq!(
+            Options {
+                ci: true,
+                only: None
+            }
+            .selected(),
+            [Step::Kani, Step::Miri, Step::Fuzz]
+        );
+        assert_eq!(
+            Options {
+                ci: true,
+                only: Some(Step::Mutants)
+            }
+            .selected(),
+            [Step::Mutants]
+        );
+    }
+
+    #[test]
+    fn a_positive_report_needs_the_exact_harnesses_and_covers() {
+        let contract = harness("contract");
+        check_positive(&positive(), &[&contract]).unwrap();
+        check_positive(&positive(), &[]).unwrap_err();
+        let mut uncovered = positive();
+        uncovered.property_details[0].property_details.satisfied = 0;
+        check_positive(&uncovered, &[&contract]).unwrap_err();
+        let mut stale = positive();
+        stale.verification_results.results[0].harness_id = "stale".to_owned();
+        check_positive(&stale, &[&contract]).unwrap_err();
+        let mut skipped = positive();
+        skipped.verification_results.summary.executed = 0;
+        check_positive(&skipped, &[&contract]).unwrap_err();
+        let mut cover_only = positive();
+        cover_only.verification_results.results[0].checks[0].category = "cover".to_owned();
+        check_positive(&cover_only, &[&contract]).unwrap_err();
+    }
+
+    #[test]
+    fn a_negative_report_needs_the_named_assertion_and_no_tool_error() {
+        check_negative(&negative(), "rejects_x", "NEGATIVE_X_CONTROL").unwrap();
+        check_negative(&negative(), "rejects_x", "NEGATIVE_OTHER").unwrap_err();
+        check_negative(&negative(), "rejects_y", "NEGATIVE_X_CONTROL").unwrap_err();
+        let mut solver = negative();
+        solver.property_details[0].property_details.solver_error = 1;
+        check_negative(&solver, "rejects_x", "NEGATIVE_X_CONTROL").unwrap_err();
+        check_negative(&positive(), "contract", "anything").unwrap_err();
+    }
+
+    #[test]
+    fn the_inventory_must_match_the_rule_modules() {
+        let discovered = vec![(
+            "crates/sivi-core/src/fit_rules.rs".to_owned(),
+            Harnesses {
+                proofs: vec!["fits".to_owned()],
+                probes: vec!["rejects_x".to_owned()],
+            },
+        )];
+        let manifest: Manifest = toml::from_str(
+            r#"
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/fit_rules.rs"
+harnesses = [{ name = "fits", covers = 1, contract = "c", input_domain = "i", bound = "b" }]
+probes = [{ harness = "rejects_x", assertion = "NEGATIVE_FIT_CONTROL" }]
+"#,
+        )
+        .unwrap();
+        let sources = |_: &str| Ok("assert!(x, \"NEGATIVE_FIT_CONTROL\")".to_owned());
+        assert_eq!(
+            inventory_findings(&discovered, &manifest, &sources),
+            Vec::<String>::new()
+        );
+        let missing = |_: &str| Ok(String::new());
+        let unasserted = inventory_findings(&discovered, &manifest, &missing);
+        assert!(
+            unasserted
+                .iter()
+                .any(|finding| finding.contains("never asserts")),
+            "{unasserted:?}"
+        );
+        let unreadable = |_: &str| Err(anyhow::anyhow!("gone"));
+        let lost = inventory_findings(&discovered, &manifest, &unreadable);
+        assert!(
+            lost.iter()
+                .any(|finding| finding.contains("cannot be read")),
+            "{lost:?}"
+        );
+        let undeclared = inventory_findings(&discovered, &Manifest::default(), &sources);
+        assert!(
+            undeclared
+                .iter()
+                .any(|finding| finding.contains("declares no Kani obligation"))
+        );
+        let stale = inventory_findings(&[], &manifest, &sources);
+        assert!(
+            stale
+                .iter()
+                .any(|finding| finding.contains("not a rule module"))
+        );
+    }
+}

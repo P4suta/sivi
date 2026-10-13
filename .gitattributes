@@ -1,0 +1,7 @@
+* text=auto eol=lf
+fuzz/corpus/** binary
+fonts/*.ttf binary
+fonts/*.otf binary
+fixtures/**/*.png binary
+fixtures/**/*.jpg binary
+fixtures/**/*.pdf binary

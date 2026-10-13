@@ -1,0 +1,3 @@
+# Every verification obligation of this repository, which `just proofs` discharges and `just check` holds to the source.
+# Each rule module of crates/sivi-core has one Kani obligation: every harness it defines must pass with the covers it declares, and every `rejects_*` probe must fail on its named assertion.
+# The core defines no rule module yet.

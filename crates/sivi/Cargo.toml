@@ -1,0 +1,23 @@
+[package]
+name = "sivi"
+description = "Compile Markdown decks to PDF through Typst and refuse any slide its master cannot hold"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+readme.workspace = true
+
+[[bin]]
+name = "sivi"
+path = "src/main.rs"
+
+[dependencies]
+sivi-core.workspace = true
+sivi-markdown.workspace = true
+sivi-theme.workspace = true
+sivi-typst.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true

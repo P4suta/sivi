@@ -1,0 +1,14 @@
+[package]
+name = "sivi-markdown"
+description = "The Markdown front end of sivi, which turns a deck into the core's slide model with source spans"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+sivi-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,46 @@
+# Architecture
+
+sivi compiles a Markdown deck to a PDF through the Typst compiler, driven in process.
+Markdown carries content only.
+Every visual decision lives in a theme whose slide masters declare typed slots.
+When content does not fit, the compiler never shrinks or splits it; it reports a diagnostic with the source span, the measured numbers, and a computed change that would make it fit.
+
+## Pipeline
+
+```text
+deck text ─ scan + parse ─> Deck ─ deck and front matter rules ─> Slides
+          ─ binder, slot and master rules ─> BoundDeck
+          ─ emit::typst_source(&Theme, &BoundDeck) ─> (TypstSource, Expected)
+          ─ sivi_typst::compile_and_measure ─> Measurement
+          ─ report::diagnose(&Theme, &BoundDeck, &Measurement) ─> Report
+          ─ (no errors) sivi_typst::pdf ─> PdfBytes ─ publish ─> deck.pdf
+```
+
+Every arrow without a crate name is a pure function of `sivi-core`.
+The adapters read files, run Typst, and write the PDF; they turn every fact into a value before the core sees it.
+`Expected` lists the measurement markers the adapter must read back, so a missing marker is an error and never a silent "fits".
+
+## Crates
+
+| Crate | Depends on | Role |
+| --- | --- | --- |
+| `sivi-core` | nothing | Values in, values out. `#![no_std]`, no dependencies, the panic lints denied. |
+| `sivi-markdown` | `sivi-core`, `comrak` | Deck scanning, CommonMark parsing, source spans, refusal of forbidden constructs. |
+| `sivi-theme` | `sivi-core`, `toml`, `serde`, `ttf-parser` | Theme files into validated masters, with font metrics. |
+| `sivi-typst` | `sivi-core`, `typst` | The Typst `World`, bundled fonts, compilation, measurement read-back, frame walk, PDF export. |
+| `sivi` | all of the above, `clap`, `annotate-snippets` | The command line, file reads, diagnostics rendering, atomic publication. |
+| `xtask` | none of the above | The gates. |
+
+`cargo xtask structure` refuses a dependency of the core, a `std` path in the core, a weakened deny list, a rule module outside the core, a protocol step outside `binder.rs`, and a dependency against the direction above.
+
+## Gates
+
+| Command | Runs |
+| --- | --- |
+| `cargo xtask check` | rustfmt, taplo, typos, clippy with warnings denied, `structure`, the decision records, the generated repository files, actionlint and zizmor, nextest, cargo-deny, cargo-audit |
+| `cargo xtask check --staged` | The quick subset over the staged files |
+| `cargo xtask proofs` | Kani over `verification/obligations.toml` with its rejecting probes, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the core; each verifier also refuses its fixture under `xtask/proofs/` |
+| `cargo xtask push-check` | `check` and then `proofs` |
+
+The machine-wide hooks of the owner's dotfiles run first on every commit and push: the assurance shapes, the structural catalog, the comment and prose checks.
+This repository's `lefthook.yml` adds only its own gates.
