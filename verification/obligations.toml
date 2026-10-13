@@ -134,6 +134,16 @@ probes = [
 ]
 
 [[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/publish_rules.rs"
+harnesses = [
+  { name = "proofs::the_rename_comes_last_after_the_sync_and_a_failure_leaves_the_output_alone", covers = 2, contract = "the output is replaced only by the rename, which follows the sync; every stage reaches the end within four steps; a failure removes the staging file exactly when it exists", input_domain = "every stage of the publication", bound = "the five stages" },
+]
+probes = [
+  { harness = "proofs::rejects_a_rename_before_the_sync", assertion = "NEGATIVE_PUBLISH_CONTROL" },
+]
+
+[[obligation]]
 verifier = "quint"
 spec = "specs/binder.qnt"
 main = "binder"
@@ -151,6 +161,14 @@ verifier = "prolog"
 spec = "specs/binding.pl"
 generated = 200
 seed = 42
+
+[[obligation]]
+verifier = "tla"
+spec = "specs/publish.tla"
+config = "specs/publish.cfg"
+probe_config = "specs/publish_probe.cfg"
+probe_invariant = "OutputNeverPartial"
+distinct_states = 8
 
 [[obligation]]
 verifier = "alloy"

@@ -17,11 +17,15 @@ sivi-core.workspace = true
 sivi-markdown.workspace = true
 sivi-theme.workspace = true
 sivi-typst.workspace = true
+annotate-snippets.workspace = true
 clap.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
-serde_json.workspace = true
+assert_cmd.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

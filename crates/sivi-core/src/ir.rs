@@ -62,6 +62,33 @@ pub enum BlockKind {
     Table,
 }
 
+impl BlockKind {
+    /// Every kind, in the order the theme format lists them.
+    pub const ALL: [Self; 7] = [
+        Self::Heading,
+        Self::Paragraph,
+        Self::List,
+        Self::Code,
+        Self::Quote,
+        Self::Image,
+        Self::Table,
+    ];
+
+    /// The name the theme format and the diagnostics use.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Heading => "heading",
+            Self::Paragraph => "paragraph",
+            Self::List => "list",
+            Self::Code => "code",
+            Self::Quote => "quote",
+            Self::Image => "image",
+            Self::Table => "table",
+        }
+    }
+}
+
 /// What a block says.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BlockBody {

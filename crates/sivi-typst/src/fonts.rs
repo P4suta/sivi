@@ -41,6 +41,12 @@ pub fn bundled() -> Vec<Font> {
         .collect()
 }
 
+/// The faces of a font file a theme loads, in the order the file lists them.
+#[must_use]
+pub fn faces(bytes: Vec<u8>) -> Vec<Font> {
+    Font::iter(Bytes::new(bytes)).collect()
+}
+
 /// The font book over `fonts`, which Typst consults for family and variant lookups.
 #[must_use]
 pub fn book(fonts: &[Font]) -> FontBook {

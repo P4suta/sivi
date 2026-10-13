@@ -47,6 +47,21 @@ pub enum Obligation {
         generated: u32,
         seed: u64,
     },
+    /// The model checker must hold every invariant and the property in every behavior of the model, and refute the probe configuration.
+    Tla(TlaModel),
+}
+
+/// A TLA+ model with the configuration TLC checks and the one it must refute.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TlaModel {
+    pub spec: String,
+    pub config: String,
+    /// The configuration of the probe, whose named invariant the model checker must find violated.
+    pub probe_config: String,
+    pub probe_invariant: String,
+    /// The distinct states the model checker finds, which a model change must update.
+    pub distinct_states: u64,
 }
 
 /// A Quint model, its probe, and the runs that bind it to the implementation.

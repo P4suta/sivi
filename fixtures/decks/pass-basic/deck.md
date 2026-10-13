@@ -41,8 +41,13 @@ id: plan
 | --- | --- |
 | Q4 | Ship |
 
-> One paragraph of quote with *emphasis* and `code`
-
 ```notes
 Speak slowly.
 ```
+
+---
+master: quote
+---
+> One paragraph of quote with *emphasis* and `code`
+
+The speaker

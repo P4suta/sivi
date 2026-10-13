@@ -28,7 +28,7 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | `sivi-markdown` | `sivi-core`, `comrak` | Deck scanning, CommonMark parsing, source spans, refusal of forbidden constructs. |
 | `sivi-theme` | `sivi-core`, `toml`, `serde`, `ttf-parser` | Theme files into validated masters, with font metrics. |
 | `sivi-typst` | `sivi-core`, `typst` | The Typst `World`, bundled fonts, compilation, measurement read-back, frame walk, PDF export. |
-| `sivi` | all of the above, `clap`, `annotate-snippets` | The command line, file reads, diagnostics rendering, atomic publication. |
+| `sivi` | all of the above, `clap`, `annotate-snippets`, `serde_json`, `sha2` | The command line, file reads, diagnostics rendering, atomic publication. |
 | `xtask` | none of the above | The gates. |
 
 `cargo xtask structure` refuses a dependency of the core, a `std` path in the core, a weakened deny list, a rule module outside the core, a protocol step outside `binder.rs`, and a dependency against the direction above.
@@ -39,7 +39,7 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | --- | --- |
 | `cargo xtask check` | rustfmt, taplo, typos, clippy with warnings denied, `structure`, the decision records, the generated repository files, actionlint and zizmor, nextest, cargo-deny, cargo-audit |
 | `cargo xtask check --staged` | The quick subset over the staged files |
-| `cargo xtask proofs` | Every verifier of `verification/obligations.toml` with its rejecting probe: Kani, Verus, Z3, Alloy, Quint with the trace replay, the Prolog reference, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the core; each verifier also refuses its fixture under `xtask/proofs/` |
+| `cargo xtask proofs` | Every verifier of `verification/obligations.toml` with its rejecting probe: Kani, Verus, Z3, Alloy, Quint with the trace replay, the Prolog reference, TLC over the publication model, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the core; each verifier also refuses its fixture under `xtask/proofs/` |
 | `cargo xtask push-check` | `check` and then `proofs` |
 
 The machine-wide hooks of the owner's dotfiles run first on every commit and push: the assurance shapes, the structural catalog, the comment and prose checks.

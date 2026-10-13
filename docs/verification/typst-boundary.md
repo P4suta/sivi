@@ -17,6 +17,8 @@ A Typst upgrade that breaks an assumption fails that test before it can change a
 | A font family outside the bundle compiles with an `unknown font family` warning, which the adapter surfaces instead of hiding | `a_family_outside_the_bundle_is_a_warning_the_adapter_surfaces` |
 | A marker the emitter promised but the document lacks, or holds twice, is an error and never a verdict | `a_missing_marker_is_an_error_and_never_a_verdict` |
 | Two exports of the same document with the same identity and timestamp are byte-identical, and the timestamp is the only date in the PDF | `the_pdf_bytes_depend_on_the_inputs_alone` |
+| A `raw` element sets its own font, which no bundled file provides, so only a `show raw: set text(font: ...)` rule gives it a bundled font; with `fallback: false` a plain `set text(font: ...)` leaves it without glyphs | `raw_takes_its_font_only_from_a_show_set_rule` |
+| A `heading` element adds its own block spacing and text size, which `show heading: set ...` rules remove, so a title measures as its lines alone | `a_heading_under_show_set_rules_measures_as_its_lines` |
 
 ## What the adapter trusts and what it checks
 

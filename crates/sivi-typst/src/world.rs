@@ -80,10 +80,12 @@ impl SiviWorld {
     pub fn new(
         source: &str,
         assets: Vec<Asset>,
-        theme_fonts: Vec<Font>,
+        theme_fonts: Vec<Vec<u8>>,
     ) -> Result<Self, WorldError> {
         let mut fonts = fonts::bundled();
-        fonts.extend(theme_fonts);
+        for file in theme_fonts {
+            fonts.extend(fonts::faces(file));
+        }
         let book = fonts::book(&fonts);
         let main = Source::new(file_id(MAIN_PATH)?, source.to_owned());
         let mut files = HashMap::new();

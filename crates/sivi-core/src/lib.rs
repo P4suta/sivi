@@ -20,9 +20,12 @@
 extern crate alloc;
 
 pub mod attribute_rules;
+pub mod bind;
 pub mod binder;
+pub mod calendar;
 pub mod deck_rules;
 pub mod diagnostic;
+pub mod emit;
 pub mod escape_rules;
 pub mod fit_rules;
 pub mod front_matter;
@@ -33,6 +36,8 @@ pub mod length;
 pub mod master_rules;
 pub mod measure;
 pub mod protocol;
+pub mod publish_rules;
+pub mod report;
 pub mod slot_rules;
 pub mod softbreak_rules;
 pub mod span;

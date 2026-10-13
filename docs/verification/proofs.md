@@ -10,6 +10,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Z3 | 5.1.0 | `specs/smt/millipoints.smt2`, generated from the core's constants: the fixed-point verdict agrees with the real one outside a band of one millipoint | `specs/smt/millipoints-negative.smt2`, a claim rounding breaks, which Z3 must find satisfiable |
 | Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one slot interior, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
 | Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
+| TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
 | Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme and the bundled fonts are skipped, since Miri interprets each in minutes, and a small theme stands in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
@@ -33,6 +34,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `theme_rules` | section numbers are one to their count each once; a `follows` chain ends inside its master or the fault is named, for three slots; a line box fits exactly when the pitch covers the face | — |
 | `slot_rules` | a slot admits a block exactly when the kind and every measure fit; the follower of the last slot comes first and the first flow slot otherwise, for three slots | — |
 | `master_rules` | the edit distance is zero only between equal names, symmetric, and bounded, for names of up to four bytes | — |
+| `publish_rules` | the output is replaced only by the rename, which follows the sync; every stage reaches the end; a failure removes the staging file exactly when it exists | `specs/publish.tla` under TLC owns the interleavings with a crash |
 
 ## What the fuzz targets replay
 

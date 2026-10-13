@@ -57,19 +57,21 @@ pub enum Step {
     Alloy,
     Quint,
     Prolog,
+    Tla,
     Miri,
     Fuzz,
     Mutants,
 }
 
 impl Step {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Kani,
         Self::Verus,
         Self::Smt,
         Self::Alloy,
         Self::Quint,
         Self::Prolog,
+        Self::Tla,
         Self::Miri,
         Self::Fuzz,
         Self::Mutants,
@@ -84,6 +86,7 @@ impl Step {
             Self::Alloy => "alloy",
             Self::Quint => "quint",
             Self::Prolog => "prolog",
+            Self::Tla => "tla",
             Self::Miri => "miri",
             Self::Fuzz => "fuzz",
             Self::Mutants => "mutants",
@@ -504,7 +507,8 @@ fn verify_kani(root: &Path) -> Result<()> {
                 Obligation::Verus { .. }
                 | Obligation::Alloy { .. }
                 | Obligation::Quint(_)
-                | Obligation::Prolog { .. } => Vec::new(),
+                | Obligation::Prolog { .. }
+                | Obligation::Tla(_) => Vec::new(),
             })
             .collect();
         let harnesses: Vec<&Harness> = qualified.iter().collect();
@@ -814,6 +818,7 @@ fn receipt(root: &Path, step: Step) -> Result<()> {
         Step::Alloy => crate::alloy::ALLOY_VERSION,
         Step::Quint => crate::quint::QUINT_VERSION,
         Step::Prolog => crate::reference::SWIPL_VERSION,
+        Step::Tla => crate::quint::APALACHE_VERSION,
         Step::Miri => tool::NIGHTLY,
         Step::Fuzz => FUZZ_VERSION,
         Step::Mutants => MUTANTS_VERSION,
@@ -836,6 +841,7 @@ fn verify(root: &Path, step: Step) -> Result<()> {
         Step::Alloy => crate::alloy::verify(root)?,
         Step::Quint => crate::quint::verify(root)?,
         Step::Prolog => verify_prolog(root)?,
+        Step::Tla => crate::tla::verify(root)?,
         Step::Miri => verify_miri(root)?,
         Step::Fuzz => verify_fuzz(root)?,
         Step::Mutants => verify_mutants(root)?,
@@ -985,6 +991,7 @@ mod tests {
                 Step::Alloy,
                 Step::Quint,
                 Step::Prolog,
+                Step::Tla,
                 Step::Miri,
                 Step::Fuzz
             ]

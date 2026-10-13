@@ -17,6 +17,7 @@ pub mod reference;
 pub mod report;
 pub mod smt;
 pub mod structure;
+pub mod tla;
 pub mod tool;
 pub mod verus;
 

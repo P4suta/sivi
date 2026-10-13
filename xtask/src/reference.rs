@@ -4,13 +4,14 @@
 
 use crate::fs;
 use crate::tool::{self, Tool};
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use serde_json::{Value, json};
+use sivi_core::bind::{self, Overflow, grammar};
 use sivi_core::binder::{BindState, Input, Step, step, unfilled};
 use sivi_core::diagnostic::Code;
-use sivi_core::ir::{Block, BlockBody, BlockKind, Deck, HeadingLevel};
+use sivi_core::ir::{Block, BlockKind, Deck, HeadingLevel};
 use sivi_core::slot_rules::{BlockFacts, SlotGrammar};
-use sivi_core::theme::{Binding, Master, Theme};
+use sivi_core::theme::{Binding, Theme};
 use std::path::Path;
 
 /// The reference program.
@@ -43,67 +44,14 @@ pub struct Outcome {
     pub unfilled: Option<usize>,
 }
 
-/// The slot grammar of a master, with `follows` as an index.
-#[must_use]
-pub fn grammar(master: &Master) -> Vec<SlotGrammar> {
-    master
-        .slots
-        .iter()
-        .map(|slot| SlotGrammar {
-            binds: slot.binds,
-            accepts: slot.accepts,
-            required: slot.required,
-            follows: slot
-                .follows
-                .as_ref()
-                .and_then(|name| master.slots.iter().position(|other| other.name == *name)),
-            capacity: slot.capacity,
-        })
-        .collect()
-}
-
-fn items(list: &sivi_core::ir::List) -> u32 {
-    list.items.iter().fold(0, |total, item| {
-        let below = item.nested.as_ref().map_or(0, items);
-        total.saturating_add(1).saturating_add(below)
-    })
-}
-
-/// What the binder reads of a block.
+/// What the binder reads of a block, as the core's binding reads it.
 ///
 /// # Errors
 ///
 /// Returns an error when a measure of the block exceeds what the binder counts.
 pub fn input(block: &Block) -> Result<Input> {
-    let facts = |kind: BlockKind| BlockFacts {
-        kind,
-        items: 0,
-        depth: 0,
-        rows: 0,
-        columns: 0,
-        lines: 0,
-    };
-    let count = |measure: usize| u32::try_from(measure).context("a measure the binder counts");
-    Ok(match &block.body {
-        BlockBody::Heading(heading) => Input::Heading(heading.level),
-        BlockBody::Paragraph(_) => Input::Block(facts(BlockKind::Paragraph)),
-        BlockBody::Quote(_) => Input::Block(facts(BlockKind::Quote)),
-        BlockBody::Image(_) => Input::Block(facts(BlockKind::Image)),
-        BlockBody::List(list) => Input::Block(BlockFacts {
-            items: items(list),
-            depth: count(list.depth())?,
-            ..facts(BlockKind::List)
-        }),
-        BlockBody::Code(code) => Input::Block(BlockFacts {
-            lines: count(code.text.lines().count())?,
-            ..facts(BlockKind::Code)
-        }),
-        BlockBody::Table(table) => Input::Block(BlockFacts {
-            rows: count(table.rows.len())?,
-            columns: count(table.header.cells.len())?,
-            ..facts(BlockKind::Table)
-        }),
-    })
+    bind::input(block)
+        .map_err(|Overflow| anyhow!("a measure of the block exceeds what the binder counts"))
 }
 
 /// The binding `binder::step` yields for a case.

@@ -19,6 +19,9 @@ pub const QUINT_VERSION: &str = "0.33.0";
 /// The Apalache release Quint 0.33.0 expects, whose bundled model checker visits every state.
 pub const APALACHE_VERSION: &str = "0.62.1";
 
+/// Where the image installs Quint and the Apalache distribution, as its definition sets `QUINT_HOME`.
+pub const QUINT_HOME: &str = "/opt/quint";
+
 /// The directory that defines the image.
 pub const IMAGE_DIRECTORY: &str = "xtask/proofs/quint";
 
@@ -26,8 +29,8 @@ pub const IMAGE_DIRECTORY: &str = "xtask/proofs/quint";
 const IMAGE_INPUTS: [&str; 3] = ["Dockerfile", "package.json", "package-lock.json"];
 
 /// Where the container mounts the read-only checkout and the writable output directory.
-const SOURCE: &str = "/source";
-const OUTPUT: &str = "/out";
+pub const SOURCE: &str = "/source";
+pub const OUTPUT: &str = "/out";
 
 /// Apalache writes its run directory under the working directory, which the read-only checkout cannot hold.
 const WORKDIR: &str = "/tmp";
@@ -104,9 +107,9 @@ pub struct Session<'a> {
     pub image: &'a str,
 }
 
-/// The arguments that run `quint` with `arguments` in the image, with no network, the checkout read-only, and the output writable.
+/// The arguments that run `program` with `arguments` in the image, with no network, the checkout read-only, and the output writable.
 #[must_use]
-pub fn run_arguments(session: Session<'_>, arguments: &[&str]) -> Vec<OsString> {
+pub fn program_arguments(session: Session<'_>, program: &str, arguments: &[&str]) -> Vec<OsString> {
     let mut docker: Vec<OsString> = ["run", "--rm", "--network", "none"]
         .map(OsString::from)
         .into();
@@ -114,9 +117,15 @@ pub fn run_arguments(session: Session<'_>, arguments: &[&str]) -> Vec<OsString> 
     docker.push(mount(session.root, SOURCE, true));
     docker.push("--mount".into());
     docker.push(mount(session.output, OUTPUT, false));
-    docker.extend(["--workdir", WORKDIR, session.image, "quint"].map(OsString::from));
+    docker.extend(["--workdir", WORKDIR, session.image, program].map(OsString::from));
     docker.extend(arguments.iter().map(OsString::from));
     docker
+}
+
+/// The arguments that run `quint` with `arguments` in the image.
+#[must_use]
+pub fn run_arguments(session: Session<'_>, arguments: &[&str]) -> Vec<OsString> {
+    program_arguments(session, "quint", arguments)
 }
 
 /// The distinct states the model checker reports in `report`, or `None` when it reported none.
@@ -379,7 +388,8 @@ fn models(manifest: &obligations::Manifest) -> Vec<(String, &QuintModel)> {
             Obligation::Kani { .. }
             | Obligation::Verus { .. }
             | Obligation::Alloy { .. }
-            | Obligation::Prolog { .. } => None,
+            | Obligation::Prolog { .. }
+            | Obligation::Tla(_) => None,
         })
         .collect()
 }

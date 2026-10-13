@@ -327,3 +327,54 @@ fn the_pdf_bytes_depend_on_the_inputs_alone() {
     .unwrap();
     assert_ne!(first, undated);
 }
+
+/// A page without the raw font rule of [`PAGE`], and without any fallback font.
+const STRICT_PAGE: &str = "#set page(width: 300pt, height: 200pt, margin: 0pt)\n#set text(font: \"BIZ UDPGothic\", size: 12pt, fallback: false)\n";
+
+/// The text leaves of one region laid out from `part` on the strict page.
+fn text_leaves(part: &str) -> Result<usize, String> {
+    let source = format!("{STRICT_PAGE}{}", scaffold(0, 0, (10, 10, 200), &[part]));
+    let compiled = build(&source).map_err(|error| error.to_string())?;
+    let expected = Expected {
+        slides: 1,
+        regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
+    };
+    let measurement = measure(&compiled.document, &expected).map_err(|error| error.to_string())?;
+    Ok(measurement
+        .leaves
+        .iter()
+        .filter(|leaf| leaf.kind == ItemKind::Text)
+        .count())
+}
+
+#[test]
+fn raw_takes_its_font_only_from_a_show_set_rule() {
+    let plain_set = "#{ set text(font: \"JetBrains Mono\"); raw(block: true, \"x y\") }";
+    let show_set = "#{ show raw: set text(font: \"JetBrains Mono\"); raw(block: true, \"x y\") }";
+    assert_eq!(text_leaves(plain_set).unwrap(), 0);
+    assert!(text_leaves(show_set).unwrap() > 0);
+}
+
+#[test]
+fn a_heading_under_show_set_rules_measures_as_its_lines() {
+    let heading = "#{ set text(size: 20pt); set par(leading: 4pt); show heading: set text(size: 20pt, weight: 400); show heading: set block(above: 0pt, below: 0pt); show heading: set par(leading: 4pt); heading(level: 1, text(\"One line\")) }";
+    let paragraph = "#{ set text(size: 20pt); set par(leading: 4pt); par(text(\"One line\")) }";
+    let source = format!(
+        "{PAGE}{}#pagebreak()\n{}",
+        scaffold(0, 0, (10, 10, 200), &[heading]),
+        scaffold(1, 0, (10, 10, 200), &[paragraph])
+    );
+    let compiled = build(&source).unwrap();
+    let expected = Expected {
+        slides: 2,
+        regions: vec![
+            region(0, 0, (10, 10, 200, 100), 1),
+            region(1, 0, (10, 10, 200, 100), 1),
+        ],
+    };
+    let measurement = measure(&compiled.document, &expected).unwrap();
+    assert_eq!(
+        measurement.regions[0].required,
+        measurement.regions[1].required
+    );
+}

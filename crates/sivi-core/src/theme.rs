@@ -449,12 +449,13 @@ impl Theme {
     }
 }
 
+/// A small theme and its parts, which the tests of this crate build on.
 #[cfg(test)]
-mod tests {
+pub mod fixture {
     use super::{
-        Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, Digest, FamilyName, InlineStyles,
-        InvalidName, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName,
-        TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
+        Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, FamilyName, InlineStyles,
+        ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName, TableStyle, TextStyle,
+        Theme, Thousandths, Typography, VerticalAlign, Weight,
     };
     use crate::ir::BlockKind;
     use crate::length::{Length, Rect, Size};
@@ -463,29 +464,19 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
 
-    const KINDS: [BlockKind; 7] = [
-        BlockKind::Heading,
-        BlockKind::Paragraph,
-        BlockKind::List,
-        BlockKind::Code,
-        BlockKind::Quote,
-        BlockKind::Image,
-        BlockKind::Table,
-    ];
-
-    fn id(name: &str) -> Identifier {
+    pub(crate) fn id(name: &str) -> Identifier {
         Identifier::new(name).unwrap()
     }
 
-    fn style(name: &str) -> StyleName {
+    pub(crate) fn style(name: &str) -> StyleName {
         StyleName::new(name).unwrap()
     }
 
-    fn family() -> FamilyName {
+    pub(crate) fn family() -> FamilyName {
         FamilyName::new("BIZ UDPGothic").unwrap()
     }
 
-    fn text_style(size: i64) -> TextStyle {
+    pub(crate) fn text_style(size: i64) -> TextStyle {
         TextStyle {
             font: family(),
             size: Length::from_millipoints(size),
@@ -496,7 +487,8 @@ mod tests {
         }
     }
 
-    fn slot(name: &str) -> Slot {
+    /// A flow slot that accepts paragraphs, with no region and no capacity.
+    pub(crate) fn slot(name: &str) -> Slot {
         Slot {
             name: id(name),
             binds: Binding::Flow,
@@ -511,7 +503,7 @@ mod tests {
         }
     }
 
-    fn master(name: &str, slots: &[&str]) -> Master {
+    pub(crate) fn master(name: &str, slots: &[&str]) -> Master {
         Master {
             name: id(name),
             slots: slots.iter().map(|slot_name| slot(slot_name)).collect(),
@@ -519,7 +511,8 @@ mod tests {
         }
     }
 
-    fn tiny() -> Theme {
+    /// The theme `tiny`: two colors, the styles `body` and `meta`, and the masters `a` over slots `x`, `y` and `b` over `y`, `z`.
+    pub(crate) fn tiny() -> Theme {
         Theme {
             name: id("tiny"),
             page: Page {
@@ -589,6 +582,24 @@ mod tests {
             masters: vec![master("a", &["x", "y"]), master("b", &["y", "z"])],
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fixture::{id, style, tiny};
+    use super::{BlockKindSet, Color, Digest, FamilyName, InvalidName, StyleName, Weight};
+    use crate::ir::BlockKind;
+    use alloc::string::String;
+
+    const KINDS: [BlockKind; 7] = [
+        BlockKind::Heading,
+        BlockKind::Paragraph,
+        BlockKind::List,
+        BlockKind::Code,
+        BlockKind::Quote,
+        BlockKind::Image,
+        BlockKind::Table,
+    ];
 
     #[test]
     fn every_kind_has_its_own_bit_and_a_set_keeps_what_it_holds() {
