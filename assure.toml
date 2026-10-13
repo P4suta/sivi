@@ -26,6 +26,11 @@ shape = "parser"
 path = "crates/sivi-theme/src/lib.rs"
 by = "fuzz/fuzz_targets/theme_toml.rs"
 
+[[owner]]
+shape = "protocol"
+path = "crates/sivi-core/src/binder.rs"
+by = "crates/sivi/tests/binder_replay.rs"
+
 [[budget]]
 name = "unsafe-sites"
 ceiling = 0

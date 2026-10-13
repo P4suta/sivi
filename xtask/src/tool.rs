@@ -45,6 +45,8 @@ pub enum Tool {
     Rustup,
     /// Docker, which hosts the verifiers that ship as Java programs.
     Docker,
+    /// SWI-Prolog, which runs the executable references.
+    Swipl,
 }
 
 impl Tool {
@@ -63,6 +65,7 @@ impl Tool {
             Self::Ouch => "ouch",
             Self::Rustup => "rustup",
             Self::Docker => "docker",
+            Self::Swipl => "swipl",
         }
     }
 

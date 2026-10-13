@@ -12,6 +12,8 @@ pub mod fonts;
 pub mod fs;
 pub mod obligations;
 pub mod proofs;
+pub mod quint;
+pub mod reference;
 pub mod report;
 pub mod smt;
 pub mod structure;

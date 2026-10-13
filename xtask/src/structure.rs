@@ -35,7 +35,7 @@ pub const EDGES: [(&str, &[&str]); 6] = [
         "sivi",
         &["sivi-core", "sivi-markdown", "sivi-theme", "sivi-typst"],
     ),
-    ("xtask", &[]),
+    ("xtask", &["sivi-core", "sivi-markdown", "sivi-theme"]),
 ];
 
 const DEPENDENCY_TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];

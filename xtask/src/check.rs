@@ -273,6 +273,7 @@ pub fn push_check(root: &Path) -> Result<()> {
 /// Returns an error when a generator fails.
 pub fn generate(root: &Path) -> Result<()> {
     smt::generate(root)?;
+    crate::quint::generate(root)?;
     repository(root, "generate")
 }
 

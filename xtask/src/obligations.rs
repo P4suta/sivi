@@ -38,6 +38,37 @@ pub enum Obligation {
         solver: String,
         checks: Vec<AlloyCheck>,
     },
+    /// The model must hold its invariant in every reachable state, witness every outcome, and reproduce its traces.
+    Quint(QuintModel),
+    /// The reference must bind every fixture slide and every generated slide as the binder does.
+    Prolog {
+        spec: String,
+        /// How many slides the seeded generator adds to the fixtures.
+        generated: u32,
+        seed: u64,
+    },
+}
+
+/// A Quint model, its probe, and the runs that bind it to the implementation.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuintModel {
+    pub spec: String,
+    /// The module the gate checks.
+    pub main: String,
+    /// The module that breaks the invariant, which the model checker must refute.
+    pub probe: String,
+    pub invariant: String,
+    /// The outcomes every simulation must reach.
+    pub witnesses: Vec<String>,
+    /// The seed of the simulation, which makes the traces repeatable.
+    pub seed: String,
+    pub samples: u32,
+    pub steps: u32,
+    /// The distinct states the model checker finds, which a model change must update.
+    pub distinct_states: u64,
+    /// How many traces of `main` the repository commits under `specs/traces`.
+    pub traces: usize,
 }
 
 /// One property of an Alloy model, as three named commands that share one scope.

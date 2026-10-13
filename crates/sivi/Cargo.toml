@@ -19,5 +19,9 @@ sivi-theme.workspace = true
 sivi-typst.workspace = true
 clap.workspace = true
 
+[dev-dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+
 [lints]
 workspace = true

@@ -113,6 +113,46 @@ probes = [
 ]
 
 [[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/slot_rules.rs"
+harnesses = [
+  { name = "proofs::a_slot_admits_a_block_exactly_when_the_kind_and_every_measure_fit", covers = 3, contract = "admits accepts a block exactly when the slot accepts its kind, has room for one more block, and every measure stays within its capacity, and otherwise names which failed", input_domain = "every slot grammar, count, and block", bound = "complete" },
+  { name = "proofs::the_follower_of_the_last_slot_comes_first_and_the_first_flow_slot_otherwise", covers = 5, contract = "choose names a flow slot that admits the block, the follower of the last slot when it admits, else the first in order, and reports Full or NoSlot exactly as the admitting slots allow", input_domain = "every master of three slots, every fill count, every last slot, and every block", bound = "three slots" },
+]
+probes = [
+  { harness = "proofs::rejects_a_title_slot_as_a_home_for_flow_content", assertion = "NEGATIVE_SLOT_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/master_rules.rs"
+harnesses = [
+  { name = "proofs::an_edit_distance_is_zero_only_between_equal_names_symmetric_and_bounded", covers = 3, contract = "distance is zero exactly between equal names, symmetric, at least the length difference, and at most the longer length", input_domain = "every pair of names of up to four bytes", bound = "four bytes" },
+]
+probes = [
+  { harness = "proofs::rejects_different_names_as_zero_edits_apart", assertion = "NEGATIVE_MASTER_CONTROL" },
+]
+
+[[obligation]]
+verifier = "quint"
+spec = "specs/binder.qnt"
+main = "binder"
+probe = "binder_probe"
+invariant = "safe"
+witnesses = ["boundFollower", "refusedCapacity", "refusedNoSlot", "sectionBound", "titleRefused"]
+seed = "0x2a"
+samples = 1000
+steps = 12
+distinct_states = 457
+traces = 100
+
+[[obligation]]
+verifier = "prolog"
+spec = "specs/binding.pl"
+generated = 200
+seed = 42
+
+[[obligation]]
 verifier = "alloy"
 spec = "specs/theme.als"
 solver = "sat4j"

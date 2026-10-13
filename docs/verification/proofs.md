@@ -9,6 +9,8 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Verus | 0.2026.10.04.426d8b0 on Rust 1.98.1 | The functions `verification/obligations.toml` lists under `verus`, verified for inputs of any size with `--no-cheating` | `xtask/proofs/verus-negative`, whose specification states the opposite of its function |
 | Z3 | 5.1.0 | `specs/smt/millipoints.smt2`, generated from the core's constants: the fixed-point verdict agrees with the real one outside a band of one millipoint | `specs/smt/millipoints-negative.smt2`, a claim rounding breaks, which Z3 must find satisfiable |
 | Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one slot interior, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
+| Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
+| Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
 | Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme and the bundled fonts are skipped, since Miri interprets each in minutes, and a small theme stands in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
 | cargo-mutants | 27.1.0 | The campaign over `sivi-core`, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
@@ -29,6 +31,8 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `front_matter_rules` | identifiers, dates, and language tags follow their grammars, complete for dates and tags and up to seven bytes for identifiers; every key is allowed exactly where it belongs | — |
 | `subset_rules` | what passes is exactly the Markdown subset, and raw markup never does, for every node kind | — |
 | `theme_rules` | section numbers are one to their count each once; a `follows` chain ends inside its master or the fault is named, for three slots; a line box fits exactly when the pitch covers the face | — |
+| `slot_rules` | a slot admits a block exactly when the kind and every measure fit; the follower of the last slot comes first and the first flow slot otherwise, for three slots | — |
+| `master_rules` | the edit distance is zero only between equal names, symmetric, and bounded, for names of up to four bytes | — |
 
 ## What the fuzz targets replay
 

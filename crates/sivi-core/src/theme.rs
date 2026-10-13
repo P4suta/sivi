@@ -267,6 +267,7 @@ pub struct FontFile {
 
 /// What a slot binds: the title, the subtitle, one numbered section, or the flow of blocks.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(kani, derive(kani::Arbitrary))]
 pub enum Binding {
     Title,
     Subtitle,
@@ -277,6 +278,7 @@ pub enum Binding {
 
 /// A set of block kinds, as the kinds a slot accepts.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(kani, derive(kani::Arbitrary))]
 pub struct BlockKindSet(u8);
 
 const HEADING_BIT: u8 = 1;
@@ -320,6 +322,7 @@ impl BlockKindSet {
 
 /// How much content a slot holds; `None` leaves a dimension unbounded, up to what fits the region.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(kani, derive(kani::Arbitrary))]
 pub struct Capacity {
     pub blocks: Option<u32>,
     pub items: Option<u32>,

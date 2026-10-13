@@ -51,6 +51,7 @@ pub struct Block {
 
 /// The kinds of block a slide holds, which slots accept by kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(kani, derive(kani::Arbitrary))]
 pub enum BlockKind {
     Heading,
     Paragraph,

@@ -55,17 +55,21 @@ pub enum Step {
     Verus,
     Smt,
     Alloy,
+    Quint,
+    Prolog,
     Miri,
     Fuzz,
     Mutants,
 }
 
 impl Step {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 9] = [
         Self::Kani,
         Self::Verus,
         Self::Smt,
         Self::Alloy,
+        Self::Quint,
+        Self::Prolog,
         Self::Miri,
         Self::Fuzz,
         Self::Mutants,
@@ -78,6 +82,8 @@ impl Step {
             Self::Verus => "verus",
             Self::Smt => "smt",
             Self::Alloy => "alloy",
+            Self::Quint => "quint",
+            Self::Prolog => "prolog",
             Self::Miri => "miri",
             Self::Fuzz => "fuzz",
             Self::Mutants => "mutants",
@@ -495,7 +501,10 @@ fn verify_kani(root: &Path) -> Result<()> {
                         ..harness.clone()
                     })
                     .collect::<Vec<_>>(),
-                Obligation::Verus { .. } | Obligation::Alloy { .. } => Vec::new(),
+                Obligation::Verus { .. }
+                | Obligation::Alloy { .. }
+                | Obligation::Quint(_)
+                | Obligation::Prolog { .. } => Vec::new(),
             })
             .collect();
         let harnesses: Vec<&Harness> = qualified.iter().collect();
@@ -803,6 +812,8 @@ fn receipt(root: &Path, step: Step) -> Result<()> {
         Step::Verus => verus::VERSION,
         Step::Smt => crate::smt::Z3_VERSION,
         Step::Alloy => crate::alloy::ALLOY_VERSION,
+        Step::Quint => crate::quint::QUINT_VERSION,
+        Step::Prolog => crate::reference::SWIPL_VERSION,
         Step::Miri => tool::NIGHTLY,
         Step::Fuzz => FUZZ_VERSION,
         Step::Mutants => MUTANTS_VERSION,
@@ -823,11 +834,38 @@ fn verify(root: &Path, step: Step) -> Result<()> {
         Step::Verus => verus::verify(root)?,
         Step::Smt => crate::smt::verify(root)?,
         Step::Alloy => crate::alloy::verify(root)?,
+        Step::Quint => crate::quint::verify(root)?,
+        Step::Prolog => verify_prolog(root)?,
         Step::Miri => verify_miri(root)?,
         Step::Fuzz => verify_fuzz(root)?,
         Step::Mutants => verify_mutants(root)?,
     }
     receipt(root, step)
+}
+
+/// Runs every Prolog reference the manifest declares.
+fn verify_prolog(root: &Path) -> Result<()> {
+    let manifest = obligations::load(root)?;
+    let mut verified: usize = 0;
+    for obligation in &manifest.obligation {
+        let Obligation::Prolog {
+            spec,
+            generated,
+            seed,
+        } = obligation
+        else {
+            continue;
+        };
+        ensure!(
+            spec == crate::reference::SPEC,
+            "the manifest names the reference {spec}, but the gate runs {}",
+            crate::reference::SPEC
+        );
+        crate::reference::verify(root, *generated, *seed)?;
+        verified = verified.saturating_add(1);
+    }
+    ensure!(verified > 0, "the manifest declares no Prolog obligation");
+    Ok(())
 }
 
 /// Runs the selected verifiers and reports every failure together.
@@ -945,6 +983,8 @@ mod tests {
                 Step::Verus,
                 Step::Smt,
                 Step::Alloy,
+                Step::Quint,
+                Step::Prolog,
                 Step::Miri,
                 Step::Fuzz
             ]
