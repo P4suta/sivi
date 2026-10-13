@@ -1,0 +1,39 @@
+# The fuzz targets of every parser entry point, whose committed corpora `just proofs` replays.
+[package]
+name = "sivi-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+sivi-core = { path = "../crates/sivi-core" }
+sivi-markdown = { path = "../crates/sivi-markdown" }
+
+[[bin]]
+name = "deck_scanner"
+path = "fuzz_targets/deck_scanner.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "front_matter"
+path = "fuzz_targets/front_matter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "markdown_ir"
+path = "fuzz_targets/markdown_ir.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

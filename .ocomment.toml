@@ -9,8 +9,15 @@ mode = "none"
 [style]
 wrap = "sentence"
 
+# Deck fixtures are inputs under test, whose line breaks and trailing spaces the tests read.
 [files]
-exclude = ["fuzz/corpus/**", "fonts/**", "fixtures/**/snapshots/**", "specs/traces/**"]
+exclude = [
+  "fuzz/corpus/**",
+  "fonts/**",
+  "fixtures/decks/**",
+  "fixtures/**/snapshots/**",
+  "specs/traces/**",
+]
 
 [[overrides]]
 paths = ["justfile"]

@@ -1,6 +1,21 @@
 # What owns each code shape that the shape catalog of `~/.config/assure/shapes.toml` finds in this repository, and the budgets no change may weaken.
 # Each rule module of crates/sivi-core owns its decisions through its own Kani harnesses, so only the other shapes need an entry.
 
+[[owner]]
+shape = "parser"
+path = "crates/sivi-markdown/src/scanner.rs"
+by = "fuzz/fuzz_targets/deck_scanner.rs"
+
+[[owner]]
+shape = "parser"
+path = "crates/sivi-core/src/front_matter.rs"
+by = "fuzz/fuzz_targets/front_matter.rs"
+
+[[owner]]
+shape = "parser"
+path = "crates/sivi-markdown/src/lib.rs"
+by = "fuzz/fuzz_targets/markdown_ir.rs"
+
 [[budget]]
 name = "unsafe-sites"
 ceiling = 0

@@ -20,11 +20,19 @@
 extern crate alloc;
 
 pub mod attribute_rules;
+pub mod deck_rules;
+pub mod diagnostic;
 pub mod escape_rules;
 pub mod fit_rules;
+pub mod front_matter;
+pub mod front_matter_rules;
 pub mod geometry_rules;
+pub mod ir;
 pub mod length;
 pub mod measure;
 pub mod protocol;
 pub mod softbreak_rules;
+pub mod span;
 pub mod split_rules;
+pub mod subset_rules;
+pub mod text;

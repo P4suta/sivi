@@ -66,6 +66,42 @@ probes = [
 
 [[obligation]]
 verifier = "kani"
+source = "crates/sivi-core/src/deck_rules.rs"
+harnesses = [
+  { name = "proofs::a_separator_is_three_dashes_and_blanks_and_nothing_else", covers = 2, contract = "classify reports Separator exactly when the line starts with `---` and holds only blanks after it", input_domain = "every line of up to six bytes", bound = "six bytes; a separator is decided by its first three bytes and the blanks after them" },
+  { name = "proofs::a_key_value_line_bounds_a_lowercase_key_and_a_trimmed_value", covers = 1, contract = "a KeyValue verdict bounds a nonempty lowercase key, the colon after it, and a value that is nonblank at both ends", input_domain = "every line of up to six bytes", bound = "six bytes" },
+  { name = "proofs::a_fence_closes_only_with_its_marker_at_its_length_or_more", covers = 3, contract = "closes agrees with CommonMark: the same marker repeated at least the opening length after up to three spaces, then blanks", input_domain = "every fence of three to five characters and every line of up to six bytes", bound = "six bytes and fences of five" },
+  { name = "proofs::a_row_declares_its_unescaped_pipes_plus_one_less_its_edge_pipes", covers = 3, contract = "table_cells counts the segments between unescaped pipes, without the empty ends a leading or trailing pipe makes", input_domain = "every line of up to six bytes", bound = "six bytes" },
+]
+probes = [
+  { harness = "proofs::rejects_dashes_followed_by_text_as_a_separator", assertion = "NEGATIVE_DECK_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/front_matter_rules.rs"
+harnesses = [
+  { name = "proofs::an_identifier_is_a_lowercase_letter_then_lowercase_letters_digits_or_dashes", covers = 2, contract = "is_identifier accepts exactly a lowercase letter followed by lowercase letters, digits, or dashes", input_domain = "every byte string of up to seven bytes", bound = "seven bytes; the length limit of thirty-two is covered by the tests" },
+  { name = "proofs::a_date_is_four_two_and_two_digits_with_a_month_and_a_day_in_range", covers = 2, contract = "is_date accepts exactly `YYYY-MM-DD` with a month of one to twelve and a day of one to thirty-one", input_domain = "every byte string of ten bytes", bound = "complete; any other length is refused by construction" },
+  { name = "proofs::a_language_tag_is_two_or_three_letters_with_an_optional_region", covers = 3, contract = "is_lang accepts exactly two or three lowercase letters, then an optional dash and two uppercase letters", input_domain = "every byte string of up to seven bytes", bound = "complete; a longer string is refused by construction" },
+  { name = "proofs::every_key_is_allowed_exactly_where_it_belongs", covers = 3, contract = "placement allows a key exactly at its position and names the other position otherwise, and every key reads back from its name", input_domain = "every key and position", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_a_capitalized_name_as_an_identifier", assertion = "NEGATIVE_FRONT_MATTER_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/subset_rules.rs"
+harnesses = [
+  { name = "proofs::what_passes_is_exactly_the_subset_and_markup_never_does", covers = 4, contract = "admit passes exactly the kinds the record lists, refuses every form of raw markup with an HTML code, and names a rejection code otherwise", input_domain = "every node kind, heading level, and fence flag", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_an_html_comment_as_content", assertion = "NEGATIVE_SUBSET_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
 source = "crates/sivi-core/src/attribute_rules.rs"
 harnesses = [
   { name = "proofs::a_point_belongs_to_the_first_region_that_contains_it", covers = 2, contract = "region_of names the first region containing the point and None when none does", input_domain = "every point and up to three regions with coordinates within 2^30 millipoints of zero", bound = "three regions" },

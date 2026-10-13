@@ -1,0 +1,6 @@
+theme: plain
+default_master: bullets
+title: Quarterly review
+author: Yasunobu
+date: 2026-10-13
+lang: en-US

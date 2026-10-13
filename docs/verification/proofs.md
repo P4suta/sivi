@@ -24,5 +24,16 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `escape_rules` | every character's spelling reads back to the character and holds no raw control character or quote | — |
 | `softbreak_rules` | a soft break vanishes exactly between two East Asian characters, for every pair | — |
 | `attribute_rules` | a point belongs to the first region containing it; a height falls in the first part whose prefix passes it, for three regions or parts | — |
+| `deck_rules` | a line is a separator, a code fence, a key and value, a blank, or content exactly as the deck format says; a fence closes only with its marker at its length or more; a table row declares its cells as GFM counts them, for lines of up to six bytes | — |
+| `front_matter_rules` | identifiers, dates, and language tags follow their grammars, complete for dates and tags and up to seven bytes for identifiers; every key is allowed exactly where it belongs | — |
+| `subset_rules` | what passes is exactly the Markdown subset, and raw markup never does, for every node kind | — |
+
+## What the fuzz targets replay
+
+| Target | Entry point | Properties |
+| --- | --- | --- |
+| `deck_scanner` | `sivi_markdown::scanner::parse` | no panic; every slide's text covers exactly the lines it spans; the scan is deterministic |
+| `front_matter` | `sivi_core::front_matter::parse` | no panic; a refusal names a diagnostic |
+| `markdown_ir` | `sivi_markdown::parse` | no panic; the model is withheld exactly on an error; slides are numbered in order; the parse is deterministic |
 
 The Typst layout engine is an external boundary; `docs/verification/typst-boundary.md` lists the assumptions and the tests that keep them.

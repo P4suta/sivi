@@ -1,0 +1,8 @@
+master: bullets
+id: revenue
+master: Bullets
+theme: /abs
+date: 2026-13-01
+lang: JA
+colour: red
+id: revenue
