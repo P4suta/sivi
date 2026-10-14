@@ -23,6 +23,8 @@ A Typst upgrade that breaks an assumption fails that test before it can change a
 | A font list falls through per glyph to the first family that has the glyph, with `fallback: false` keeping the host's fonts out | `a_font_stack_falls_through_to_the_family_that_has_the_glyph` |
 | A `highlight` fill and an `underline` stroke with an alpha reach the frame as solid paints with that alpha, and as background decorations they come before the text they decorate | `a_translucent_decoration_keeps_its_alpha_and_lies_behind_the_text` |
 | Every carried base16 scheme, written as the core's `tmTheme`, loads through `raw(theme:)` from the world and paints a keyword and a function name with the scheme's keyword and function colors; a token whose color equals the scheme's foreground takes the surrounding fill, which the emitter sets to that foreground | `every_carried_scheme_loads_as_a_raw_theme_and_paints_a_keyword_with_its_keyword_color` |
+| An image with `fit: "cover"` in a clipped block is laid out as an item larger than the block under a group whose clip is the block, so the walker cuts every box to the clips above it and reads the image back as the box it shows through | `a_covering_image_reaches_past_its_box_as_an_item_and_reads_back_as_the_box_it_shows_through` |
+| A `rect` filled with `gradient.linear` reaches the frame as a shape with a gradient paint, and inside a clipped block its box reads back as the block | `a_gradient_fill_reaches_the_frame_as_a_gradient_paint_inside_its_clip` |
 
 ## What the adapter trusts and what it checks
 

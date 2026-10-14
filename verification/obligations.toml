@@ -37,7 +37,7 @@ probes = [
 verifier = "kani"
 source = "crates/sivi-core/src/geometry_rules.rs"
 harnesses = [
-  { name = "proofs::a_layout_is_valid_exactly_when_no_region_is_degenerate_outside_or_overlapping", covers = 3, contract = "validate accepts a layout exactly when every region has area, lies on the page, and shares no interior with another, and otherwise names the first offender", input_domain = "every page and exactly three regions with coordinates within 2^20 millipoints of zero", bound = "three regions; fewer regions are covered by the tests" },
+  { name = "proofs::a_layout_is_valid_exactly_when_no_region_is_degenerate_outside_or_overlapping", covers = 4, contract = "validate_layered accepts a layout exactly when every region has area, lies on the page, and shares no interior with another front region, and otherwise names the first offender; a backdrop may lie under anything", input_domain = "every page and exactly three regions with coordinates within 2^20 millipoints of zero, each in front or at the back", bound = "three regions; fewer regions and a layer list shorter than the regions are covered by the tests" },
   { name = "proofs::overlap_is_symmetric_and_a_region_overlaps_itself_only_when_it_has_area", covers = 1, contract = "overlaps is symmetric and a region overlaps itself exactly when it has area", input_domain = "every pair of regions with coordinates within 2^30 millipoints of zero", bound = "complete over the admitted domain" },
 ]
 probes = [
@@ -107,6 +107,7 @@ harnesses = [
   { name = "proofs::sections_are_exactly_one_to_their_count_each_once", covers = 2, contract = "missing_section is None exactly when the section numbers are a permutation of one to their count, and otherwise names a number the slots do not bind", input_domain = "every list of exactly three section numbers up to six", bound = "three slots and numbers up to six; shorter lists are covered by the tests" },
   { name = "proofs::a_follows_chain_ends_inside_its_master_or_names_the_fault", covers = 3, contract = "follows_fault is None exactly when every reference names another slot of the master and following references from any slot ends", input_domain = "every list of up to three follows references", bound = "three slots" },
   { name = "proofs::a_line_box_fits_exactly_when_the_pitch_covers_the_face", covers = 2, contract = "line_box_fits agrees with the inequality line_height times units_per_em at least ascender minus descender times one thousand, over wide integers", input_domain = "every face metric and every line height up to ten", bound = "complete over the admitted line heights" },
+  { name = "proofs::a_backdrop_is_exactly_a_flow_slot_of_one_image", covers = 3, contract = "backdrop_fault is None exactly when the slot flows, accepts the image kind alone, and holds one block, and otherwise names the first of binding, kinds, and blocks that breaks it", input_domain = "every binding, every set of kinds, and every block capacity", bound = "complete" },
 ]
 probes = [
   { harness = "proofs::rejects_a_gap_in_the_section_numbers", assertion = "NEGATIVE_THEME_CONTROL" },
@@ -204,6 +205,7 @@ source = "crates/sivi-core/src/attribute_rules.rs"
 harnesses = [
   { name = "proofs::a_point_belongs_to_the_first_region_that_contains_it", covers = 2, contract = "region_of names the first region containing the point and None when none does", input_domain = "every point and up to three regions with coordinates within 2^30 millipoints of zero", bound = "three regions" },
   { name = "proofs::a_height_falls_in_the_first_part_whose_prefix_passes_it", covers = 2, contract = "part_at names the first part whose cumulative height passes the offset and None when none does", input_domain = "every offset and up to three cumulative heights within 2^30 millipoints of zero", bound = "three parts" },
+  { name = "proofs::an_item_is_covered_exactly_when_a_backdrop_holds_each_of_its_edges", covers = 2, contract = "covered is true exactly when some backdrop holds every edge of the item within the tolerance, where a box whose far edges overflow holds nothing and lies in nothing", input_domain = "every item, every tolerance from zero, and up to three backdrops with coordinates within 2^30 millipoints of zero", bound = "three backdrops" },
 ]
 probes = [
   { harness = "proofs::rejects_attributing_a_height_to_a_later_part", assertion = "NEGATIVE_ATTRIBUTE_CONTROL" },
@@ -216,6 +218,7 @@ harnesses = [
   { name = "proofs::every_channel_rises_and_reads_back", covers = 2, contract = "the linear light of a channel lies from zero to one, rises with the next channel, and reads back to the channel", input_domain = "every 8-bit channel", bound = "complete" },
   { name = "proofs::every_color_has_a_luminance_within_one", covers = 2, contract = "the luminance of a color is defined and lies from zero to one", input_domain = "every color", bound = "complete" },
   { name = "proofs::every_ratio_of_luminances_lies_from_one_to_twenty_one", covers = 2, contract = "the ratio of a lighter luminance over a darker one is defined, lies from one to twenty-one, and is one for equal luminances", input_domain = "every pair of luminances from zero to one, the lighter first", bound = "complete; the symmetry of the contrast of two colors follows from the order the ratio takes them in, which the tests hold over samples, and the Oklab form of every gray is tested, since its root searches lie beyond the solver's budget" },
+  { name = "proofs::a_channel_over_another_lies_between_the_two", covers = 2, contract = "a channel over another at an opacity from clear to solid is defined and lies between the two, and is the lower one when clear and the upper one when solid", input_domain = "every pair of channels and every opacity from clear to solid", bound = "complete over the admitted opacities; that an opacity outside clear to solid is refused, and that a color over another is its channels each over the other's, are held by the tests" },
 ]
 probes = [
   { harness = "proofs::rejects_a_contrast_below_the_extreme_for_black_on_white", assertion = "NEGATIVE_COLOR_CONTROL" },

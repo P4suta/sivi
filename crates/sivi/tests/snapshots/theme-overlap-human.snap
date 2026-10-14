@@ -5,6 +5,6 @@ expression: "render::human(&diagnostics, &sources, false)"
 error[E0505]: the slots `body` and `other` overlap
   |
   = note: at `masters.only.slots.other.region` in the theme
-  = help: move or shrink one region so they share no interior
+  = help: move or shrink one region so they share no interior, or set `layer = "back"` on a backdrop
 
 error: aborting due to 1 errors

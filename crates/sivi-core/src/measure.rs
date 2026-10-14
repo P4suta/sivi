@@ -19,6 +19,16 @@ pub struct Expected {
     /// How many slides the deck has, each on its own page.
     pub slides: u32,
     pub regions: Vec<ExpectedRegion>,
+    /// The backdrops the emitter placed behind the content, which no measurement covers.
+    pub backdrops: Vec<ExpectedBackdrop>,
+}
+
+/// One backdrop the emitter placed without a marker: an image behind the content, whose items the report leaves alone.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct ExpectedBackdrop {
+    pub slide: SlideIndex,
+    /// The box of the backdrop on its page, which clips everything the backdrop draws.
+    pub bounds: Rect,
 }
 
 /// One bound region the emitter placed, with the box it may fill.

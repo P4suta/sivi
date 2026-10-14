@@ -56,7 +56,8 @@ A color named under `colors` wins over the role of the same name.
 Without a name, the mode is `light` and the harmony `complementary`.
 `sivi palette` prints the colors a seed or a name grows, as this table, and lists the carried palettes.
 
-Every theme is held to three design rules: a text color that reads below four and a half to one on the paper is `E0513`; more than three hue families among the colors is `W0503`; and a paper with a chroma above six hundredths is `W0504`.
+Every theme is held to four design rules: a text color that reads below four and a half to one on what lies under it is `E0513`; more than three hue families among the colors is `W0503`; a paper with a chroma above six hundredths is `W0504`; and a slot over a backdrop whose image has no scrim is `W0505`.
+A text style is read on the paper wherever a front slot sets it over nothing, and on the scrim wherever a slot sets it over a backdrop with a scrim: at the strength the gradient has where the slot ends toward the scrim's clear edge, over a mid gray, which is the lightest image the rule assumes.
 
 `code.theme` names one of the base16 schemes the binary carries by its slug, such as `dracula` or `catppuccin-latte`, which `sivi code-themes` lists with their variants.
 With a scheme, the scheme's background and foreground replace `code.background` and the color of the code's text style, and every token takes the scheme's color for its role.
@@ -76,8 +77,19 @@ A slug the binary lacks reports `E0512` with the nearest slug.
 | `valign` | `top`, `middle`, or `bottom` |
 | `align` | `left`, `center`, or `right` |
 | `max_blocks`, `max_items`, `max_depth`, `max_rows`, `max_columns`, `max_lines` | capacities, each a whole number |
+| `layer` | `front` with the content, or `back` for a backdrop the other slots may cover |
+| `image` | how an image that fills the slot alone is shown: `fit`, `radius`, `shadow`, `scrim` |
 
 Slots keep their declaration order, which the binder reads when more than one slot accepts a block.
+
+A backdrop is a flow slot with `layer = "back"`, `accepts = ["image"]`, and `max_blocks = 1`, and anything else behind it is `E0508`.
+Its region may lie under the front slots, which the overlap rule leaves alone, and its image is placed without a measurement, so the front slots over it measure as if it were paper.
+
+An `image` table shapes an image that fills a slot alone; an image in a stack with other blocks keeps the region's width and its own height.
+`fit` is `contain` to show the whole image letterboxed in the box, or `cover` to fill the box and clip what reaches past it.
+`radius` rounds the box's corners.
+`shadow` is `true` for a soft shadow of the ink at a fifth reaching six points right and down, or a table of `color`, `opacity`, and `offset`; the box gives up the offset, so the shadow stays inside the region.
+`scrim` is a table of `color`, `opacity`, and `from`, which lays a gradient of the color over the image, solid at the `bottom` or the `top` edge and clear at the other, so text set over the backdrop stays readable.
 
 ## Decor
 
@@ -96,10 +108,10 @@ Slots keep their declaration order, which the binder reads when more than one sl
 | `E0502` | the schema is not one, or a key is unknown or missing |
 | `E0503` | a value leaves its grammar |
 | `E0504` | a region leaves the page |
-| `E0505` | two slot regions overlap |
+| `E0505` | two front slot regions overlap |
 | `E0506` | a text size below `typography.min_size` |
 | `E0507` | a reference to a color or text style the theme does not define |
-| `E0508` | two masters with the same grammar, section numbers with a gap, a `follows` that leaves the master or loops, or two title slots |
+| `E0508` | two masters with the same grammar, section numbers with a gap, a `follows` that leaves the master or loops, two title slots, or a backdrop that holds anything other than one image |
 | `E0509` | no master, or a master without a slot |
 | `E0510` | a face the styles need that no font provides |
 | `E0511` | a line height below its face's natural line box |

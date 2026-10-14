@@ -187,11 +187,13 @@ pub enum Code {
     ManyHues,
     /// W0504: a paper whose chroma tints every slide.
     VividPaper,
+    /// W0505: a slot over a backdrop whose image has no scrim, so its text may read poorly on the image.
+    BareBackdrop,
 }
 
 impl Code {
     /// Every code, in the order of the catalog.
-    pub const ALL: [Self; 83] = [
+    pub const ALL: [Self; 84] = [
         Self::Internal,
         Self::NotUtf8,
         Self::UnclosedFrontMatter,
@@ -275,6 +277,7 @@ impl Code {
         Self::FallbackWeight,
         Self::ManyHues,
         Self::VividPaper,
+        Self::BareBackdrop,
     ];
 
     /// The stable code, such as `E0401`.
@@ -364,6 +367,7 @@ impl Code {
             Self::FallbackWeight => "W0502",
             Self::ManyHues => "W0503",
             Self::VividPaper => "W0504",
+            Self::BareBackdrop => "W0505",
         }
     }
 

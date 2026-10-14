@@ -1,6 +1,8 @@
 // The theme model: masters of slots with regions on a page, as `crates/sivi-theme/src/load.rs` validates them.
 // The validator predicates are what the loader refuses: `slotsDisjoint` is E0505, `insidePage` is E0504,
 // `sectionsContiguous` and `followsEnds` are E0508, and `oneTitle` is E0508.
+// A slot lies in front with the content or at the back as a backdrop, and only front slots must stay apart,
+// since the report attributes a laid-out item to a front region alone and leaves a backdrop's items to the backdrop.
 // Each assertion holds under the validators and fails without its validator, which the unchecked commands show.
 module theme
 
@@ -12,7 +14,8 @@ sig Master {
 sig Slot {
   region: one Region,
   binds: one Binding,
-  follows: lone Slot
+  follows: lone Slot,
+  layer: one Layer
 }
 
 // A region as its edges on a page of fixed size.
@@ -28,6 +31,10 @@ one sig Title, Subtitle, Flow extends Binding {}
 sig Section extends Binding {
   index: one Int
 }
+
+// Where a slot lies: in front with the content, or at the back as a backdrop other slots may cover.
+abstract sig Layer {}
+one sig Front, Back extends Layer {}
 
 // The page runs from zero to the page edge on each axis.
 fun pageEdge: Int { 7 }
@@ -54,9 +61,12 @@ pred overlaps[a, b: Region] {
   a.left < b.right and b.left < a.right and a.top < b.bottom and b.top < a.bottom
 }
 
-// E0505: no two slots of a master share interior points.
+// The front slots of a master, whose regions the report attributes items to.
+fun front[m: Master]: set Slot { { s: m.slots | s.layer = Front } }
+
+// E0505: no two front slots of a master share interior points; a backdrop may lie under anything.
 pred slotsDisjoint {
-  all m: Master, disj a, b: m.slots | not overlaps[a.region, b.region]
+  all m: Master, disj a, b: front[m] | not overlaps[a.region, b.region]
 }
 
 // E0504: every region lies on the page.
@@ -88,10 +98,10 @@ pred valid {
   slotsDisjoint and insidePage and sectionsContiguous and followsEnds and oneTitle
 }
 
-// `attribute_rules::region_of` names the first region holding a point, which under the validators is the only one
-// whose interior holds it.
+// `attribute_rules::region_of` names the first front region holding a point, which under the validators is the
+// only front region whose interior holds it.
 pred pointInAtMostOneInterior {
-  all m: Master, p: Point | lone s: m.slots |
+  all m: Master, p: Point | lone s: front[m] |
     s.region.left < p.x and p.x < s.region.right and s.region.top < p.y and p.y < s.region.bottom
 }
 
@@ -130,13 +140,15 @@ assert FollowsUnchecked {
   (slotsDisjoint and insidePage and sectionsContiguous and oneTitle) implies followsReachesAnEnd
 }
 
-// A theme like the bundled one: a master with a title, two sections, and a slot that follows another.
+// A theme like the bundled one: a master with a title, two sections, a slot that follows another, and a backdrop
+// under a front slot.
 pred Populated {
   valid
   some m: Master | #m.slots >= 4
     and some s: m.slots | s.binds = Title
     and some disj a, b: m.slots | a.binds in Section and b.binds in Section
     and some s: m.slots | some s.follows
+  some m: Master | some b: m.slots, f: front[m] | b.layer = Back and overlaps[b.region, f.region]
 }
 
 check AttributionIsUnique for 4 but 4 Int, 6 Binding

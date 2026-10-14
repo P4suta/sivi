@@ -1,6 +1,42 @@
-//! The structural decisions over a theme's masters: section numbering, follows chains, and line boxes.
+//! The structural decisions over a theme's masters: section numbering, follows chains, backdrops, and line boxes.
 
-use crate::theme::Thousandths;
+use crate::ir::BlockKind;
+use crate::theme::{Binding, BlockKindSet, Thousandths};
+
+/// Why a slot cannot lie behind the others.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum BackdropFault {
+    /// The slot binds a heading, which a backdrop never holds.
+    Binds,
+    /// The slot accepts something other than exactly an image.
+    Accepts,
+    /// The slot holds more or fewer than one block.
+    Blocks,
+}
+
+/// How many blocks a backdrop holds: one image.
+pub const BACKDROP_BLOCKS: u32 = 1;
+
+/// The first reason a slot with `binds`, `accepts`, and `blocks` cannot be a backdrop, or `None` when it can.
+///
+/// A backdrop is a flow slot that accepts exactly one image, so the content over it never measures against it.
+#[must_use]
+pub fn backdrop_fault(
+    binds: Binding,
+    accepts: BlockKindSet,
+    blocks: Option<u32>,
+) -> Option<BackdropFault> {
+    if binds != Binding::Flow {
+        return Some(BackdropFault::Binds);
+    }
+    if accepts != BlockKindSet::EMPTY.with(BlockKind::Image) {
+        return Some(BackdropFault::Accepts);
+    }
+    if blocks != Some(BACKDROP_BLOCKS) {
+        return Some(BackdropFault::Blocks);
+    }
+    None
+}
 
 /// The smallest section number a master's slots do not bind, when the numbers are not exactly one to their count.
 ///
@@ -82,13 +118,37 @@ pub fn line_box_fits(
 /// The properties Kani proves for every short master and the tests check over the masters they list.
 #[cfg(any(test, kani))]
 mod proofs {
-    use super::Thousandths;
+    use super::{BACKDROP_BLOCKS, Thousandths};
     #[cfg(kani)]
-    use super::{FollowsFault, follows_fault, line_box_fits, missing_section};
+    use super::{
+        BackdropFault, FollowsFault, backdrop_fault, follows_fault, line_box_fits, missing_section,
+    };
+    use crate::ir::BlockKind;
+    use crate::theme::{Binding, BlockKindSet};
 
     /// How many slots the bounded proofs admit.
     #[cfg(kani)]
     const SLOTS: usize = 3;
+
+    /// A slot is a backdrop exactly when it flows exactly one image: the kinds it accepts are the image alone.
+    pub(super) fn spec_backdrop(
+        binds: Binding,
+        accepts: BlockKindSet,
+        blocks: Option<u32>,
+    ) -> bool {
+        let image_only = accepts.contains(BlockKind::Image)
+            && [
+                BlockKind::Heading,
+                BlockKind::Paragraph,
+                BlockKind::List,
+                BlockKind::Code,
+                BlockKind::Quote,
+                BlockKind::Table,
+            ]
+            .iter()
+            .all(|kind| !accepts.contains(*kind));
+        binds == Binding::Flow && image_only && blocks == Some(BACKDROP_BLOCKS)
+    }
 
     /// The largest section number the bounded proofs admit, which is twice the slot count so a gap can appear.
     #[cfg(kani)]
@@ -204,6 +264,45 @@ mod proofs {
 
     #[cfg(kani)]
     #[kani::proof]
+    fn a_backdrop_is_exactly_a_flow_slot_of_one_image() {
+        let binds: Binding = kani::any();
+        // Every set of kinds, built kind by kind, so no bit beyond the kinds is set.
+        let mut accepts = BlockKindSet::EMPTY;
+        for kind in [
+            BlockKind::Heading,
+            BlockKind::Paragraph,
+            BlockKind::List,
+            BlockKind::Code,
+            BlockKind::Quote,
+            BlockKind::Image,
+            BlockKind::Table,
+        ] {
+            if kani::any() {
+                accepts = accepts.with(kind);
+            }
+        }
+        let blocks: Option<u32> = kani::any();
+        let fault = backdrop_fault(binds, accepts, blocks);
+        assert_eq!(fault.is_none(), spec_backdrop(binds, accepts, blocks));
+        match fault {
+            None => {}
+            Some(BackdropFault::Binds) => assert!(binds != Binding::Flow),
+            Some(BackdropFault::Accepts) => {
+                assert!(binds == Binding::Flow);
+                assert!(accepts != BlockKindSet::EMPTY.with(BlockKind::Image));
+            }
+            Some(BackdropFault::Blocks) => {
+                assert!(binds == Binding::Flow);
+                assert!(blocks != Some(BACKDROP_BLOCKS));
+            }
+        }
+        kani::cover!(fault.is_none());
+        kani::cover!(fault == Some(BackdropFault::Accepts));
+        kani::cover!(fault == Some(BackdropFault::Blocks));
+    }
+
+    #[cfg(kani)]
+    #[kani::proof]
     fn rejects_a_gap_in_the_section_numbers() {
         kani::assert(missing_section(&[1, 3]).is_none(), "NEGATIVE_THEME_CONTROL");
     }
@@ -211,7 +310,63 @@ mod proofs {
 
 #[cfg(test)]
 mod tests {
-    use super::{FollowsFault, Thousandths, follows_fault, line_box_fits, missing_section, proofs};
+    use super::{
+        BackdropFault, FollowsFault, Thousandths, backdrop_fault, follows_fault, line_box_fits,
+        missing_section, proofs,
+    };
+    use crate::ir::BlockKind;
+    use crate::theme::{Binding, BlockKindSet};
+
+    #[test]
+    fn a_backdrop_flows_exactly_one_image_and_each_fault_is_named() {
+        let image = BlockKindSet::EMPTY.with(BlockKind::Image);
+        let text = BlockKindSet::EMPTY.with(BlockKind::Paragraph);
+        let both = image.with(BlockKind::Paragraph);
+        for (binds, accepts, blocks) in [
+            (Binding::Flow, image, Some(1)),
+            (Binding::Flow, image, Some(2)),
+            (Binding::Flow, image, Some(0)),
+            (Binding::Flow, image, None),
+            (Binding::Flow, text, Some(1)),
+            (Binding::Flow, both, Some(1)),
+            (Binding::Flow, BlockKindSet::EMPTY, Some(1)),
+            (Binding::Title, image, Some(1)),
+            (Binding::Subtitle, image, Some(1)),
+            (Binding::Section(1), image, Some(1)),
+            (Binding::Section(1), text, None),
+        ] {
+            assert_eq!(
+                backdrop_fault(binds, accepts, blocks).is_none(),
+                proofs::spec_backdrop(binds, accepts, blocks),
+                "{binds:?} {accepts:?} {blocks:?}"
+            );
+        }
+        assert_eq!(backdrop_fault(Binding::Flow, image, Some(1)), None);
+        assert_eq!(
+            backdrop_fault(Binding::Title, image, Some(1)),
+            Some(BackdropFault::Binds)
+        );
+        assert_eq!(
+            backdrop_fault(Binding::Section(1), text, None),
+            Some(BackdropFault::Binds)
+        );
+        assert_eq!(
+            backdrop_fault(Binding::Flow, both, Some(1)),
+            Some(BackdropFault::Accepts)
+        );
+        assert_eq!(
+            backdrop_fault(Binding::Flow, text, Some(1)),
+            Some(BackdropFault::Accepts)
+        );
+        assert_eq!(
+            backdrop_fault(Binding::Flow, image, Some(2)),
+            Some(BackdropFault::Blocks)
+        );
+        assert_eq!(
+            backdrop_fault(Binding::Flow, image, None),
+            Some(BackdropFault::Blocks)
+        );
+    }
 
     #[test]
     fn section_numbers_must_be_one_to_their_count() {

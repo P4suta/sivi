@@ -1,9 +1,10 @@
 //! The theme file read into the model, with every refused value named by its path in the file.
 
 use crate::schema::{
-    CodeSection, DecorSection, FontSection, FontSpec, InlineSection, ListsSection, MarkSection,
-    MarkerSection, MasterSection, PaletteSection, QuotesSection, RegionSection, SlotSection,
-    TablesSection, TextSection, ThemeFile, TypographySection, UnderlineSection, UnderlineSpec,
+    CodeSection, DecorSection, FontSection, FontSpec, ImageSection, InlineSection, ListsSection,
+    MarkSection, MarkerSection, MasterSection, PaletteSection, QuotesSection, RegionSection,
+    ScrimSection, ShadowSection, ShadowSpec, SlotSection, TablesSection, TextSection, ThemeFile,
+    TypographySection, UnderlineSection, UnderlineSpec,
 };
 use crate::units::{self, Unit};
 use sivi_core::diagnostic::{Code, Diagnostic};
@@ -17,11 +18,12 @@ use sivi_core::syntax_theme::Scheme;
 use sivi_core::text::Identifier;
 use sivi_core::theme::{
     Align, Binding, BlockKindSet, BottomEdge, Capacity, CodeStyle, Color, Decor, Digest,
-    FamilyName, Field, FontFile, FontStack, InlineStyles, ListStyle, Mark, Marker, Master, Measure,
-    Page, QuoteStyle, Slot, StyleName, TableStyle, TextStyle, Theme, Thousandths, TopEdge,
-    Typography, Underline, VerticalAlign, Weight,
+    FamilyName, Field, Fit, FontFile, FontStack, ImageStyle, InlineStyles, Layer, ListStyle, Mark,
+    Marker, Master, Measure, Page, QuoteStyle, Scrim, ScrimEdge, Shadow, Slot, StyleName,
+    TableStyle, TextStyle, Theme, Thousandths, TopEdge, Typography, Underline, VerticalAlign,
+    Weight,
 };
-use sivi_core::theme_rules::{self, FollowsFault};
+use sivi_core::theme_rules::{self, BackdropFault, FollowsFault};
 
 /// The file extensions a font file may carry.
 pub const FONT_EXTENSIONS: [&str; 2] = ["ttf", "otf"];
@@ -29,6 +31,12 @@ pub const FONT_EXTENSIONS: [&str; 2] = ["ttf", "otf"];
 const PAGE_NUMBER_PLACEHOLDER: &str = "{n}";
 /// The thousandths in one whole, for percentages of a page side.
 const WHOLE: i64 = 100_000;
+/// The soft shadow `shadow = true` gives an image: the ink at a fifth, reaching six points right and down.
+const SHADOW_COLOR: &str = "ink";
+const SHADOW_OPACITY: Thousandths = Thousandths(200);
+const SHADOW_OFFSET: Length = Length::from_millipoints(6_000);
+/// How opaque a scrim is at its edge unless the theme says otherwise.
+const SCRIM_OPACITY: Thousandths = Thousandths(600);
 
 /// One refusal: its code, what was wrong, and what to write instead.
 struct Fault {
@@ -369,6 +377,60 @@ impl Loader {
             );
         }
         valign
+    }
+
+    fn layer(&mut self, path: &str, text: &str) -> Option<Layer> {
+        let layer = match text {
+            "front" => Some(Layer::Front),
+            "back" => Some(Layer::Back),
+            _ => None,
+        };
+        if layer.is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{text}` is not a layer"),
+                    "write `front` for a slot the content fills, or `back` for a backdrop",
+                ),
+            );
+        }
+        layer
+    }
+
+    fn fit(&mut self, path: &str, text: &str) -> Option<Fit> {
+        let fit = match text {
+            "contain" => Some(Fit::Contain),
+            "cover" => Some(Fit::Cover),
+            _ => None,
+        };
+        if fit.is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{text}` is not a fit"),
+                    "write `contain` to show the whole image, or `cover` to fill the box",
+                ),
+            );
+        }
+        fit
+    }
+
+    fn scrim_edge(&mut self, path: &str, text: &str) -> Option<ScrimEdge> {
+        let edge = match text {
+            "bottom" => Some(ScrimEdge::Bottom),
+            "top" => Some(ScrimEdge::Top),
+            _ => None,
+        };
+        if edge.is_none() {
+            self.refuse(
+                path,
+                value(
+                    format!("`{text}` is not an edge a scrim starts from"),
+                    "write `bottom` or `top`",
+                ),
+            );
+        }
+        edge
     }
 
     fn color(&mut self, path: &str, text: &str) -> Option<Color> {
@@ -845,10 +907,115 @@ fn accepts(
     Some(accepted)
 }
 
+/// The shadow `section` shapes, with the ink at a fifth reaching six points as the defaults.
+fn shaped_shadow(loader: &mut Loader, path: &str, section: &ShadowSection) -> Option<Shadow> {
+    let color = loader.color_ref(
+        &format!("{path}.color"),
+        section.color.as_deref().unwrap_or(SHADOW_COLOR),
+    );
+    let opacity = section.opacity.map_or(Some(SHADOW_OPACITY), |number| {
+        loader.opacity(&format!("{path}.opacity"), number)
+    });
+    let offset = loader.points_or(
+        &format!("{path}.offset"),
+        section.offset.as_ref(),
+        SHADOW_OFFSET,
+    );
+    Some(Shadow {
+        color: color?,
+        opacity: opacity?,
+        offset: offset?,
+    })
+}
+
+/// The shadow `shadow = true` asks for, which needs the theme to have the ink.
+fn default_shadow(loader: &mut Loader, path: &str) -> Option<Shadow> {
+    Some(Shadow {
+        color: loader.color_ref(path, SHADOW_COLOR)?,
+        opacity: SHADOW_OPACITY,
+        offset: SHADOW_OFFSET,
+    })
+}
+
+/// The scrim `section` shapes, from the bottom at six tenths unless it says otherwise.
+fn scrim(loader: &mut Loader, path: &str, section: &ScrimSection) -> Option<Scrim> {
+    let color = loader.color_ref(&format!("{path}.color"), &section.color);
+    let opacity = section.opacity.map_or(Some(SCRIM_OPACITY), |number| {
+        loader.opacity(&format!("{path}.opacity"), number)
+    });
+    let from = section
+        .from
+        .as_ref()
+        .map_or(Some(ScrimEdge::Bottom), |text| {
+            loader.scrim_edge(&format!("{path}.from"), text)
+        });
+    Some(Scrim {
+        color: color?,
+        opacity: opacity?,
+        from: from?,
+    })
+}
+
+/// How a sole image is shown, with the whole image in a square box and no shadow or scrim as the defaults.
+fn image_style(loader: &mut Loader, path: &str, section: &ImageSection) -> Option<ImageStyle> {
+    let fit = section.fit.as_ref().map_or(Some(Fit::Contain), |text| {
+        loader.fit(&format!("{path}.fit"), text)
+    });
+    let radius = loader.points_or(
+        &format!("{path}.radius"),
+        section.radius.as_ref(),
+        Length::ZERO,
+    );
+    // The default for `true`, none for `false` or nothing, or the shaped one.
+    let shadow_path = format!("{path}.shadow");
+    let shadow = match section.shadow.as_ref() {
+        None | Some(ShadowSpec::Plain(false)) => Some(None),
+        Some(ShadowSpec::Plain(true)) => default_shadow(loader, &shadow_path).map(Some),
+        Some(ShadowSpec::Shaped(section)) => shaped_shadow(loader, &shadow_path, section).map(Some),
+    };
+    let scrim = section.scrim.as_ref().map_or(Some(None), |section| {
+        scrim(loader, &format!("{path}.scrim"), section).map(Some)
+    });
+    Some(ImageStyle {
+        fit: fit?,
+        radius: radius?,
+        shadow: shadow?,
+        scrim: scrim?,
+    })
+}
+
+/// Refuses a backdrop that binds, accepts, or holds anything other than one image.
+fn backdrop_fault(loader: &mut Loader, path: &str, slot: &Slot) {
+    if slot.layer != Layer::Back {
+        return;
+    }
+    let fault = theme_rules::backdrop_fault(slot.binds, slot.accepts, slot.capacity.blocks);
+    let (key, why) = match fault {
+        None => return,
+        Some(BackdropFault::Binds) => ("binds", "binds a heading"),
+        Some(BackdropFault::Accepts) => ("accepts", "accepts something other than an image alone"),
+        Some(BackdropFault::Blocks) => ("max_blocks", "holds other than one block"),
+    };
+    loader.refuse(
+        &format!("{path}.{key}"),
+        conflict(
+            format!("the backdrop `{}` {why}", slot.name),
+            "a backdrop is a flow slot with `accepts = [\"image\"]` and `max_blocks = 1`",
+        ),
+    );
+}
+
 fn slot(loader: &mut Loader, path: &str, name: &str, section: &SlotSection) -> Option<Slot> {
     let slot_name = loader.identifier(path, name);
     let binds = binding(loader, path, section);
     let accepted = accepts(loader, &format!("{path}.accepts"), &section.accepts, binds);
+    let layer = section.layer.as_ref().map_or(Some(Layer::Front), |text| {
+        loader.layer(&format!("{path}.layer"), text)
+    });
+    let image = section.image.as_ref().map_or_else(
+        || Some(ImageStyle::default()),
+        |section| image_style(loader, &format!("{path}.image"), section),
+    );
     let follows = section.follows.as_ref().map_or(Some(None), |spelled| {
         loader
             .identifier(&format!("{path}.follows"), spelled)
@@ -865,7 +1032,7 @@ fn slot(loader: &mut Loader, path: &str, name: &str, section: &SlotSection) -> O
     let align = section.align.as_ref().map_or(Some(None), |spelled| {
         loader.align(&format!("{path}.align"), spelled).map(Some)
     });
-    Some(Slot {
+    let slot = Slot {
         name: slot_name?,
         binds: binds?,
         accepts: accepted?,
@@ -883,7 +1050,11 @@ fn slot(loader: &mut Loader, path: &str, name: &str, section: &SlotSection) -> O
         text: text?,
         valign: valign?,
         align: align?,
-    })
+        layer: layer?,
+        image: image?,
+    };
+    backdrop_fault(loader, path, &slot);
+    Some(slot)
 }
 
 fn decor_text(
@@ -1086,6 +1257,7 @@ fn bindings_fault(loader: &mut Loader, path: &str, master: &Master) {
 
 fn geometry_fault(loader: &mut Loader, path: &str, master: &Master) {
     let regions: Vec<Rect> = master.slots.iter().map(|slot| slot.region).collect();
+    let layers: Vec<Layer> = master.slots.iter().map(|slot| slot.layer).collect();
     let name = |index: usize| {
         master
             .slots
@@ -1093,7 +1265,7 @@ fn geometry_fault(loader: &mut Loader, path: &str, master: &Master) {
             .map_or("?", |slot| slot.name.as_str())
     };
     let page = loader.page;
-    match geometry_rules::validate(page, &regions) {
+    match geometry_rules::validate_layered(page, &regions, &layers) {
         Ok(()) => {}
         Err(GeometryError::Degenerate(index)) => loader.refuse(
             &format!("{path}.slots.{}.region", name(index)),
@@ -1112,7 +1284,7 @@ fn geometry_fault(loader: &mut Loader, path: &str, master: &Master) {
             Fault {
                 code: Code::RegionOverlap,
                 message: format!("the slots `{}` and `{}` overlap", name(first), name(second)),
-                help: "move or shrink one region so they share no interior",
+                help: "move or shrink one region so they share no interior, or set `layer = \"back\"` on a backdrop",
             },
         ),
     }

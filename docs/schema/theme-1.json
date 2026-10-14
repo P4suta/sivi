@@ -101,7 +101,41 @@
         "max_depth": { "type": "integer", "minimum": 0 },
         "max_rows": { "type": "integer", "minimum": 0 },
         "max_columns": { "type": "integer", "minimum": 0 },
-        "max_lines": { "type": "integer", "minimum": 0 }
+        "max_lines": { "type": "integer", "minimum": 0 },
+        "layer": { "type": "string", "enum": ["front", "back"] },
+        "image": { "$ref": "#/definitions/imageStyle" }
+      }
+    },
+    "imageStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fit": { "type": "string", "enum": ["contain", "cover"] },
+        "radius": { "$ref": "#/definitions/length" },
+        "shadow": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "color": { "$ref": "#/definitions/styleName" },
+                "opacity": { "$ref": "#/definitions/opacity" },
+                "offset": { "$ref": "#/definitions/length" }
+              }
+            }
+          ]
+        },
+        "scrim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["color"],
+          "properties": {
+            "color": { "$ref": "#/definitions/styleName" },
+            "opacity": { "$ref": "#/definitions/opacity" },
+            "from": { "type": "string", "enum": ["bottom", "top"] }
+          }
+        }
       }
     },
     "decor": {

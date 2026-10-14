@@ -12,7 +12,7 @@ use crate::ir::{
 };
 use crate::length::{Length, Rect};
 use crate::mark_rules;
-use crate::measure::{Expected, ExpectedRegion};
+use crate::measure::{Expected, ExpectedBackdrop, ExpectedRegion};
 use crate::protocol::{
     MeasureLabel, PREFIXES_KEY, REQUIRED_KEY, RegionIndex, SLIDE_KEY, SlideIndex, SlideLabel,
     WIDTHS_KEY,
@@ -20,8 +20,8 @@ use crate::protocol::{
 use crate::softbreak_rules::{Joiner, joiner};
 use crate::syntax_theme::Scheme;
 use crate::theme::{
-    Align, Decor, FamilyName, Field, FontStack, Mark, Measure, Slot, StyleName, TextStyle, Theme,
-    Thousandths, Underline, VerticalAlign,
+    Align, Decor, FamilyName, Field, FontStack, ImageStyle, Layer, Mark, Measure, ScrimEdge, Slot,
+    StyleName, TextStyle, Theme, Thousandths, Underline, VerticalAlign,
 };
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -117,6 +117,12 @@ const THOUSAND: i64 = 1000;
 /// The heading levels of a slide title and of a section heading, which the PDF outline nests.
 const TITLE_LEVEL: u8 = 1;
 const SECTION_LEVEL: u8 = 2;
+/// How many translucent bands a soft shadow is built from, each a third of the way out and a third as opaque.
+const SHADOW_BANDS: i64 = 3;
+/// The whole of a box, as Typst spells a relative length.
+const FULL: &str = "100%";
+/// The scrim at its clear end.
+const CLEAR: Thousandths = Thousandths(0);
 
 /// One part of a region's content, measured on its own for the split suggestion.
 struct Part {
@@ -334,24 +340,33 @@ impl Emitter<'_> {
             bound.index.0,
             SlideLabel::new(bound.index)
         ));
-        for decor in &master.decor {
-            self.decor(decor);
-        }
-        for (number, region) in bound.regions.iter().enumerate() {
-            let (Some(slot), Ok(index)) = (master.slots.get(region.slot), u32::try_from(number))
-            else {
-                self.internal(format!(
-                    "slide {} binds slot {}, which master `{}` lacks",
-                    slide.number, region.slot, master.name
-                ));
-                continue;
-            };
-            self.region(Placement {
-                slide,
-                slot,
-                region,
-                at: (bound.index, RegionIndex(index)),
-            });
+        // The backdrops go down first, then the decor, then the content, so each lies over what came before.
+        for layer in [Layer::Back, Layer::Front] {
+            if layer == Layer::Front {
+                for decor in &master.decor {
+                    self.decor(decor);
+                }
+            }
+            for (number, region) in bound.regions.iter().enumerate() {
+                let (Some(slot), Ok(index)) =
+                    (master.slots.get(region.slot), u32::try_from(number))
+                else {
+                    self.internal(format!(
+                        "slide {} binds slot {}, which master `{}` lacks",
+                        slide.number, region.slot, master.name
+                    ));
+                    continue;
+                };
+                if slot.layer != layer {
+                    continue;
+                }
+                self.region(Placement {
+                    slide,
+                    slot,
+                    region,
+                    at: (bound.index, RegionIndex(index)),
+                });
+            }
         }
     }
 
@@ -460,7 +475,52 @@ impl Emitter<'_> {
         }
     }
 
+    /// A backdrop: the slot's one image placed behind the content without a marker, since nothing measures against it.
+    fn backdrop(&mut self, placement: Placement<'_>) {
+        let Placement {
+            slide,
+            slot,
+            region,
+            at: (slide_index, _),
+        } = placement;
+        let image = region.blocks.first().and_then(|position| {
+            slide
+                .blocks
+                .get(*position)
+                .and_then(|block| match &block.body {
+                    BlockBody::Image(image) => Some(image),
+                    BlockBody::Heading(_)
+                    | BlockBody::Paragraph(_)
+                    | BlockBody::List(_)
+                    | BlockBody::Code(_)
+                    | BlockBody::Quote(_)
+                    | BlockBody::Table(_) => None,
+                })
+        });
+        let Some(image) = image else {
+            self.internal(format!(
+                "slide {} binds the backdrop `{}` to something other than one image",
+                slide.number, slot.name
+            ));
+            return;
+        };
+        let bounds = slot.region;
+        let picture = self.image(image, &slot.image, bounds, true);
+        self.push(&format!(
+            "#place(top + left, dx: {}, dy: {}, {picture})\n",
+            bounds.origin.x, bounds.origin.y
+        ));
+        self.expected.backdrops.push(ExpectedBackdrop {
+            slide: slide_index,
+            bounds,
+        });
+    }
+
     fn region(&mut self, placement: Placement<'_>) {
+        if placement.slot.layer == Layer::Back {
+            self.backdrop(placement);
+            return;
+        }
         let Placement {
             slide,
             slot,
@@ -544,7 +604,7 @@ impl Emitter<'_> {
                 placed
             }
             BlockBody::Quote(paragraph) => self.quote(style, slot.align, paragraph),
-            BlockBody::Image(image) => self.image(image, slot.region, sole),
+            BlockBody::Image(image) => self.image(image, &slot.image, slot.region, sole),
             BlockBody::Table(table) => {
                 let inner = self.table(table);
                 let Some(table_style) = theme.text_style(&theme.tables.text) else {
@@ -661,7 +721,8 @@ impl Emitter<'_> {
         String::from(file.path())
     }
 
-    fn image(&mut self, image: &Image, bounds: Rect, sole: bool) -> String {
+    /// An image: styled in a box the size of its region when it fills the slot alone, or at the region's width in a stack.
+    fn image(&mut self, image: &Image, style: &ImageStyle, bounds: Rect, sole: bool) -> String {
         let virtual_path = format!("{DECK_ASSET_PREFIX}{}", image.path.as_str());
         if !self.assets.iter().any(|asset| asset.path == virtual_path) {
             self.assets.push(AssetUse {
@@ -670,18 +731,60 @@ impl Emitter<'_> {
                 width: bounds.size.width,
             });
         }
-        let size = if sole {
+        let source = lit(&virtual_path);
+        let alt = lit(image.alt.as_str());
+        if !sole {
+            return format!("image({source}, alt: {alt}, width: {FULL}, fit: \"contain\")");
+        }
+        self.framed(style, bounds, &source, &alt)
+    }
+
+    /// The box of a sole image: the shadow's bands behind a clipped, rounded box that holds the image and its scrim.
+    fn framed(&mut self, style: &ImageStyle, bounds: Rect, source: &str, alt: &str) -> String {
+        let (width, height) = (bounds.size.width, bounds.size.height);
+        // The shadow reaches right and down inside the region, so the box gives up that much.
+        let reach = style
+            .shadow
+            .as_ref()
+            .map_or(Length::ZERO, |shadow| shadow.offset);
+        let inner_width = width.saturating_sub(reach).max(Length::ZERO);
+        let inner_height = height.saturating_sub(reach).max(Length::ZERO);
+        let radius = style.radius;
+        let mut pieces: Vec<String> = Vec::new();
+        if let Some(shadow) = &style.shadow {
+            let band_opacity = Thousandths(shadow.opacity.0.checked_div(SHADOW_BANDS).unwrap_or(0));
+            let fill = self.rgba(&shadow.color, band_opacity);
+            for band in 1..=SHADOW_BANDS {
+                let step = Length::from_millipoints(
+                    reach
+                        .0
+                        .saturating_mul(band)
+                        .checked_div(SHADOW_BANDS)
+                        .unwrap_or(0),
+                );
+                pieces.push(format!(
+                    "place(top + left, dx: {step}, dy: {step}, rect(width: {inner_width}, height: {inner_height}, radius: {radius}, fill: {fill}, stroke: none)); "
+                ));
+            }
+        }
+        let scrim = style.scrim.as_ref().map_or_else(String::new, |scrim| {
+            let solid = self.rgba(&scrim.color, scrim.opacity);
+            let clear = self.rgba(&scrim.color, CLEAR);
+            let (first, last) = match scrim.from {
+                ScrimEdge::Bottom => (clear, solid),
+                ScrimEdge::Top => (solid, clear),
+            };
             format!(
-                "width: {}, height: {}",
-                bounds.size.width, bounds.size.height
+                "; place(top + left, rect(width: {FULL}, height: {FULL}, fill: gradient.linear(dir: ttb, {first}, {last}), stroke: none))"
             )
-        } else {
-            String::from("width: 100%")
-        };
+        });
+        pieces.push(format!(
+            "block(width: {inner_width}, height: {inner_height}, clip: true, radius: {radius}, {{ image({source}, alt: {alt}, width: {FULL}, height: {FULL}, fit: {}){scrim} }})",
+            lit(style.fit.name())
+        ));
         format!(
-            "image({}, alt: {}, {size}, fit: \"contain\")",
-            lit(&virtual_path),
-            lit(image.alt.as_str())
+            "block(width: {width}, height: {height}, {{ {} }})",
+            pieces.concat()
         )
     }
 
@@ -1182,6 +1285,96 @@ mod tests {
     }
 
     #[test]
+    fn a_backdrop_goes_down_first_without_a_marker_and_a_framed_image_carries_its_shadow_and_scrim()
+    {
+        use crate::theme::{Fit, ImageStyle, Layer, Scrim, ScrimEdge, Shadow};
+        let mut theme = theme();
+        let mut hero = crate::theme::fixture::master("hero", &[]);
+        hero.slots = vec![
+            Slot {
+                binds: Binding::Title,
+                accepts: BlockKindSet::EMPTY,
+                region: region(HEIGHT_MILLIPOINTS),
+                ..slot("title")
+            },
+            Slot {
+                accepts: BlockKindSet::EMPTY.with(crate::ir::BlockKind::Image),
+                region: region(0),
+                layer: Layer::Back,
+                capacity: crate::theme::Capacity {
+                    blocks: Some(1),
+                    ..crate::theme::Capacity::default()
+                },
+                image: ImageStyle {
+                    fit: Fit::Cover,
+                    radius: Length::from_millipoints(12_000),
+                    shadow: Some(Shadow {
+                        color: style("ink"),
+                        opacity: Thousandths(300),
+                        offset: Length::from_millipoints(6_000),
+                    }),
+                    scrim: Some(Scrim {
+                        color: style("ink"),
+                        opacity: Thousandths(600),
+                        from: ScrimEdge::Bottom,
+                    }),
+                },
+                ..slot("backdrop")
+            },
+        ];
+        hero.decor = vec![Decor::Rect {
+            region: region(2 * HEIGHT_MILLIPOINTS),
+            color: style("ink"),
+        }];
+        theme.masters.push(hero);
+        let deck = Deck {
+            head: Head::default(),
+            slides: vec![slide(
+                1,
+                None,
+                vec![
+                    block(BlockBody::Heading(Heading {
+                        level: HeadingLevel::Title,
+                        inlines: vec![Inline::Text(String::from("over"))],
+                    })),
+                    block(BlockBody::Image(Image {
+                        path: AssetRef::new("pics/a.svg").unwrap(),
+                        alt: PlainText::default(),
+                    })),
+                ],
+            )],
+        };
+        let mut hero_deck = deck;
+        if let Some(first) = hero_deck.slides.first_mut() {
+            first.master = Some(crate::theme::fixture::id("hero"));
+        }
+        let bound = bind(&hero_deck, &theme).unwrap();
+        let emitted = typst_source(&theme, &hero_deck, &bound, &LineBoxes::default()).unwrap();
+        let source = emitted.source.as_str();
+        let backdrop = source.find("fit: \"cover\"").unwrap();
+        let rect = source
+            .find("rect(width: 400.000pt, height: 100.000pt, fill:")
+            .unwrap();
+        let title = source.find("<sivi-m-0-0>").unwrap();
+        assert!(backdrop < rect && rect < title, "{source}");
+        assert_eq!(emitted.expected.backdrops.len(), 1);
+        assert_eq!(emitted.expected.backdrops[0].slide, SlideIndex(0));
+        assert_eq!(emitted.expected.backdrops[0].bounds, region(0));
+        assert_eq!(emitted.expected.regions.len(), 1);
+        assert!(!source.contains("<sivi-m-0-1>"), "{source}");
+        // The box gives up the shadow's offset, and the three bands each take a third of the opacity.
+        assert!(
+            source.contains("block(width: 394.000pt, height: 94.000pt, clip: true, radius: 12.000pt, { image(\"deck/pics/a.svg\", alt: \"\", width: 100%, height: 100%, fit: \"cover\"); place(top + left, rect(width: 100%, height: 100%, fill: gradient.linear(dir: ttb, rgb(\"#01020300\"), rgb(\"#01020399\")), stroke: none)) })"),
+            "{source}"
+        );
+        assert!(
+            source.contains("place(top + left, dx: 2.000pt, dy: 2.000pt, rect(width: 394.000pt, height: 94.000pt, radius: 12.000pt, fill: rgb(\"#0102031a\"), stroke: none)); place(top + left, dx: 4.000pt, dy: 4.000pt,"),
+            "{source}"
+        );
+        assert!(source.contains("dx: 6.000pt, dy: 6.000pt,"), "{source}");
+    }
+
+    #[test]
     fn the_source_keeps_author_text_in_literals_and_spells_every_block() {
         let theme = theme();
         let deck = sample();
@@ -1358,7 +1551,7 @@ mod tests {
             emitted
                 .source
                 .as_str()
-                .contains("alt: \"\", width: 400.000pt, height: 100.000pt, fit: \"contain\")"),
+                .contains("block(width: 400.000pt, height: 100.000pt, clip: true, radius: 0.000pt, { image(\"deck/pics/a.svg\", alt: \"\", width: 100%, height: 100%, fit: \"contain\") })"),
             "{}",
             emitted.source
         );

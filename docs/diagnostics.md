@@ -92,6 +92,7 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [W0502](#w0502) | warning | `FallbackWeight` | a fallback family without the exact weight a style sets |
 | [W0503](#w0503) | warning | `ManyHues` | more than three hue families among the theme's colors |
 | [W0504](#w0504) | warning | `VividPaper` | a paper whose chroma tints every slide |
+| [W0505](#w0505) | warning | `BareBackdrop` | a slot over a backdrop whose image has no scrim, so its text may read poorly on the image |
 
 ## E0001
 
@@ -507,3 +508,8 @@ More than three hue families among the theme's colors.
 
 `VividPaper`, a warning.
 A paper whose chroma tints every slide.
+
+## W0505
+
+`BareBackdrop`, a warning.
+A slot over a backdrop whose image has no scrim, so its text may read poorly on the image.

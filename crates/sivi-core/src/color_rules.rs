@@ -2,6 +2,7 @@
 //!
 //! The light table rises and every channel reads back; every color has a luminance within one;
 //! the contrast ratio of any two luminances lies from one to twenty-one and is one for equal luminances;
+//! a channel over another lies between the two and is either one at the ends;
 //! and every color has an Oklab form whose light fits the gamut.
 
 use crate::theme::Thousandths;
@@ -21,7 +22,58 @@ pub const fn is_contrast(contrast: Thousandths) -> bool {
 mod proofs {
     use super::{EQUAL_CONTRAST, EXTREME_CONTRAST, is_contrast};
     use crate::color::{self, UNIT};
-    use crate::theme::Color;
+    use crate::mark_rules::SOLID;
+    use crate::theme::{Color, Thousandths};
+
+    /// The opacity of nothing over a color.
+    const CLEAR: Thousandths = Thousandths(0);
+
+    /// A channel over another at an opacity from clear to solid lies between the two, and is the lower one when clear and the upper one when solid; outside clear to solid it is undefined.
+    pub(super) fn spec_mix(above: u8, opacity: Thousandths, below: u8) {
+        let mixed = color::mix(above, opacity, below);
+        if opacity.0 < CLEAR.0 || opacity.0 > SOLID.0 {
+            assert!(mixed.is_none());
+            return;
+        }
+        assert!(mixed.is_some(), "every opacity from clear to solid mixes");
+        let Some(mixed) = mixed else {
+            return;
+        };
+        assert!(mixed >= above.min(below) && mixed <= above.max(below));
+        if opacity == CLEAR {
+            assert_eq!(mixed, below);
+        }
+        if opacity == SOLID {
+            assert_eq!(mixed, above);
+        }
+    }
+
+    /// A color over another is its channels each over the other's, which the tests hold over samples.
+    #[cfg(test)]
+    pub(super) fn spec_over(top: Color, opacity: Thousandths, under: Color) {
+        let blend = color::over(top, opacity, under);
+        if opacity.0 < CLEAR.0 || opacity.0 > SOLID.0 {
+            assert!(blend.is_none());
+            return;
+        }
+        assert!(blend.is_some(), "every opacity from clear to solid blends");
+        let Some(blend) = blend else {
+            return;
+        };
+        for (above, below, mixed) in [
+            (top.red, under.red, blend.red),
+            (top.green, under.green, blend.green),
+            (top.blue, under.blue, blend.blue),
+        ] {
+            assert!(mixed >= above.min(below) && mixed <= above.max(below));
+        }
+        if opacity == CLEAR {
+            assert_eq!(blend, under);
+        }
+        if opacity == SOLID {
+            assert_eq!(blend, top);
+        }
+    }
 
     /// The light table rises with every channel, and every channel reads back from its light.
     pub(super) fn spec_channel(channel: u8) {
@@ -97,6 +149,22 @@ mod proofs {
 
     #[cfg(kani)]
     #[kani::proof]
+    fn a_channel_over_another_lies_between_the_two() {
+        let above: u8 = kani::any();
+        let below: u8 = kani::any();
+        // The opacities outside clear to solid are refused before any arithmetic, which the tests hold.
+        let opacity = Thousandths(kani::any());
+        kani::assume(opacity.0 >= CLEAR.0 && opacity.0 <= SOLID.0);
+        spec_mix(above, opacity, below);
+        kani::cover!(
+            color::mix(above, opacity, below).is_some_and(|mixed| mixed != above && mixed != below),
+            "a mix apart from both"
+        );
+        kani::cover!(opacity == SOLID, "solid");
+    }
+
+    #[cfg(kani)]
+    #[kani::proof]
     fn every_color_has_a_luminance_within_one() {
         let color = Color {
             red: kani::any(),
@@ -149,10 +217,70 @@ mod proofs {
 
 #[cfg(test)]
 mod tests {
-    use super::proofs::{spec_channel, spec_contrast, spec_luminance, spec_oklab, spec_ratio};
+    use super::proofs::{
+        spec_channel, spec_contrast, spec_luminance, spec_mix, spec_oklab, spec_over, spec_ratio,
+    };
     use super::{EQUAL_CONTRAST, EXTREME_CONTRAST, is_contrast};
-    use crate::color::UNIT;
+    use crate::color::{self, UNIT};
     use crate::theme::{Color, Thousandths};
+
+    #[test]
+    fn sampled_blends_meet_the_specification_and_a_half_blend_is_the_middle() {
+        let colors = [
+            Color {
+                red: 0,
+                green: 0,
+                blue: 0,
+            },
+            Color {
+                red: 255,
+                green: 255,
+                blue: 255,
+            },
+            Color {
+                red: 31,
+                green: 31,
+                blue: 31,
+            },
+            Color {
+                red: 200,
+                green: 10,
+                blue: 90,
+            },
+        ];
+        for top in colors {
+            for under in colors {
+                for opacity in [-1, 0, 1, 250, 500, 750, 999, 1000, 1001] {
+                    spec_over(top, Thousandths(opacity), under);
+                }
+            }
+        }
+        for above in [0, 1, 2, 127, 128, 254, 255] {
+            for below in [0, 1, 2, 127, 128, 254, 255] {
+                for opacity in [-1, 0, 1, 333, 500, 667, 999, 1000, 1001, i64::MAX, i64::MIN] {
+                    spec_mix(above, Thousandths(opacity), below);
+                }
+            }
+        }
+        assert_eq!(
+            color::over(colors[1], Thousandths(500), colors[0]),
+            Some(Color {
+                red: 128,
+                green: 128,
+                blue: 128,
+            })
+        );
+        assert_eq!(
+            color::over(colors[2], Thousandths(750), color::MID_GRAY),
+            Some(Color {
+                red: 55,
+                green: 55,
+                blue: 55,
+            })
+        );
+        assert_eq!(color::over(colors[1], Thousandths(1001), colors[0]), None);
+        assert_eq!(color::over(colors[1], Thousandths(-1), colors[0]), None);
+    }
 
     #[test]
     fn every_channel_and_every_gray_meet_the_specification() {

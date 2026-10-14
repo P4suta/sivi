@@ -236,6 +236,44 @@ pub struct SlotSection {
     pub max_rows: Option<u32>,
     pub max_columns: Option<u32>,
     pub max_lines: Option<u32>,
+    /// `front` with the content, or `back` as a backdrop the other slots may cover.
+    pub layer: Option<String>,
+    /// How an image that fills the slot alone is shown.
+    pub image: Option<ImageSection>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImageSection {
+    pub fit: Option<String>,
+    pub radius: Option<String>,
+    pub shadow: Option<ShadowSpec>,
+    pub scrim: Option<ScrimSection>,
+}
+
+/// `shadow = true` for the soft shadow as the theme defaults it, `false` for none, or a table that shapes it.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ShadowSpec {
+    Plain(bool),
+    Shaped(ShadowSection),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShadowSection {
+    pub color: Option<String>,
+    pub opacity: Option<f64>,
+    pub offset: Option<String>,
+}
+
+/// A translucent gradient over the image from one edge, for text set over it.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScrimSection {
+    pub color: String,
+    pub opacity: Option<f64>,
+    pub from: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -2,15 +2,17 @@
 //!
 //! `docs/verification/typst-boundary.md` names every test here beside the assumption it keeps.
 
-use sivi_core::length::{Length, MILLIPOINTS_PER_POINT, Point, Rect, Size};
+use sivi_core::length::{EPSILON, Length, MILLIPOINTS_PER_POINT, Point, Rect, Size};
 use sivi_core::measure::{Expected, ExpectedRegion, ItemKind, PageCount, PageNumber};
 use sivi_core::protocol::{RegionIndex, SlideIndex};
 use sivi_core::syntax_theme::{FUNCTIONS, KEYWORDS, PALETTE_SIZE, Scheme, Variant};
 use sivi_core::theme::Color;
+use sivi_typst::world::Asset;
 use sivi_typst::{
     CompileError, Compiled, PdfSettings, ReadBackError, SiviWorld, UtcTimestamp, compile, export,
     measure,
 };
+use typst::layout::Abs;
 use typst::layout::{Frame, FrameItem};
 use typst::visualize::Paint;
 
@@ -91,6 +93,7 @@ fn measure_at_the_region_width_reports_the_required_height_and_rising_prefixes()
     );
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 50), 3)],
     };
@@ -121,6 +124,7 @@ fn japanese_text_wraps_at_the_region_width_without_spaces() {
     );
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -140,6 +144,7 @@ fn a_placed_region_that_overflows_the_page_never_adds_a_page() {
     let source = format!("{PAGE}{}", scaffold(0, 0, (10, 10, 200), &["#lorem(400)"]));
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -165,6 +170,7 @@ fn each_slide_marker_lands_on_its_own_page() {
     );
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 2,
         regions: vec![
             region(0, 0, (10, 10, 200, 100), 1),
@@ -193,6 +199,7 @@ fn text_leaves_land_inside_the_region_that_placed_them() {
     let source = format!("{PAGE}{}", scaffold(0, 0, (100, 50, 150), &["#lorem(3)"]));
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (100, 50, 150, 100), 1)],
     };
@@ -223,6 +230,7 @@ fn an_unbreakable_code_line_leaves_the_region_to_the_right() {
     );
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 100, 100), 1)],
     };
@@ -242,6 +250,7 @@ fn a_character_no_bundled_font_has_is_reported_as_a_missing_glyph() {
     let source = format!("{PAGE}{}", scaffold(0, 0, (10, 10, 200), &["crab 🦀 here"]));
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -278,6 +287,7 @@ fn a_missing_marker_is_an_error_and_never_a_verdict() {
     let source = format!("{PAGE}#metadata((slide: 0)) <sivi-slide-0>\n#lorem(3)\n");
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -292,6 +302,7 @@ fn a_missing_marker_is_an_error_and_never_a_verdict() {
     );
     let twice = build(&duplicated).unwrap();
     let only_slides = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: Vec::new(),
     };
@@ -340,6 +351,7 @@ fn text_leaves(part: &str) -> Result<usize, String> {
     let source = format!("{STRICT_PAGE}{}", scaffold(0, 0, (10, 10, 200), &[part]));
     let compiled = build(&source).map_err(|error| error.to_string())?;
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -370,6 +382,7 @@ fn a_heading_under_show_set_rules_measures_as_its_lines() {
     );
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 2,
         regions: vec![
             region(0, 0, (10, 10, 200, 100), 1),
@@ -392,6 +405,7 @@ fn text_widths(first: &str, second: &str) -> Result<(Length, Length), String> {
     );
     let compiled = build(&source).map_err(|error| error.to_string())?;
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 2,
         regions: vec![
             region(0, 0, (10, 10, 200, 100), 1),
@@ -541,7 +555,7 @@ fn every_carried_scheme_loads_as_a_raw_theme_and_paints_a_keyword_with_its_keywo
             "#[#set raw(theme: \"{path}\"); #show raw: set text(fill: rgb(\"{}\")); #raw(block: true, lang: \"rust\", \"fn main() {{}}\")]\n",
             scheme.foreground()
         ));
-        assets.push(sivi_typst::Asset {
+        assets.push(Asset {
             path,
             bytes: file.text().as_bytes().to_vec(),
         });
@@ -587,6 +601,7 @@ fn a_font_stack_falls_through_to_the_family_that_has_the_glyph() {
     let source = format!("{STRICT_PAGE}{}", scaffold(0, 0, (10, 10, 200), &[stacked]));
     let compiled = build(&source).unwrap();
     let expected = Expected {
+        backdrops: Vec::new(),
         slides: 1,
         regions: vec![region(0, 0, (10, 10, 200, 100), 1)],
     };
@@ -598,4 +613,105 @@ fn a_font_stack_falls_through_to_the_family_that_has_the_glyph() {
         .filter_map(|leaf| leaf.text.clone())
         .collect();
     assert!(shown.contains("明朝"), "{shown}");
+}
+
+/// A wide picture, four to one, so a cover fit into a two-to-one box scales it to twice the box's width.
+const WIDE_PICTURE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"><rect width="400" height="100" fill="#0b57d0"/></svg>"##;
+const WIDE_PICTURE_PATH: &str = "deck/wide.svg";
+
+/// The size of every image item in `frame` and its groups, as laid out before any clip.
+fn image_sizes(frame: &Frame, found: &mut Vec<(Abs, Abs)>) {
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Group(group) => image_sizes(&group.frame, found),
+            FrameItem::Image(_, size, _) => found.push((size.x, size.y)),
+            FrameItem::Text(_) | FrameItem::Shape(..) | FrameItem::Link(..) | FrameItem::Tag(_) => {
+            }
+        }
+    }
+}
+
+/// Whether `found` lies within the epsilon of `wanted`.
+const fn near(found: Length, wanted: Length) -> bool {
+    found.0.abs_diff(wanted.0) <= EPSILON.0.unsigned_abs()
+}
+
+#[test]
+fn a_covering_image_reaches_past_its_box_as_an_item_and_reads_back_as_the_box_it_shows_through() {
+    let source = format!(
+        "{PAGE}#metadata((slide: 0)) <sivi-slide-0>\n#place(top + left, dx: 20pt, dy: 30pt, block(width: 200pt, height: 100pt, clip: true, radius: 8pt, image({}, width: 100%, height: 100%, fit: \"cover\")))\n",
+        format_args!("\"{WIDE_PICTURE_PATH}\"")
+    );
+    let world = SiviWorld::new(
+        &source,
+        vec![Asset {
+            path: String::from(WIDE_PICTURE_PATH),
+            bytes: WIDE_PICTURE.to_vec(),
+        }],
+        Vec::new(),
+    )
+    .unwrap();
+    let compiled = compile(&world).unwrap();
+    let mut sizes = Vec::new();
+    for page in compiled.document.pages() {
+        image_sizes(&page.frame, &mut sizes);
+    }
+    assert_eq!(sizes.len(), 1, "{sizes:?}");
+    let (item_width, item_height) = sizes[0];
+    assert!(item_width > Abs::pt(390.0), "{item_width:?}");
+    assert!(item_height.approx_eq(Abs::pt(100.0)), "{item_height:?}");
+    let expected = Expected {
+        backdrops: Vec::new(),
+        slides: 1,
+        regions: Vec::new(),
+    };
+    let measurement = measure(&compiled.document, &expected).unwrap();
+    let images: Vec<_> = measurement
+        .leaves
+        .iter()
+        .filter(|leaf| leaf.kind == ItemKind::Image)
+        .collect();
+    assert_eq!(images.len(), 1, "{images:?}");
+    let shown = images[0].bounds;
+    assert!(near(shown.origin.x, pt(20)), "{shown:?}");
+    assert!(near(shown.origin.y, pt(30)), "{shown:?}");
+    assert!(near(shown.size.width, pt(200)), "{shown:?}");
+    assert!(near(shown.size.height, pt(100)), "{shown:?}");
+}
+
+/// Whether any shape in `frame` and its groups is filled with a gradient.
+fn has_gradient_fill(frame: &Frame) -> bool {
+    frame.items().any(|(_, item)| match item {
+        FrameItem::Group(group) => has_gradient_fill(&group.frame),
+        FrameItem::Shape(shape, _) => matches!(shape.fill, Some(Paint::Gradient(_))),
+        FrameItem::Text(_) | FrameItem::Image(..) | FrameItem::Link(..) | FrameItem::Tag(_) => {
+            false
+        }
+    })
+}
+
+#[test]
+fn a_gradient_fill_reaches_the_frame_as_a_gradient_paint_inside_its_clip() {
+    let source = format!(
+        "{PAGE}#place(top + left, dx: 10pt, dy: 10pt, block(width: 120pt, height: 60pt, clip: true, radius: 6pt, {{ rect(width: 100%, height: 100%, fill: blue); place(top + left, rect(width: 100%, height: 100%, fill: gradient.linear(dir: ttb, rgb(\"#00000000\"), rgb(\"#000000bf\")), stroke: none)) }}))\n"
+    );
+    let compiled = build(&source).unwrap();
+    assert!(
+        compiled
+            .document
+            .pages()
+            .iter()
+            .any(|page| has_gradient_fill(&page.frame))
+    );
+    let (leaves, _) = sivi_typst::frames::leaves(&compiled.document).unwrap();
+    let shapes: Vec<_> = leaves
+        .iter()
+        .filter(|leaf| leaf.kind == ItemKind::Shape)
+        .collect();
+    assert!(shapes.len() >= 2, "{shapes:?}");
+    for shape in shapes {
+        assert!(near(shape.bounds.origin.x, pt(10)), "{:?}", shape.bounds);
+        assert!(near(shape.bounds.size.width, pt(120)), "{:?}", shape.bounds);
+        assert!(near(shape.bounds.size.height, pt(60)), "{:?}", shape.bounds);
+    }
 }

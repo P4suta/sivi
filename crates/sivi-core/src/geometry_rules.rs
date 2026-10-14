@@ -1,6 +1,7 @@
-//! Whether a master's regions lie inside the page without overlapping one another.
+//! Whether a master's regions lie inside the page without overlapping one another, where only the front regions must stay apart.
 
 use crate::length::{Rect, Size};
+use crate::theme::Layer;
 
 /// Why a set of regions is not a valid layout, naming the first offender in declaration order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -48,12 +49,31 @@ pub const fn overlaps(first: Rect, second: Rect) -> bool {
     }
 }
 
-/// Refuses a degenerate region, a region outside the page, or two overlapping regions, in that order of discovery.
+/// The layer of the region at `index`, where a region without a listed layer lies in front.
+fn layer_at(layers: &[Layer], index: usize) -> Layer {
+    layers.get(index).map_or(Layer::Front, |layer| *layer)
+}
+
+/// Whether two regions must stay apart: a backdrop may lie under anything, so only two front regions may not overlap.
+fn both_front(layers: &[Layer], first: usize, second: usize) -> bool {
+    matches!(
+        (layer_at(layers, first), layer_at(layers, second)),
+        (Layer::Front, Layer::Front)
+    )
+}
+
+/// Refuses a degenerate region, a region outside the page, or two overlapping front regions, in that order of discovery.
+///
+/// `layers` lists the layer of each region in order; a region past the end of the list lies in front.
 ///
 /// # Errors
 ///
-/// Returns the first offending region in declaration order, or the first overlapping pair.
-pub fn validate(page: Size, regions: &[Rect]) -> Result<(), GeometryError> {
+/// Returns the first offending region in declaration order, or the first overlapping pair of front regions.
+pub fn validate_layered(
+    page: Size,
+    regions: &[Rect],
+    layers: &[Layer],
+) -> Result<(), GeometryError> {
     for (index, region) in regions.iter().enumerate() {
         if is_degenerate(*region) {
             return Err(GeometryError::Degenerate(index));
@@ -64,33 +84,43 @@ pub fn validate(page: Size, regions: &[Rect]) -> Result<(), GeometryError> {
     }
     for (first, region) in regions.iter().enumerate() {
         for (offset, other) in regions.iter().skip(first.saturating_add(1)).enumerate() {
-            if overlaps(*region, *other) {
-                return Err(GeometryError::Overlap(
-                    first,
-                    first.saturating_add(1).saturating_add(offset),
-                ));
+            let second = first.saturating_add(1).saturating_add(offset);
+            if both_front(layers, first, second) && overlaps(*region, *other) {
+                return Err(GeometryError::Overlap(first, second));
             }
         }
     }
     Ok(())
 }
 
+/// Refuses a degenerate region, a region outside the page, or two overlapping regions, with every region in front.
+///
+/// # Errors
+///
+/// Returns the first offending region in declaration order, or the first overlapping pair.
+pub fn validate(page: Size, regions: &[Rect]) -> Result<(), GeometryError> {
+    validate_layered(page, regions, &[])
+}
+
 /// The properties Kani proves for every admitted input and the tests check over the inputs they list.
 #[cfg(any(test, kani))]
 mod proofs {
-    use super::{GeometryError, is_degenerate, is_outside, overlaps, validate};
+    use super::{GeometryError, is_degenerate, is_outside, layer_at, overlaps, validate_layered};
     use crate::length::{Rect, Size};
+    use crate::theme::Layer;
 
-    pub(super) fn spec_validate(page: Size, regions: &[Rect]) {
-        let result = validate(page, regions);
+    pub(super) fn spec_validate(page: Size, regions: &[Rect], layers: &[Layer]) {
+        let result = validate_layered(page, regions, layers);
         let any_bad = regions
             .iter()
             .any(|region| is_degenerate(*region) || is_outside(page, *region));
+        let front = |index: usize| layer_at(layers, index) == Layer::Front;
         let any_overlap = regions.iter().enumerate().any(|(first, region)| {
             regions
                 .iter()
+                .enumerate()
                 .skip(first.saturating_add(1))
-                .any(|other| overlaps(*region, *other))
+                .any(|(second, other)| front(first) && front(second) && overlaps(*region, *other))
         });
         assert_eq!(result.is_ok(), !any_bad && !any_overlap);
         match result {
@@ -117,6 +147,7 @@ mod proofs {
             Err(GeometryError::Overlap(first, second)) => {
                 assert!(first < second);
                 assert!(!any_bad);
+                assert!(front(first) && front(second));
                 let pair = (regions.get(first), regions.get(second));
                 assert!(matches!(pair, (Some(_), Some(_))));
                 if let (Some(one), Some(two)) = pair {
@@ -158,6 +189,15 @@ mod proofs {
     }
 
     #[cfg(kani)]
+    fn any_layer() -> Layer {
+        if kani::any() {
+            Layer::Front
+        } else {
+            Layer::Back
+        }
+    }
+
+    #[cfg(kani)]
     #[kani::proof]
     #[kani::unwind(5)]
     fn a_layout_is_valid_exactly_when_no_region_is_degenerate_outside_or_overlapping() {
@@ -168,11 +208,18 @@ mod proofs {
         kani::assume(page.width.millipoints() >= 0);
         kani::assume(page.height.millipoints() >= 0);
         let regions = [any_rect(), any_rect(), any_rect()];
-        spec_validate(page, &regions);
-        let result = validate(page, &regions);
+        let layers = [any_layer(), any_layer(), any_layer()];
+        spec_validate(page, &regions, &layers);
+        let result = validate_layered(page, &regions, &layers);
         kani::cover!(result.is_ok());
         kani::cover!(matches!(result, Err(GeometryError::Overlap(0, 2))));
         kani::cover!(matches!(result, Err(GeometryError::OutsidePage(1))));
+        let [under, over, _] = regions;
+        kani::cover!(
+            result.is_ok()
+                && matches!(layers, [Layer::Back, Layer::Front, _])
+                && overlaps(under, over)
+        );
     }
 
     #[cfg(kani)]
@@ -215,7 +262,7 @@ mod proofs {
             ),
         ];
         kani::assert(
-            validate(page, &regions).is_ok(),
+            validate_layered(page, &regions, &[Layer::Front, Layer::Front]).is_ok(),
             "NEGATIVE_GEOMETRY_CONTROL",
         );
     }
@@ -223,8 +270,9 @@ mod proofs {
 
 #[cfg(test)]
 mod tests {
-    use super::{GeometryError, overlaps, proofs, validate};
+    use super::{GeometryError, overlaps, proofs, validate, validate_layered};
     use crate::length::{Length, Point, Rect, Size};
+    use crate::theme::Layer;
 
     const fn unit(millipoints: i64) -> Length {
         Length::from_millipoints(millipoints)
@@ -259,17 +307,63 @@ mod tests {
             rect(-1, 0, 10, 10),
             rect(i64::MAX, 0, 1, 1),
         ];
+        let layerings = [
+            [Layer::Front, Layer::Front, Layer::Front],
+            [Layer::Back, Layer::Front, Layer::Front],
+            [Layer::Front, Layer::Back, Layer::Front],
+            [Layer::Front, Layer::Front, Layer::Back],
+            [Layer::Back, Layer::Back, Layer::Front],
+        ];
         for first in samples {
             proofs::spec_overlap_symmetric(first, first);
             for second in samples {
                 proofs::spec_overlap_symmetric(first, second);
-                proofs::spec_validate(PAGE, &[first, second]);
+                proofs::spec_validate(PAGE, &[first, second], &[]);
                 for third in samples {
-                    proofs::spec_validate(PAGE, &[first, second, third]);
+                    for layers in layerings {
+                        proofs::spec_validate(PAGE, &[first, second, third], &layers);
+                    }
                 }
             }
         }
-        proofs::spec_validate(PAGE, &[]);
+        proofs::spec_validate(PAGE, &[], &[]);
+    }
+
+    #[test]
+    fn a_backdrop_may_lie_under_a_front_region_but_two_front_regions_stay_apart() {
+        let under = [
+            rect(0, 0, 100, 100),
+            rect(10, 10, 50, 50),
+            rect(20, 20, 10, 10),
+        ];
+        assert_eq!(
+            validate_layered(PAGE, &under, &[Layer::Back, Layer::Front, Layer::Front]),
+            Err(GeometryError::Overlap(1, 2))
+        );
+        assert_eq!(
+            validate_layered(PAGE, &under, &[Layer::Back, Layer::Front, Layer::Back]),
+            Ok(())
+        );
+        assert_eq!(
+            validate_layered(PAGE, &under, &[Layer::Back, Layer::Back, Layer::Back]),
+            Ok(())
+        );
+        assert_eq!(
+            validate_layered(PAGE, &under, &[Layer::Back]),
+            Err(GeometryError::Overlap(1, 2))
+        );
+        assert_eq!(
+            validate_layered(PAGE, &under, &[Layer::Front]),
+            Err(GeometryError::Overlap(0, 1))
+        );
+        assert_eq!(
+            validate_layered(
+                PAGE,
+                &[rect(0, 0, 100, 101), rect(0, 0, 10, 10)],
+                &[Layer::Back]
+            ),
+            Err(GeometryError::OutsidePage(0))
+        );
     }
 
     #[test]

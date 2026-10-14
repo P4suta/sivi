@@ -2,13 +2,13 @@
 //!
 //! Every number in a diagnostic comes from the adapter's measurement; the report never guesses a layout.
 
-use crate::attribute_rules::{part_at, region_of};
+use crate::attribute_rules::{covered, part_at, region_of};
 use crate::bind::{BoundDeck, BoundRegion};
 use crate::diagnostic::{Code, Diagnostic, SlideRef};
 use crate::fit_rules::{Fit, PageVerdict, fit, pages};
 use crate::ir::{self, Block, BlockBody, BlockKind, Deck, Slide};
 use crate::length::{EPSILON, Length, Point, Rect};
-use crate::measure::{Expected, Leaf, Measurement, RegionMeasure};
+use crate::measure::{Expected, ItemKind, Leaf, Measurement, RegionMeasure};
 use crate::protocol::SlideIndex;
 use crate::span::Span;
 use crate::split_rules::{SplitVerdict, split_point};
@@ -475,6 +475,9 @@ impl<'a> Reporter<'a> {
     }
 
     /// Checks every laid-out item against the region that placed it and against the page.
+    ///
+    /// An image or a shape inside a backdrop's box is the backdrop's own, clipped to that box, so no region owns it;
+    /// the text set over a backdrop still answers to its region.
     fn leaves(&mut self) {
         let page_size = self.theme.page.size;
         let page_box = Rect::new(
@@ -500,7 +503,18 @@ impl<'a> Reporter<'a> {
                 .filter_map(|region| self.site(region))
                 .collect();
             let boxes: Vec<Rect> = sites.iter().map(|site| site.bounds).collect();
+            let backdrops: Vec<Rect> = self
+                .measured
+                .expected
+                .backdrops
+                .iter()
+                .filter(|backdrop| backdrop.slide == index)
+                .map(|backdrop| backdrop.bounds)
+                .collect();
             for leaf in measurement.leaves.iter().filter(|leaf| leaf.page == page) {
+                if leaf.kind != ItemKind::Text && covered(&backdrops, leaf.bounds, EPSILON) {
+                    continue;
+                }
                 self.leaf(leaf, &sites, &boxes, &page_box, &mut strayed);
             }
         }
@@ -1059,6 +1073,94 @@ mod tests {
             vec![leaf((900_000, 530_000), (100_000, 20_000))],
         );
         assert_eq!(report(&deck, &stray)[0].code, Code::OutsidePage);
+    }
+
+    #[test]
+    fn an_image_or_a_shape_inside_a_backdrop_belongs_to_it_and_the_text_over_it_still_answers() {
+        use crate::ir::Image;
+        use crate::measure::ItemKind;
+        use crate::theme::Layer;
+        let hero_deck = deck_of(vec![slide_of(
+            1,
+            "hero",
+            vec![
+                paragraph(1, "a"),
+                Block {
+                    body: BlockBody::Image(Image {
+                        path: crate::ir::AssetRef::new("pics/a.svg").unwrap(),
+                        alt: crate::ir::PlainText::default(),
+                    }),
+                    span: Span::line(3, 1),
+                },
+            ],
+        )]);
+        let mut hero = master("hero", &[]);
+        hero.slots = vec![
+            Slot {
+                accepts: BlockKindSet::EMPTY.with(BlockKind::Image),
+                region: Rect::new(
+                    Point { x: mp(0), y: mp(0) },
+                    Size {
+                        width: mp(PAGE_WIDTH),
+                        height: mp(PAGE_HEIGHT),
+                    },
+                ),
+                layer: Layer::Back,
+                capacity: Capacity {
+                    blocks: Some(1),
+                    ..Capacity::default()
+                },
+                ..slot("backdrop")
+            },
+            Slot {
+                region: Rect::new(
+                    Point { x: mp(0), y: mp(0) },
+                    Size {
+                        width: mp(REGION_WIDTH),
+                        height: mp(REGION_HEIGHT),
+                    },
+                ),
+                ..slot("body")
+            },
+        ];
+        let theme = {
+            let mut found = theme();
+            found.masters.push(hero);
+            found
+        };
+        let bound = bind(&hero_deck, &theme).unwrap();
+        let emitted = typst_source(&theme, &hero_deck, &bound, &LineBoxes::default()).unwrap();
+        assert_eq!(emitted.expected.backdrops.len(), 1);
+        let report = |leaves: Vec<Leaf>| {
+            diagnose(
+                &theme,
+                &hero_deck,
+                &bound,
+                Measured {
+                    expected: &emitted.expected,
+                    measurement: &measurement(vec![region(40_000, &[40_000], &[])], leaves),
+                },
+            )
+        };
+        // The backdrop's image starts inside the body's region and reaches far below it, as the walker reads it.
+        let picture = Leaf {
+            kind: ItemKind::Image,
+            ..leaf((0, 0), (PAGE_WIDTH, PAGE_HEIGHT))
+        };
+        let scrim = Leaf {
+            kind: ItemKind::Shape,
+            ..leaf((0, 0), (PAGE_WIDTH, PAGE_HEIGHT))
+        };
+        assert_eq!(report(vec![picture, scrim]), Vec::new());
+        // The text over it is still held to its region.
+        let found = report(vec![leaf((0, 30_000), (100_000, 80_000))]);
+        assert_eq!(found[0].code, Code::OracleDisagreement);
+        // An image reaching past the backdrop is nobody's, so it is held like any other item.
+        let past = Leaf {
+            kind: ItemKind::Image,
+            ..leaf((0, 0), (PAGE_WIDTH, PAGE_HEIGHT + 1_000))
+        };
+        assert_eq!(report(vec![past])[0].code, Code::OracleDisagreement);
     }
 
     #[test]

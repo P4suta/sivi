@@ -1,0 +1,196 @@
+# A theme of three image masters: a hero with a backdrop under a scrim, a picture beside the words, and a pair.
+schema = 1
+
+[theme]
+name = "gallery"
+
+[page]
+width = "960pt"
+height = "540pt"
+background = "paper"
+
+[colors]
+paper = "#ffffff"
+ink = "#1f1f1f"
+muted = "#5f6368"
+accent = "#0b57d0"
+rule = "#d9dde3"
+code_bg = "#f3f5f7"
+highlight = "#ffd54a"
+glow = "#f7f3ec"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "0.6em"
+fallback = ["BIZ UDPGothic"]
+
+[text.title]
+font = "BIZ UDPGothic"
+size = "40pt"
+weight = 700
+color = "ink"
+line_height = 1.2
+align = "left"
+
+[text.hero]
+font = "BIZ UDPGothic"
+size = "48pt"
+weight = 700
+color = "glow"
+line_height = 1.2
+align = "left"
+
+[text.lede]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "glow"
+line_height = 1.4
+align = "left"
+
+[text.body]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "ink"
+line_height = 1.45
+align = "left"
+
+[text.table]
+font = "BIZ UDPGothic"
+size = "20pt"
+weight = 400
+color = "ink"
+line_height = 1.3
+align = "left"
+
+[text.meta]
+font = "BIZ UDPGothic"
+size = "18pt"
+weight = 400
+color = "muted"
+line_height = 1.2
+align = "left"
+
+[inline]
+emphasis = { style = "color", color = "accent" }
+strong = { weight = 700 }
+code = { font = "JetBrains Mono", background = "code_bg" }
+link = { color = "accent", underline = true }
+mark = { marker = { color = "highlight", opacity = 0.5, top = "ascender", bottom = "descender" } }
+
+[lists]
+bullets = ["•", "–", "·"]
+ordered = "1."
+indent = "1.25em"
+gap = "0.35em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.35
+background = "code_bg"
+padding = "12pt"
+highlight = true
+tab_width = 4
+
+[tables]
+text = "table"
+header_weight = 700
+rule = "rule"
+padding = "6pt"
+
+[quotes]
+bar = "accent"
+bar_width = "4pt"
+indent = "24pt"
+
+# A photograph behind the whole slide, darkened from the bottom, with the title and one line set over it.
+[masters.hero.slots.backdrop]
+binds = "flow"
+accepts = ["image"]
+required = true
+layer = "back"
+region = { x = "0pt", y = "0pt", width = "960pt", height = "540pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", scrim = { color = "ink", opacity = 0.75, from = "bottom" } }
+
+[masters.hero.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "300pt", width = "840pt", height = "120pt" }
+text = "hero"
+valign = "bottom"
+
+[masters.hero.slots.lede]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "60pt", y = "432pt", width = "840pt", height = "60pt" }
+text = "lede"
+max_blocks = 1
+
+# The words on the left, a picture on the right that covers a rounded box under a soft shadow.
+[masters.image-right.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.image-right.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list"]
+region = { x = "60pt", y = "156pt", width = "420pt", height = "324pt" }
+text = "body"
+max_items = 6
+
+[masters.image-right.slots.picture]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "510pt", y = "156pt", width = "390pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "16pt", shadow = true }
+
+[[masters.image-right.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# Two pictures side by side, the second following the first.
+[masters.grid-2.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.grid-2.slots.left]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "156pt", width = "410pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = { color = "ink", opacity = 0.25, offset = "8pt" } }
+
+[masters.grid-2.slots.right]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "left"
+region = { x = "490pt", y = "156pt", width = "410pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = { color = "ink", opacity = 0.25, offset = "8pt" } }
+
+[[masters.grid-2.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"

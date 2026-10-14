@@ -531,6 +531,72 @@ pub struct Capacity {
     pub lines: Option<u32>,
 }
 
+/// Where a slot lies: in front with the content, or behind it as a backdrop other slots may cover.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum Layer {
+    #[default]
+    Front,
+    Back,
+}
+
+/// How an image fills the box of its slot.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum Fit {
+    /// The whole image shows, letterboxed inside the box.
+    #[default]
+    Contain,
+    /// The image fills the box, and the box clips what reaches past it.
+    Cover,
+}
+
+impl Fit {
+    /// The fit as the theme and Typst spell it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Contain => "contain",
+            Self::Cover => "cover",
+        }
+    }
+}
+
+/// A soft shadow under an image's box, which stays inside the slot's region.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Shadow {
+    pub color: StyleName,
+    /// How opaque the shadow is at its darkest, in thousandths.
+    pub opacity: Thousandths,
+    /// How far the shadow reaches right and down, which the box gives up.
+    pub offset: Length,
+}
+
+/// The edge a scrim starts from at its most opaque.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum ScrimEdge {
+    #[default]
+    Bottom,
+    Top,
+}
+
+/// A translucent gradient over an image, so text set over it stays readable.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Scrim {
+    pub color: StyleName,
+    /// How opaque the scrim is at its edge, in thousandths; it fades to clear at the other edge.
+    pub opacity: Thousandths,
+    pub from: ScrimEdge,
+}
+
+/// How a slot shows an image that fills it alone.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct ImageStyle {
+    pub fit: Fit,
+    /// The radius of the box's corners.
+    pub radius: Length,
+    pub shadow: Option<Shadow>,
+    pub scrim: Option<Scrim>,
+}
+
 /// A slot of a master: what it binds, what it accepts, where it sits, and how its text is set.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Slot {
@@ -545,6 +611,10 @@ pub struct Slot {
     pub text: StyleName,
     pub valign: VerticalAlign,
     pub align: Option<Align>,
+    /// Whether the slot lies in front with the content or behind it as a backdrop.
+    pub layer: Layer,
+    /// How an image that fills the slot alone is shown.
+    pub image: ImageStyle,
 }
 
 /// A value of the deck's head a decor shows.
@@ -685,8 +755,8 @@ impl Theme {
 pub mod fixture {
     use super::{
         Align, Binding, BlockKindSet, Capacity, CodeStyle, Color, FamilyName, FontStack,
-        InlineStyles, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot, StyleName,
-        TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
+        ImageStyle, InlineStyles, Layer, ListStyle, Mark, Master, Measure, Page, QuoteStyle, Slot,
+        StyleName, TableStyle, TextStyle, Theme, Thousandths, Typography, VerticalAlign, Weight,
     };
     use crate::ir::BlockKind;
     use crate::length::{Length, Rect, Size};
@@ -731,6 +801,8 @@ pub mod fixture {
             text: style("body"),
             valign: VerticalAlign::Top,
             align: None,
+            layer: Layer::Front,
+            image: ImageStyle::default(),
         }
     }
 

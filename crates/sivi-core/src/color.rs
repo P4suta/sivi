@@ -192,6 +192,41 @@ pub fn contrast(first: Color, second: Color) -> Option<Thousandths> {
     ratio(one.max(other), one.min(other))
 }
 
+/// The mid gray the design lints assume as the lightest image under a scrim.
+pub const MID_GRAY: Color = Color {
+    red: 128,
+    green: 128,
+    blue: 128,
+};
+
+/// One channel of `above` at `opacity` over the same channel of `below`, to the nearest, as a viewer composites a translucent fill.
+///
+/// `None` for an opacity outside clear to solid.
+#[must_use]
+pub fn mix(above: u8, opacity: Thousandths, below: u8) -> Option<u8> {
+    let cover = u32::try_from(opacity.0).ok()?;
+    let rest = THOUSAND.checked_sub(cover)?;
+    let sum = u32::from(above)
+        .checked_mul(cover)?
+        .checked_add(u32::from(below).checked_mul(rest)?)?;
+    let nearest = sum
+        .checked_add(THOUSAND.checked_div(HALVES_NARROW)?)?
+        .checked_div(THOUSAND)?;
+    u8::try_from(nearest).ok()
+}
+
+/// `top` at `opacity` over `under`, channel by channel.
+///
+/// `None` for an opacity outside clear to solid.
+#[must_use]
+pub fn over(top: Color, opacity: Thousandths, under: Color) -> Option<Color> {
+    Some(Color {
+        red: mix(top.red, opacity, under.red)?,
+        green: mix(top.green, opacity, under.green)?,
+        blue: mix(top.blue, opacity, under.blue)?,
+    })
+}
+
 /// The largest `root` from zero to `reach` times one whose `rises(root)` stays at or below `target`, by a bounded halving search.
 fn floor_root(target: i128, reach: i128, rises: impl Fn(i128) -> Option<i128>) -> Option<i128> {
     let mut low: i128 = 0;

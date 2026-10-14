@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
+---
+{"deck":"../../fixtures/decks/pass-images/deck.md","diagnostics":[],"format":"sivi.diagnostics","output":{"pages":3,"path":null,"sha256":null},"version":1}

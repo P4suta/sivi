@@ -4,7 +4,8 @@
 //! so a palette holds few hues, keeps the body on the paper at seven to one, and keeps every accent on the paper at three to one.
 
 use crate::color::{self, Oklch};
-use crate::theme::{Color, Thousandths};
+use crate::length::Rect;
+use crate::theme::{Color, ScrimEdge, Thousandths};
 
 /// The lowest contrast of body text on its paper, as the accessibility guidelines ask of normal text.
 pub const MIN_BODY_CONTRAST: Thousandths = Thousandths(4500);
@@ -37,6 +38,31 @@ pub const fn is_crowd(families: usize) -> bool {
 #[must_use]
 pub const fn tints(chroma: i64) -> bool {
     chroma > MAX_PAPER_CHROMA
+}
+
+/// How opaque a scrim is at the lightest edge of `slot` over `backdrop`, in thousandths.
+///
+/// A scrim is solid at the edge it starts from and clear at the far edge, so a slot reads through the scrim at the strength the gradient has where the slot ends toward the clear edge; a slot past that edge reads none.
+#[must_use]
+pub fn scrim_strength(
+    from: ScrimEdge,
+    opacity: Thousandths,
+    backdrop: Rect,
+    slot: Rect,
+) -> Option<Thousandths> {
+    let height = backdrop.size.height.0;
+    if height <= 0 {
+        return None;
+    }
+    // The distance from the clear edge to the slot's edge nearest it, which the gradient covers at that fraction.
+    let distance = match from {
+        ScrimEdge::Bottom => slot.origin.y.0.checked_sub(backdrop.origin.y.0)?,
+        ScrimEdge::Top => backdrop.bottom()?.0.checked_sub(slot.bottom()?.0)?,
+    };
+    let fraction = distance.clamp(0, height);
+    Some(Thousandths(
+        opacity.0.checked_mul(fraction)?.checked_div(height)?,
+    ))
 }
 /// The tenths of a degree in a turn.
 const TURN: u16 = color::TURN;
@@ -718,6 +744,103 @@ mod tests {
         }
         assert_eq!(names.len(), super::CURATED_COUNT);
         assert_eq!(super::curated("Sakura"), None);
+    }
+
+    #[test]
+    fn a_scrim_reads_at_the_gradient_where_the_slot_ends_toward_the_clear_edge() {
+        use super::scrim_strength;
+        use crate::length::{Length, Point, Rect, Size};
+        use crate::theme::{ScrimEdge, Thousandths};
+        let rect = |x: i64, y: i64, width: i64, height: i64| {
+            Rect::new(
+                Point {
+                    x: Length::from_millipoints(x),
+                    y: Length::from_millipoints(y),
+                },
+                Size {
+                    width: Length::from_millipoints(width),
+                    height: Length::from_millipoints(height),
+                },
+            )
+        };
+        let backdrop = rect(0, 0, 960, 540);
+        let opacity = Thousandths(800);
+        // From the bottom, a slot whose top lies at the middle reads at half the opacity.
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Bottom,
+                opacity,
+                backdrop,
+                rect(60, 270, 840, 100)
+            ),
+            Some(Thousandths(400))
+        );
+        assert_eq!(
+            scrim_strength(ScrimEdge::Bottom, opacity, backdrop, rect(60, 0, 840, 100)),
+            Some(Thousandths(0))
+        );
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Bottom,
+                opacity,
+                backdrop,
+                rect(60, 540, 840, 100)
+            ),
+            Some(opacity)
+        );
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Bottom,
+                opacity,
+                backdrop,
+                rect(60, -10, 840, 100)
+            ),
+            Some(Thousandths(0))
+        );
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Bottom,
+                opacity,
+                backdrop,
+                rect(60, 600, 840, 100)
+            ),
+            Some(opacity)
+        );
+        // From the top, the slot's bottom edge is the one nearest the clear edge.
+        assert_eq!(
+            scrim_strength(ScrimEdge::Top, opacity, backdrop, rect(60, 170, 840, 100)),
+            Some(Thousandths(400))
+        );
+        assert_eq!(
+            scrim_strength(ScrimEdge::Top, opacity, backdrop, rect(60, 0, 840, 540)),
+            Some(Thousandths(0))
+        );
+        assert_eq!(
+            scrim_strength(ScrimEdge::Top, opacity, backdrop, rect(60, 0, 840, 1)),
+            Some(Thousandths(798))
+        );
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Top,
+                opacity,
+                rect(0, 100, 960, 540),
+                rect(60, 100, 840, 1)
+            ),
+            Some(Thousandths(798))
+        );
+        assert_eq!(
+            scrim_strength(
+                ScrimEdge::Bottom,
+                opacity,
+                rect(0, 0, 960, 0),
+                rect(0, 0, 1, 1)
+            ),
+            None
+        );
+        assert_eq!(
+            scrim_strength(ScrimEdge::Top, opacity, backdrop, rect(0, i64::MAX, 1, 1)),
+            None
+        );
     }
 
     #[test]

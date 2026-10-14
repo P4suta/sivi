@@ -624,4 +624,102 @@ mod tests {
         let wide = SMALL.replacen("width = \"100pt\"", "width = \"wide\"", 1);
         assert_eq!(codes(&wide), vec![Code::ThemeValue]);
     }
+
+    /// The small theme with `slot_keys` appended to its one slot, and a backdrop slot under it that accepts `accepts`,
+    /// holds `max_blocks`, and carries `backdrop_keys`.
+    fn with_backdrop(
+        slot_keys: &str,
+        accepts: &str,
+        max_blocks: u32,
+        backdrop_keys: &str,
+    ) -> String {
+        format!(
+            "{SMALL}\n{slot_keys}\n[masters.only.slots.backdrop]\nbinds = \"flow\"\naccepts = [{accepts}]\nlayer = \"back\"\nregion = {{ x = \"0pt\", y = \"0pt\", width = \"100%\", height = \"100%\" }}\ntext = \"body\"\nmax_blocks = {max_blocks}\n{backdrop_keys}\n"
+        )
+    }
+
+    /// The small theme with `slot_keys` on its one slot and a sound backdrop carrying `backdrop_keys`.
+    fn with_sound_backdrop(slot_keys: &str, backdrop_keys: &str) -> String {
+        with_backdrop(slot_keys, "\"image\"", 1, backdrop_keys)
+    }
+
+    #[test]
+    fn a_slot_reads_its_layer_and_its_image_style() {
+        use sivi_core::theme::{Fit, Layer, ScrimEdge};
+        let spelled = with_sound_backdrop(
+            "layer = \"front\"\nimage = { fit = \"contain\", radius = \"3pt\", shadow = { opacity = 0.5 }, scrim = { color = \"ink\", from = \"bottom\" } }",
+            "image = { fit = \"cover\", shadow = true, scrim = { color = \"ink\", opacity = 0.8, from = \"top\" } }",
+        );
+        let theme = parse(&spelled).unwrap();
+        let (front, back) = (&theme.masters[0].slots[0], &theme.masters[0].slots[1]);
+        assert_eq!(front.layer, Layer::Front);
+        assert_eq!(front.image.fit, Fit::Contain);
+        assert_eq!(front.image.radius.millipoints(), 3000);
+        let shadow = front.image.shadow.as_ref().unwrap();
+        assert_eq!(shadow.color.as_str(), "ink");
+        assert_eq!(shadow.opacity, Thousandths(500));
+        assert_eq!(shadow.offset.millipoints(), 6000);
+        let scrim = front.image.scrim.as_ref().unwrap();
+        assert_eq!(scrim.opacity, Thousandths(600));
+        assert_eq!(scrim.from, ScrimEdge::Bottom);
+        assert_eq!(back.layer, Layer::Back);
+        assert_eq!(back.image.fit, Fit::Cover);
+        assert_eq!(
+            back.image.shadow.as_ref().unwrap().opacity,
+            Thousandths(200)
+        );
+        assert_eq!(back.image.scrim.as_ref().unwrap().from, ScrimEdge::Top);
+        assert_eq!(back.image.scrim.as_ref().unwrap().opacity, Thousandths(800));
+        let plain = parse(&with_sound_backdrop("", "image = { shadow = false }")).unwrap();
+        assert_eq!(plain.masters[0].slots[0].layer, Layer::Front);
+        assert_eq!(plain.masters[0].slots[0].image.fit, Fit::Contain);
+        assert_eq!(plain.masters[0].slots[1].image.shadow, None);
+    }
+
+    #[test]
+    fn a_misspelled_image_key_and_a_backdrop_of_more_than_one_image_are_refused_at_their_paths() {
+        for (keys, path) in [
+            ("layer = \"middle\"", "masters.only.slots.body.layer"),
+            (
+                "image = { fit = \"stretch\" }",
+                "masters.only.slots.body.image.fit",
+            ),
+            (
+                "image = { scrim = { color = \"ink\", from = \"left\" } }",
+                "masters.only.slots.body.image.scrim.from",
+            ),
+            (
+                "image = { scrim = { color = \"ink\", opacity = 2 } }",
+                "masters.only.slots.body.image.scrim.opacity",
+            ),
+        ] {
+            let Err(found) = parse(&with_sound_backdrop(keys, "")) else {
+                panic!("{keys}: accepted");
+            };
+            assert_eq!(found.len(), 1, "{keys}: {found:?}");
+            assert_eq!(found[0].code, Code::ThemeValue, "{keys}");
+            assert!(
+                found[0].notes.iter().any(|note| note.contains(path)),
+                "{keys}: {found:?}"
+            );
+        }
+        for (accepts, max_blocks, path) in [
+            (
+                "\"image\", \"paragraph\"",
+                1,
+                "masters.only.slots.backdrop.accepts",
+            ),
+            ("\"image\"", 2, "masters.only.slots.backdrop.max_blocks"),
+        ] {
+            let Err(found) = parse(&with_backdrop("", accepts, max_blocks, "")) else {
+                panic!("{path}: accepted");
+            };
+            assert_eq!(found.len(), 1, "{path}: {found:?}");
+            assert_eq!(found[0].code, Code::BindingConflict, "{path}");
+            assert!(
+                found[0].notes.iter().any(|note| note.contains(path)),
+                "{path}: {found:?}"
+            );
+        }
+    }
 }

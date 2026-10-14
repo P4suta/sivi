@@ -8,7 +8,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Kani | 0.68.0 | The harnesses of every `*_rules.rs` module, with the covers each declares | Every `rejects_*` probe, and `xtask/proofs/kani-negative`, whose harness asserts a false claim |
 | Verus | 0.2026.10.04.426d8b0 on Rust 1.98.1 | The functions `verification/obligations.toml` lists under `verus`, verified for inputs of any size with `--no-cheating` | `xtask/proofs/verus-negative`, whose specification states the opposite of its function |
 | Z3 | 5.1.0 | `specs/smt/millipoints.smt2`, generated from the core's constants: the fixed-point verdict agrees with the real one outside a band of one millipoint | `specs/smt/millipoints-negative.smt2`, a claim rounding breaks, which Z3 must find satisfiable |
-| Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one slot interior, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
+| Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one front slot interior, with a backdrop under a front slot in the instance, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
 | Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
 | TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
@@ -24,20 +24,20 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | --- | --- | --- |
 | `fit_rules` | `fit` overflows exactly when the excess passes the tolerance, over every length within `BOUND`; a smaller measurement fits wherever a larger one fits; `pages` names the exact difference | `fit` reports `Fits` exactly when the excess is within the tolerance |
 | `split_rules` | the verdict names the longest fitting prefix for up to six parts | the verdict names the longest fitting prefix for prefixes of any length |
-| `geometry_rules` | three regions: a layout is valid exactly when no region is degenerate, outside, or overlapping; overlap is symmetric | — |
+| `geometry_rules` | three regions in either layer: a layout is valid exactly when no region is degenerate or outside and no two front regions overlap, so a backdrop may lie under anything; overlap is symmetric | — |
 | `escape_rules` | every character's spelling reads back to the character and holds no raw control character or quote | — |
 | `softbreak_rules` | a soft break vanishes exactly between two East Asian characters, for every pair | — |
-| `attribute_rules` | a point belongs to the first region containing it; a height falls in the first part whose prefix passes it, for three regions or parts | — |
+| `attribute_rules` | a point belongs to the first region containing it; a height falls in the first part whose prefix passes it; an item is covered exactly when a backdrop holds each of its edges within the tolerance, for three regions, parts, or backdrops | — |
 | `deck_rules` | a line is a separator, a code fence, a key and value, a blank, or content exactly as the deck format says; a fence closes only with its marker at its length or more; a table row declares its cells as GFM counts them, for lines of up to six bytes | — |
 | `front_matter_rules` | identifiers, dates, and language tags follow their grammars, complete for dates and tags and up to seven bytes for identifiers; every key is allowed exactly where it belongs | — |
 | `subset_rules` | what passes is exactly the Markdown subset, and raw markup never does, for every node kind | — |
-| `theme_rules` | section numbers are one to their count each once; a `follows` chain ends inside its master or the fault is named, for three slots; a line box fits exactly when the pitch covers the face | — |
+| `theme_rules` | section numbers are one to their count each once; a `follows` chain ends inside its master or the fault is named, for three slots; a backdrop is exactly a flow slot of one image, over every binding, set of kinds, and capacity; a line box fits exactly when the pitch covers the face | — |
 | `slot_rules` | a slot admits a block exactly when the kind and every measure fit; the follower of the last slot comes first and the first flow slot otherwise, for three slots | — |
 | `master_rules` | the edit distance is zero only between equal names, symmetric, and bounded, for names of up to four bytes | — |
 | `publish_rules` | the output is replaced only by the rename, which follows the sync; every stage reaches the end; a failure removes the staging file exactly when it exists | `specs/publish.tla` under TLC owns the interleavings with a crash |
 | `home_rules` | the data directory stands on the first usable variable in precedence, with the tail its base owns, and an empty variable never names a directory, for every combination of unset, empty, and set variables on either kind of host | — |
 | `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
-| `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
+| `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; a channel over another lies between the two and is either one at the ends; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
 | `palette_rules` | the hues of every harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families; three hues form at least one family and at most three, one when they lie within the span | — |
 
 ## What the fuzz targets replay
@@ -61,8 +61,8 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 262 tests passed and the one PDF dump test skipped |
-| Kani | 33 harnesses verified, and every probe and the negative fixture refused |
+| `cargo xtask check` | clean, with 274 tests passed and the one PDF dump test skipped |
+| Kani | 36 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
@@ -71,9 +71,9 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 1024 mutants, 484 caught, 540 unviable, none missed |
+| cargo-mutants over `sivi-core` | 1062 mutants, 502 caught, 560 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 295 mutants, 95 caught, 200 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 336 mutants, 109 caught, 227 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.
