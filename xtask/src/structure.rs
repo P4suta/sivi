@@ -8,8 +8,12 @@ use syn::visit::Visit;
 /// The crate that holds every pure decision.
 pub const CORE: &str = "crates/sivi-core";
 
-/// The one module that may define a protocol step, which the Quint model and its trace replay own.
+/// The first module that defined a protocol step, which the Quint model and its trace replay own; every other such module is a protocol owner of the assurance manifest.
 pub const BINDER: &str = "crates/sivi-core/src/binder.rs";
+/// The assurance manifest, whose protocol owners may define a step.
+const ASSURE: &str = "assure.toml";
+/// The shape of an owner that holds a protocol step.
+const PROTOCOL: &str = "protocol";
 
 /// The lints the core's root denies in its own `#![deny(...)]`, beyond the workspace policy.
 pub const DENIED: [&str; 10] = [
@@ -300,11 +304,31 @@ fn rule_findings(root: &Path, findings: &mut Vec<String>) -> Result<()> {
     Ok(())
 }
 
+/// The modules that may define a protocol step: those `assure.toml` names as protocol owners, each with a Quint model and a trace replay, or the binder alone where no manifest exists.
+fn protocol_owners(root: &Path) -> Result<Vec<PathBuf>> {
+    let manifest = root.join(ASSURE);
+    if !fs::is_file(&manifest)? {
+        return Ok(vec![root.join(BINDER)]);
+    }
+    let table: toml::Table = fs::read_to_string(&manifest)?
+        .parse()
+        .with_context(|| format!("parse {ASSURE}"))?;
+    Ok(table
+        .get("owner")
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|owner| owner.get("shape").and_then(toml::Value::as_str) == Some(PROTOCOL))
+        .filter_map(|owner| owner.get("path").and_then(toml::Value::as_str))
+        .map(|path| root.join(path))
+        .collect())
+}
+
 fn step_findings(root: &Path, findings: &mut Vec<String>) -> Result<()> {
-    let binder = root.join(BINDER);
+    let owners = protocol_owners(root)?;
     for member in members(root)? {
         for path in fs::files_with_suffix(&member.join("src"), ".rs")? {
-            if path == binder {
+            if owners.contains(&path) {
                 continue;
             }
             let source = fs::read_to_string(&path)?;
@@ -313,7 +337,7 @@ fn step_findings(root: &Path, findings: &mut Vec<String>) -> Result<()> {
                 if trimmed.starts_with("pub fn step(") || trimmed.starts_with("pub const fn step(")
                 {
                     findings.push(format!(
-                        "{}:{}: a protocol step lives only in {BINDER}, whose Quint model and trace replay own it",
+                        "{}:{}: a protocol step lives only in a module {ASSURE} names as a protocol owner, such as {BINDER}, whose Quint model and trace replay own it",
                         portable(&path),
                         index.saturating_add(1)
                     ));

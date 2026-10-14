@@ -7,6 +7,7 @@ use crate::library;
 use crate::palette;
 use crate::render::{self, Sources};
 use crate::themes;
+use crate::ui;
 use sivi_core::calendar;
 use sivi_core::diagnostic::{Code, Diagnostic, Severity, has_error};
 use sivi_typst::UtcTimestamp;
@@ -236,6 +237,7 @@ pub fn run(arguments: Arguments, environment: &Environment) -> Run {
         Command::CodeThemes { variant, rendering } => {
             code_themes::run(variant, rendering, environment)
         }
+        Command::Ui { deck } => ui::run(deck.as_deref(), environment),
         Command::Palette {
             seed,
             mode,

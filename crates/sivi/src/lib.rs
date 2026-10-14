@@ -17,3 +17,4 @@ pub mod palette;
 pub mod publish;
 pub mod render;
 pub mod themes;
+pub mod ui;

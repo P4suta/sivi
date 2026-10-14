@@ -40,6 +40,16 @@ mod raw {
     pub(super) fn create_dir_all(path: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(path)
     }
+
+    /// The paths directly under the directory at `path`, in name order.
+    pub(super) fn entries(path: &Path) -> std::io::Result<Vec<std::path::PathBuf>> {
+        let mut found = Vec::new();
+        for entry in std::fs::read_dir(path)? {
+            found.push(entry?.path());
+        }
+        found.sort();
+        Ok(found)
+    }
 }
 
 /// Why a file could not be read.
@@ -127,6 +137,18 @@ pub fn is_file(path: &Path) -> Result<bool, ReadError> {
 /// Returns the path with why a directory could not be created.
 pub fn create_dir_all(path: &Path) -> Result<(), ReadError> {
     raw::create_dir_all(path).map_err(|error| ReadError {
+        path: path.to_path_buf(),
+        kind: ReadErrorKind::Io(error),
+    })
+}
+
+/// The paths directly under the directory at `path`, in name order.
+///
+/// # Errors
+///
+/// Returns the path with why the directory could not be read.
+pub fn entries(path: &Path) -> Result<Vec<PathBuf>, ReadError> {
+    raw::entries(path).map_err(|error| ReadError {
         path: path.to_path_buf(),
         kind: ReadErrorKind::Io(error),
     })

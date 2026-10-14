@@ -20,6 +20,7 @@ sivi theme check themes/plain
 sivi fonts install "Noto Sans JP"
 sivi code-themes --variant dark
 sivi palette "#0b57d0" --mode dark
+sivi ui deck.md
 ```
 
 ## License

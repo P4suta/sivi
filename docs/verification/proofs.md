@@ -9,7 +9,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Verus | 0.2026.10.04.426d8b0 on Rust 1.98.1 | The functions `verification/obligations.toml` lists under `verus`, verified for inputs of any size with `--no-cheating` | `xtask/proofs/verus-negative`, whose specification states the opposite of its function |
 | Z3 | 5.1.0 | `specs/smt/millipoints.smt2`, generated from the core's constants: the fixed-point verdict agrees with the real one outside a band of one millipoint | `specs/smt/millipoints-negative.smt2`, a claim rounding breaks, which Z3 must find satisfiable |
 | Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one front slot interior, with a backdrop under a front slot in the instance, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
-| Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
+| Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step`; `specs/ui.qnt`: the interface machine holds `safe`, that quitting is one key away, one build runs at a time, and every selection stays within its count, with its traces replayed by `crates/sivi/tests/ui_replay.rs` through `ui_rules::step` | `binder_probe`, the automaton without capacities, and `ui_probe`, the machine without its build guard, which TLC must refute |
 | TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
 | Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst, through nextest under the `miri` profile, which ends a test that outlives two minutes and names it; the tests over the full plain theme, the bundled fonts, the carried font catalog, and the exhaustive color and palette sweeps are skipped, since Miri interprets each in minutes, and smaller tests over the same code stand in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
@@ -39,6 +39,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
 | `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; a channel over another lies between the two and is either one at the ends; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
 | `palette_rules` | the hues of every harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families; three hues form at least one family and at most three, one when they lie within the span | — |
+| `ui_rules` | the quit key leaves every state quitting; a build starts only when none runs or the one that ran has ended; every selection stays within its count after every event, over every state and event | — |
 
 ## What the fuzz targets replay
 
@@ -61,17 +62,17 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 277 tests passed and the PDF dump and gallery tools skipped |
-| Kani | 36 harnesses verified, and every probe and the negative fixture refused |
+| `cargo xtask check` | clean, with 287 tests passed and the PDF dump and gallery tools skipped |
+| Kani | 39 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
-| Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
+| Quint | the binder model and the interface model typecheck, hold their invariants, witness every outcome, and reproduce their traces, and each probe breaks the invariant |
 | Prolog | 297 slides bind the same way under the binder and the reference, and a tampered binding differs |
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 1062 mutants, 502 caught, 560 unviable, none missed |
+| cargo-mutants over `sivi-core` | 1101 mutants, 519 caught, 582 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
 | cargo-mutants over `sivi-theme` | 337 mutants, 111 caught, 226 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |

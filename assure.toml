@@ -41,6 +41,11 @@ shape = "protocol"
 path = "crates/sivi-core/src/binder.rs"
 by = "crates/sivi/tests/binder_replay.rs"
 
+[[owner]]
+shape = "protocol"
+path = "crates/sivi-core/src/ui_rules.rs"
+by = "crates/sivi/tests/ui_replay.rs"
+
 [[budget]]
 name = "unsafe-sites"
 ceiling = 0

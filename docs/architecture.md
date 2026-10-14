@@ -31,7 +31,8 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | `sivi` | all of the above, `clap`, `annotate-snippets`, `serde_json`, `sha2`, `ureq` | The command line, file reads, diagnostics rendering, atomic publication, and the font library with its one network owner. |
 | `xtask` | `sivi-core`, `sivi-markdown`, `sivi-theme` | The gates and the generators, among them the font catalog. |
 
-Each effect has one owner in `sivi`: `io.rs` reads files, `publish.rs` writes them, `output.rs` reaches the streams, and `net.rs` reaches the network for `sivi fonts install` alone.
+Each effect has one owner in `sivi`: `io.rs` reads files, `publish.rs` writes them, `output.rs` reaches the streams, `net.rs` reaches the network for `sivi fonts install` alone, and under `ui/` the terminal owner takes the terminal and the opener starts the host's viewer, for `sivi ui` alone.
+The interface decides nothing: every key, build result, file change, and tick goes through `ui_rules::step` in the core, and the shell carries out the one effect each step asks.
 A build never touches the network; a family the library lacks is a diagnostic that names the installing command.
 
 `cargo xtask structure` refuses a dependency of the core, a `std` path in the core, a weakened deny list, a rule module outside the core, a protocol step outside `binder.rs`, and a dependency against the direction above.

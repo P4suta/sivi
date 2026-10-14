@@ -1,6 +1,7 @@
 //! The pages of a compiled deck as raster images, for a gallery of a theme and for a preview on a terminal.
 
 use crate::compile::Compiled;
+use sivi_core::mosaic::Raster;
 use typst::utils::Scalar;
 use typst_render::{RenderOptions, render};
 
@@ -26,6 +27,62 @@ impl std::fmt::Display for EncodeError {
 }
 
 impl std::error::Error for EncodeError {}
+
+/// The page at `index`, counted from zero, as a raster at `pixels_per_point`, or none past the last page.
+#[must_use]
+pub fn raster(compiled: &Compiled, index: usize, pixels_per_point: f64) -> Option<Raster> {
+    let page = compiled.document.pages().get(index)?;
+    let options = RenderOptions {
+        pixel_per_pt: Scalar::new(pixels_per_point),
+        ..RenderOptions::default()
+    };
+    let pixmap = render(page, &options);
+    let unmultiplied: Vec<u8> = pixmap
+        .pixels()
+        .iter()
+        .flat_map(|pixel| {
+            let color = pixel.demultiply();
+            [color.red(), color.green(), color.blue(), color.alpha()]
+        })
+        .collect();
+    let (Ok(width), Ok(height)) = (
+        usize::try_from(pixmap.width()),
+        usize::try_from(pixmap.height()),
+    ) else {
+        return None;
+    };
+    Some(Raster {
+        width,
+        height,
+        rgba: unmultiplied,
+    })
+}
+
+/// The page at `index`, counted from zero, as a PNG at `pixels_per_point`, or none past the last page.
+///
+/// # Errors
+///
+/// Returns the encoder's refusal, which no page of a slide deck should earn.
+pub fn png(
+    compiled: &Compiled,
+    index: usize,
+    pixels_per_point: f64,
+) -> Result<Option<Vec<u8>>, EncodeError> {
+    let Some(page) = compiled.document.pages().get(index) else {
+        return Ok(None);
+    };
+    let options = RenderOptions {
+        pixel_per_pt: Scalar::new(pixels_per_point),
+        ..RenderOptions::default()
+    };
+    render(page, &options)
+        .encode_png()
+        .map(Some)
+        .map_err(|error| EncodeError {
+            page: index.saturating_add(1),
+            reason: error.to_string(),
+        })
+}
 
 /// Every page of `compiled` as a PNG at `pixels_per_point`, in page order.
 ///

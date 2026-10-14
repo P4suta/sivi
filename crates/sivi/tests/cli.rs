@@ -140,6 +140,22 @@ fn the_theme_listing_names_every_carried_theme_with_its_masters() {
 }
 
 #[test]
+fn the_interface_refuses_a_terminal_it_cannot_take_and_a_directory_without_one_deck() {
+    let without_terminal = sivi()
+        .args(["ui", &deck("pass-basic")])
+        .assert()
+        .code(USAGE);
+    let stderr = String::from_utf8_lossy(&without_terminal.get_output().stderr);
+    assert!(
+        stderr.starts_with("error: the terminal cannot be taken"),
+        "{stderr}"
+    );
+    let no_deck = sivi().current_dir(DECKS).arg("ui").assert().code(USAGE);
+    let refusal = String::from_utf8_lossy(&no_deck.get_output().stderr);
+    assert!(refusal.starts_with("error: name the deck"), "{refusal}");
+}
+
+#[test]
 fn a_theme_check_judges_the_built_in_theme_a_directory_and_a_broken_one() {
     for name in ["plain", "blank", "editorial", "studio"] {
         sivi().args(["theme", "check", name]).assert().code(SUCCESS);

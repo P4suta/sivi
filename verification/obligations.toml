@@ -234,3 +234,36 @@ harnesses = [
 probes = [
   { harness = "proofs::rejects_a_fourth_hue_family", assertion = "NEGATIVE_PALETTE_CONTROL" },
 ]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/ui_rules.rs"
+harnesses = [
+  { name = "proofs::quitting_is_one_key_away_from_every_state", covers = 2, contract = "the quit key leaves every state quitting with the quit effect", input_domain = "every state of the interface", bound = "complete" },
+  { name = "proofs::a_build_starts_only_when_none_runs", covers = 2, contract = "a start effect follows only a state with no build running or the end of the build that ran, and leaves one running", input_domain = "every state and every event", bound = "complete" },
+  { name = "proofs::every_selection_stays_within_its_count", covers = 1, contract = "after every event the selected slide and the picker cursor lie within their counts and the spinner within its phases", input_domain = "every state with the spinner within its phases, and every event", bound = "complete over the admitted spinner phases" },
+]
+probes = [
+  { harness = "proofs::rejects_a_second_build_while_one_runs", assertion = "NEGATIVE_UI_CONTROL" },
+]
+
+[[obligation]]
+verifier = "quint"
+spec = "specs/ui.qnt"
+main = "ui"
+probe = "ui_probe"
+invariant = "safe"
+witnesses = [
+  "themeBuilt",
+  "fontInstalled",
+  "pendingBuild",
+  "quitWhileBuilding",
+  "helpLeft",
+  "opened",
+  "watchedOff",
+]
+seed = "0x2b"
+samples = 1000
+steps = 12
+distinct_states = 92948
+traces = 100

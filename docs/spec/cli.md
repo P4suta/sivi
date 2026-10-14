@@ -10,6 +10,7 @@ sivi build <DECK> [-o <OUT.pdf> | -o -] [--theme <NAME|DIR>] [--format human|jso
 sivi check <DECK> [--theme <NAME|DIR>] [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi theme check <NAME|DIR> [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi theme list [--format human|json]
+sivi ui [<DECK>]
 sivi fonts list [--script <SCRIPT>] [--installed] [--format human|json]
 sivi fonts install <FAMILY>... [--format human|json] [--color auto|always|never]
 sivi fonts dir
@@ -22,6 +23,7 @@ Without `-o` the PDF goes beside the deck as `<DECK>.pdf` with the `.md` replace
 `check` runs the same pipeline through the layout verdicts and writes nothing.
 `theme check` validates a theme: a built-in theme by name, or a directory holding `theme.toml` and the files it names.
 `theme list` prints the built-in themes, `plain`, `blank`, `editorial`, and `studio`, each with one line on its character and the names of its masters, which `docs/themes.md` describes.
+`ui` opens the terminal interface over a deck, or over the one `.md` file of the working directory, as `docs/ui.md` describes: it builds the deck, shows its slides with a preview and their diagnostics, rebuilds on every change when asked, and lets a person pick a theme, a font, a palette, or a code theme.
 `--theme` replaces the deck's `theme:`; a built-in name or a directory.
 `fonts list` shows every family of the font catalog with its state on this host: bundled in the binary, installed in the library, or available.
 `fonts install` fetches the files of each named family from google/fonts at the commit the catalog pins, refuses any file whose digest differs, and places them in the library.

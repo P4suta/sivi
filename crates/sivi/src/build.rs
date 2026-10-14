@@ -398,9 +398,9 @@ pub fn run(request: &Request<'_>) -> Outcome {
     build.outcome
 }
 
-/// Lays a deck out and judges it as `run` does, and hands back the pages instead of a PDF, for a preview or a gallery.
+/// Lays a deck out and judges it as `run` does, and hands back the pages beside the outcome, for a preview or a gallery.
 ///
-/// The outcome carries the diagnostics, and the product names the page count with no digest and no path.
+/// The PDF goes where the sink says, as under `run`; the pages stay for the caller to render.
 #[must_use]
 pub fn judge(request: &Request<'_>) -> (Outcome, Option<Judged>) {
     let mut build = Build {
@@ -409,12 +409,7 @@ pub fn judge(request: &Request<'_>) -> (Outcome, Option<Judged>) {
     };
     let judged = build.judge();
     if let Some(found) = &judged {
-        build.outcome.product = Some(Product {
-            pages: found.pages,
-            sha256: None,
-            bytes: None,
-            path: None,
-        });
+        build.produce(&found.compiled, found.ident.clone(), found.pages);
     }
     (build.outcome, judged)
 }
