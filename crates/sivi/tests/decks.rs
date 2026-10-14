@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 /// Where the fixture decks live, relative to the crate.
 const DECKS: &str = "../../fixtures/decks";
 /// How many masters the plain theme has, each used once by the passing fixture.
-const MASTERS: u32 = 8;
+const MASTERS: u32 = 15;
 
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

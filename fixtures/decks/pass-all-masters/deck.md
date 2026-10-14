@@ -77,3 +77,64 @@ id: end
 | --- | --- |
 | a | 1 |
 | b | 2 |
+
+---
+master: hero
+---
+# A photograph behind the title
+
+![Dusk over a ridge](assets/dusk.svg)
+
+The scrim keeps the words readable
+
+---
+master: image-left
+---
+# A picture on the left
+
+![The tide at noon](assets/tide.svg)
+
+- The words sit on the right
+- The picture covers its box
+
+---
+master: image-right
+---
+# A picture on the right
+
+- The words sit on the left
+- The picture covers its box
+
+![Embers at night](assets/ember.svg)
+
+---
+master: image-full
+---
+![Dusk over a ridge](assets/dusk.svg)
+
+A caption over the whole photograph
+
+---
+master: grid-2
+---
+# Two pictures
+
+![The tide at noon](assets/tide.svg)
+
+![Embers at night](assets/ember.svg)
+
+---
+master: grid-3
+---
+# Three pictures
+
+![Dusk over a ridge](assets/dusk.svg)
+
+![The tide at noon](assets/tide.svg)
+
+![Embers at night](assets/ember.svg)
+
+---
+master: statement
+---
+One sentence, set large

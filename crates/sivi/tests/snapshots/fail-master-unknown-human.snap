@@ -13,7 +13,7 @@ error[E0302]: theme `plain` has no master `bullet`
    | |_______________________________________^ this slide names it
    |
    = note: slide 1, master `bullet`
-   = note: theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`
+   = note: theme `plain` has the masters `title`, `section`, `bullets`, `comparison`, `figure`, `quote`, `code`, `blank`, `hero`, `image-left`, `image-right`, `image-full`, `grid-2`, `grid-3`, `statement`
    = help: did you mean `bullets`?
 
 error: aborting due to 1 errors

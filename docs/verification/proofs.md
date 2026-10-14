@@ -61,19 +61,19 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 274 tests passed and the one PDF dump test skipped |
+| `cargo xtask check` | clean, with 277 tests passed and the PDF dump and gallery tools skipped |
 | Kani | 36 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
 | Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
-| Prolog | 242 slides bind the same way under the binder and the reference, and a tampered binding differs |
+| Prolog | 297 slides bind the same way under the binder and the reference, and a tampered binding differs |
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
 | cargo-mutants over `sivi-core` | 1062 mutants, 502 caught, 560 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 336 mutants, 109 caught, 227 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 337 mutants, 111 caught, 226 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.

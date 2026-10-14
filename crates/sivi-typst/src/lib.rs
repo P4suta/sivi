@@ -10,6 +10,7 @@ pub mod frames;
 pub mod introspect;
 pub mod pdf;
 pub mod raw;
+pub mod render;
 pub mod world;
 
 pub use compile::{CompileError, Compiled, Diagnostic, compile};

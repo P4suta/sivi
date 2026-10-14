@@ -564,7 +564,7 @@ impl Emitter<'_> {
             .collect();
         let factor = shift_factor(slot.valign);
         self.push(&format!(
-            "#place(top + left, dx: {}, dy: {}, block(width: {width}, height: {height}, {{\n  let parts = ({},)\n  let body = stack(dir: ttb, spacing: {gap}, ..parts)\n  context {{\n    let m = measure(width: {width}, body)\n    let prefixes = range(1, parts.len() + 1).map(k => measure(width: {width}, stack(dir: ttb, spacing: {gap}, ..parts.slice(0, k))).height)\n    let widths = ({},)\n    let shift = calc.max(0pt, ({height} - m.height) * {factor})\n    [#metadata(({REQUIRED_KEY}: m.height, {PREFIXES_KEY}: prefixes, {WIDTHS_KEY}: widths)) <{label}>]\n    place(top + left, dy: shift, body)\n  }}\n}}))\n",
+            "#place(top + left, dx: {}, dy: {}, block(width: {width}, height: {height}, {{\n  let parts = ({},)\n  let body = stack(dir: ttb, spacing: {gap}, ..parts)\n  context {{\n    let m = measure(width: {width}, body)\n    let prefixes = range(1, parts.len() + 1).map(k => measure(width: {width}, stack(dir: ttb, spacing: {gap}, ..parts.slice(0, k))).height)\n    let widths = ({},)\n    let shift = calc.max(0pt, ({height} - m.height) * {factor})\n    [#metadata(({REQUIRED_KEY}: m.height, {PREFIXES_KEY}: prefixes, {WIDTHS_KEY}: widths)) <{label}>]\n    place(top + left, dy: shift, block(width: {width}, body))\n  }}\n}}))\n",
             bounds.origin.x,
             bounds.origin.y,
             codes.join(", "),

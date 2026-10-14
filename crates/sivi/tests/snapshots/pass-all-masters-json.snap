@@ -2,4 +2,4 @@
 source: crates/sivi/tests/snapshots.rs
 expression: "render::json(&outcome.diagnostics, &sources, outcome.product.as_ref())"
 ---
-{"deck":"../../fixtures/decks/pass-all-masters/deck.md","diagnostics":[],"format":"sivi.diagnostics","output":{"pages":8,"path":null,"sha256":null},"version":1}
+{"deck":"../../fixtures/decks/pass-all-masters/deck.md","diagnostics":[],"format":"sivi.diagnostics","output":{"pages":15,"path":null,"sha256":null},"version":1}

@@ -14,11 +14,49 @@ use sivi_core::diagnostic::{Code, Diagnostic};
 use sivi_core::span::{LineColumn, Span};
 use sivi_core::theme::Theme;
 
-/// The theme the binary carries.
+/// The themes the binary carries, as their files spell them.
 pub const PLAIN: &str = include_str!("../../../themes/plain/theme.toml");
+pub const BLANK: &str = include_str!("../../../themes/blank/theme.toml");
+pub const EDITORIAL: &str = include_str!("../../../themes/editorial/theme.toml");
+pub const STUDIO: &str = include_str!("../../../themes/studio/theme.toml");
 
-/// The name of the theme the binary carries.
+/// The name of the theme a deck takes when it names none.
 pub const PLAIN_NAME: &str = "plain";
+
+/// A theme the binary carries: its name, its text, and one line on its character.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Builtin {
+    pub name: &'static str,
+    pub text: &'static str,
+    pub summary: &'static str,
+}
+
+/// Every theme the binary carries, in the order the listing shows them.
+pub const BUILTINS: [Builtin; 4] = [
+    Builtin {
+        name: PLAIN_NAME,
+        text: PLAIN,
+        summary: "BIZ UDPGothic on white paper with a blue accent, the default",
+    },
+    Builtin {
+        name: "blank",
+        text: BLANK,
+        summary: "a white page and black ink with nothing drawn that the deck did not write",
+    },
+    Builtin {
+        name: "editorial",
+        text: EDITORIAL,
+        summary: "Shippori Mincho and Playfair Display on warm paper, thin rules, and a vermilion marker",
+    },
+    Builtin {
+        name: "studio",
+        text: STUDIO,
+        summary: "Zen Kaku Gothic New and Montserrat on deep navy with an electric mint accent",
+    },
+];
+
+/// How many masters every carried theme has, each under the same name across the themes.
+pub const MASTERS: usize = 15;
 
 /// The most bytes a theme file may hold.
 pub const THEME_LIMIT: usize = 1024 * 1024;
@@ -26,11 +64,10 @@ pub const THEME_LIMIT: usize = 1024 * 1024;
 /// The text of the theme the binary carries under `name`, if any.
 #[must_use]
 pub fn builtin(name: &str) -> Option<&'static str> {
-    if name == PLAIN_NAME {
-        Some(PLAIN)
-    } else {
-        None
-    }
+    BUILTINS
+        .iter()
+        .find(|theme| theme.name == name)
+        .map(|theme| theme.text)
 }
 
 /// The position of byte `offset` in `text`, counted from one.
@@ -121,7 +158,7 @@ pub fn parse(text: &str) -> Result<Theme, Vec<Diagnostic>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PLAIN, THEME_LIMIT, builtin, parse, position};
+    use super::{BUILTINS, MASTERS, PLAIN, THEME_LIMIT, builtin, parse, position};
     use sivi_core::diagnostic::Code;
     use sivi_core::ir::BlockKind;
     use sivi_core::span::LineColumn;
@@ -151,22 +188,42 @@ mod tests {
             .collect()
     }
 
+    /// The masters every carried theme has, in order.
+    const MASTER_NAMES: [&str; MASTERS] = [
+        "title",
+        "section",
+        "bullets",
+        "comparison",
+        "figure",
+        "quote",
+        "code",
+        "blank",
+        "hero",
+        "image-left",
+        "image-right",
+        "image-full",
+        "grid-2",
+        "grid-3",
+        "statement",
+    ];
+
+    #[test]
+    #[cfg_attr(miri, ignore = "the carried themes load in minutes under Miri")]
+    fn every_carried_theme_reads_into_the_same_fifteen_masters_without_a_design_finding() {
+        for theme in BUILTINS {
+            assert_eq!(master_names(theme.text), MASTER_NAMES, "{}", theme.name);
+            let loaded = parse(theme.text).unwrap();
+            assert_eq!(loaded.name.as_str(), theme.name);
+            assert_eq!(crate::design::lints(&loaded), Vec::new(), "{}", theme.name);
+            assert_eq!(builtin(theme.name), Some(theme.text));
+        }
+        assert_eq!(builtin("other"), None);
+    }
+
     #[test]
     #[cfg_attr(miri, ignore = "the plain theme loads in minutes under Miri")]
-    fn the_plain_theme_reads_into_eight_masters_in_order() {
-        assert_eq!(
-            master_names(PLAIN),
-            [
-                "title",
-                "section",
-                "bullets",
-                "comparison",
-                "figure",
-                "quote",
-                "code",
-                "blank"
-            ]
-        );
+    fn the_plain_theme_reads_into_its_masters_in_order() {
+        assert_eq!(master_names(PLAIN), MASTER_NAMES);
         let theme = parse(PLAIN).unwrap();
         assert_eq!(theme.name.as_str(), "plain");
         assert_eq!(theme.page.size.width.millipoints(), PAGE_WIDTH_MILLIPOINTS);
@@ -262,8 +319,8 @@ mod tests {
             "text.body.size",
         ),
         (
-            "color = \"muted\"\nline_height = 1.2\nalign = \"left\"\n\n[inline]",
-            "color = \"mutted\"\nline_height = 1.2\nalign = \"left\"\n\n[inline]",
+            "color = \"muted\"\nline_height = 1.2\nalign = \"left\"\n\n# The words set over a photograph",
+            "color = \"mutted\"\nline_height = 1.2\nalign = \"left\"\n\n# The words set over a photograph",
             Code::UndefinedReference,
             "text.meta.color",
         ),
@@ -532,9 +589,11 @@ mod tests {
         assert_eq!(codes(&without), vec![Code::NoMasterOrSlot]);
         let empty_master = format!("{head}[masters.only]\nslots = {{}}\n");
         assert!(codes(&empty_master).contains(&Code::NoMasterOrSlot));
+        let body = "[masters.blank2.slots.body]\nbinds = \"flow\"\naccepts = [\"paragraph\", \"list\", \"table\", \"image\", \"code\", \"quote\"]\nregion = { x = \"60pt\", y = \"40pt\", width = \"840pt\", height = \"440pt\" }\ntext = \"body\"\n\n";
+        let decor = "[[masters.blank2.decor]]\nkind = \"page_number\"\nregion = { x = \"840pt\", y = \"496pt\", width = \"60pt\", height = \"24pt\" }\ntext = \"meta\"\nalign = \"right\"\nformat = \"{n}\"\n\n";
         let twin = PLAIN.replacen(
             "[masters.blank.slots.body]",
-            "[masters.blank2.slots.body]\nbinds = \"flow\"\naccepts = [\"paragraph\", \"list\", \"table\", \"image\", \"code\", \"quote\"]\nregion = { x = \"60pt\", y = \"40pt\", width = \"840pt\", height = \"440pt\" }\ntext = \"body\"\n\n[masters.blank.slots.body]",
+            &format!("{body}{decor}[masters.blank.slots.body]"),
             1,
         );
         let Err(found) = parse(&twin) else {
@@ -545,6 +604,22 @@ mod tests {
                 .iter()
                 .any(|d| d.code == Code::BindingConflict && d.message.contains("blank2"))
         );
+        // The same slots in another place, or without the decor, make another master.
+        let moved = PLAIN.replacen(
+            "[masters.blank.slots.body]",
+            &format!(
+                "{}{decor}[masters.blank.slots.body]",
+                body.replacen("y = \"40pt\"", "y = \"60pt\"", 1)
+            ),
+            1,
+        );
+        parse(&moved).unwrap();
+        let undecorated = PLAIN.replacen(
+            "[masters.blank.slots.body]",
+            &format!("{body}[masters.blank.slots.body]"),
+            1,
+        );
+        parse(&undecorated).unwrap();
     }
 
     /// The theme limit the documents promise, in bytes.

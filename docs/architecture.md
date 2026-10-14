@@ -27,7 +27,7 @@ The adapters read files, run Typst, and write the PDF; they turn every fact into
 | `sivi-core` | nothing | Values in, values out. `#![no_std]`, no dependencies, the panic lints denied. |
 | `sivi-markdown` | `sivi-core`, `comrak` | Deck scanning, CommonMark parsing, source spans, refusal of forbidden constructs. |
 | `sivi-theme` | `sivi-core`, `toml`, `serde`, `ttf-parser` | Theme files into validated masters, with font metrics, and the catalog of installable families. |
-| `sivi-typst` | `sivi-core`, `typst` | The Typst `World`, bundled fonts, compilation, measurement read-back, frame walk, PDF export. |
+| `sivi-typst` | `sivi-core`, `typst` | The Typst `World`, bundled fonts, compilation, measurement read-back, frame walk, PDF export, and the raster pages a gallery or a preview shows. |
 | `sivi` | all of the above, `clap`, `annotate-snippets`, `serde_json`, `sha2`, `ureq` | The command line, file reads, diagnostics rendering, atomic publication, and the font library with its one network owner. |
 | `xtask` | `sivi-core`, `sivi-markdown`, `sivi-theme` | The gates and the generators, among them the font catalog. |
 

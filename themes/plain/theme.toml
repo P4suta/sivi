@@ -95,6 +95,32 @@ color = "muted"
 line_height = 1.2
 align = "left"
 
+# The words set over a photograph, in the paper's color on the scrim.
+[text.hero]
+font = "BIZ UDPGothic"
+size = "48pt"
+weight = 700
+color = "paper"
+line_height = 1.2
+align = "left"
+
+[text.lede]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "paper"
+line_height = 1.4
+align = "left"
+
+# One short statement at the size of a title, centered on an empty slide.
+[text.statement]
+font = "BIZ UDPGothic"
+size = "56pt"
+weight = 700
+color = "ink"
+line_height = 1.2
+align = "center"
+
 [inline]
 emphasis = { style = "color", color = "accent" }
 strong = { weight = 700 }
@@ -307,6 +333,209 @@ region = { x = "60pt", y = "40pt", width = "840pt", height = "440pt" }
 text = "body"
 
 [[masters.blank.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# A photograph behind the whole slide, darkened from the bottom, with the title and one line set over it.
+[masters.hero.slots.backdrop]
+binds = "flow"
+accepts = ["image"]
+required = true
+layer = "back"
+region = { x = "0pt", y = "0pt", width = "960pt", height = "540pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", scrim = { color = "ink", opacity = 0.75, from = "bottom" } }
+
+[masters.hero.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "300pt", width = "840pt", height = "120pt" }
+text = "hero"
+valign = "bottom"
+
+[masters.hero.slots.lede]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "60pt", y = "432pt", width = "840pt", height = "60pt" }
+text = "lede"
+max_blocks = 1
+
+# A picture on the left that covers a rounded box under a soft shadow, and the words on the right.
+[masters.image-left.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.image-left.slots.picture]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "156pt", width = "390pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "16pt", shadow = true }
+
+[masters.image-left.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list"]
+region = { x = "510pt", y = "156pt", width = "390pt", height = "324pt" }
+text = "body"
+max_items = 6
+max_depth = 2
+
+[[masters.image-left.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# The words on the left, a picture on the right.
+[masters.image-right.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.image-right.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list"]
+region = { x = "60pt", y = "156pt", width = "390pt", height = "324pt" }
+text = "body"
+max_items = 6
+max_depth = 2
+
+[masters.image-right.slots.picture]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "510pt", y = "156pt", width = "390pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "16pt", shadow = true }
+
+[[masters.image-right.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# A photograph over the whole slide, with one caption line at the bottom and no title.
+[masters.image-full.slots.backdrop]
+binds = "flow"
+accepts = ["image"]
+required = true
+layer = "back"
+region = { x = "0pt", y = "0pt", width = "960pt", height = "540pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", scrim = { color = "ink", opacity = 0.6, from = "bottom" } }
+
+[masters.image-full.slots.caption]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "60pt", y = "452pt", width = "840pt", height = "48pt" }
+text = "lede"
+max_blocks = 1
+
+# Two pictures side by side, the second following the first.
+[masters.grid-2.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.grid-2.slots.left]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "156pt", width = "410pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = true }
+
+[masters.grid-2.slots.right]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "left"
+region = { x = "490pt", y = "156pt", width = "410pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = true }
+
+[[masters.grid-2.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# Three pictures in a row, each following the one before.
+[masters.grid-3.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.grid-3.slots.first]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "156pt", width = "264pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = true }
+
+[masters.grid-3.slots.second]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "first"
+region = { x = "348pt", y = "156pt", width = "264pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = true }
+
+[masters.grid-3.slots.third]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "second"
+region = { x = "636pt", y = "156pt", width = "264pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "12pt", shadow = true }
+
+[[masters.grid-3.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+# One short statement, centered on an otherwise empty slide.
+[masters.statement.slots.statement]
+binds = "flow"
+accepts = ["paragraph"]
+required = true
+region = { x = "60pt", y = "120pt", width = "840pt", height = "300pt" }
+text = "statement"
+valign = "middle"
+align = "center"
+max_blocks = 1
+
+[[masters.statement.decor]]
 kind = "page_number"
 region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
 text = "meta"

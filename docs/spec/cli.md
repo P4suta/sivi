@@ -9,6 +9,7 @@ Every decision it reports is a diagnostic of the [catalog](../diagnostics.md).
 sivi build <DECK> [-o <OUT.pdf> | -o -] [--theme <NAME|DIR>] [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi check <DECK> [--theme <NAME|DIR>] [--format human|json] [--deny-warnings] [--color auto|always|never]
 sivi theme check <NAME|DIR> [--format human|json] [--deny-warnings] [--color auto|always|never]
+sivi theme list [--format human|json]
 sivi fonts list [--script <SCRIPT>] [--installed] [--format human|json]
 sivi fonts install <FAMILY>... [--format human|json] [--color auto|always|never]
 sivi fonts dir
@@ -19,7 +20,8 @@ sivi palette [<SEED|NAME>] [--mode light|dark] [--harmony mono|analogous|complem
 `build` reads the deck, binds every slide to a master of its theme, lays the deck out through Typst, reads the layout back, and writes the PDF when no error was reported.
 Without `-o` the PDF goes beside the deck as `<DECK>.pdf` with the `.md` replaced; `-o -` writes it to standard output.
 `check` runs the same pipeline through the layout verdicts and writes nothing.
-`theme check` validates a theme: the built-in `plain` by name, or a directory holding `theme.toml` and the files it names.
+`theme check` validates a theme: a built-in theme by name, or a directory holding `theme.toml` and the files it names.
+`theme list` prints the built-in themes, `plain`, `blank`, `editorial`, and `studio`, each with one line on its character and the names of its masters, which `docs/themes.md` describes.
 `--theme` replaces the deck's `theme:`; a built-in name or a directory.
 `fonts list` shows every family of the font catalog with its state on this host: bundled in the binary, installed in the library, or available.
 `fonts install` fetches the files of each named family from google/fonts at the commit the catalog pins, refuses any file whose digest differs, and places them in the library.

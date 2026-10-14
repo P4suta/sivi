@@ -229,6 +229,9 @@ pub fn run(arguments: Arguments, environment: &Environment) -> Run {
                 environment,
             },
         ),
+        Command::Theme {
+            command: ThemeCommand::List { rendering },
+        } => themes::listing(rendering),
         Command::Fonts { command } => library::run(command, environment),
         Command::CodeThemes { variant, rendering } => {
             code_themes::run(variant, rendering, environment)

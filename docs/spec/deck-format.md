@@ -28,7 +28,7 @@ Front matter lines are replaced by spaces of the same width before the slide is 
 
 | Where | Key | Value |
 | --- | --- | --- |
-| head | `theme` | `plain`, or a relative path with a slash to a theme directory |
+| head | `theme` | a built-in theme, `plain`, `blank`, `editorial`, or `studio`, or a relative path with a slash to a theme directory |
 | head | `default_master` | an identifier: a lowercase letter, then up to thirty-one lowercase letters, digits, or dashes |
 | head | `title`, `author` | one to two hundred characters |
 | head | `date` | `YYYY-MM-DD` |

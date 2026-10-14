@@ -166,6 +166,11 @@ pub enum ThemeCommand {
         #[command(flatten)]
         rendering: Rendering,
     },
+    /// Lists the themes the binary carries, each with its character and its masters.
+    List {
+        #[command(flatten)]
+        rendering: Rendering,
+    },
 }
 
 /// How diagnostics are written and judged, which every command shares.

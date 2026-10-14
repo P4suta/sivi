@@ -12,6 +12,7 @@ sivi-core.workspace = true
 typst = "=0.15.1"
 typst-layout = "=0.15.1"
 typst-pdf = "=0.15.1"
+typst-render.workspace = true
 
 [dev-dependencies]
 toml.workspace = true

@@ -1,5 +1,7 @@
 //! Loading the theme a deck names or the command line chooses: the built-in theme, or a directory with `theme.toml` and its font files.
 
+use crate::args::{Format, Rendering};
+use crate::cli::{INTERNAL_EXIT_CODE, Run, SUCCESS_EXIT_CODE};
 use crate::digest::sha256_hex;
 use crate::fonts::{self, face_error};
 use crate::io::{self, ReadError, ReadErrorKind};
@@ -12,6 +14,124 @@ use std::path::{Path, PathBuf};
 
 /// The file a theme directory holds.
 pub const THEME_FILE: &str = "theme.toml";
+/// The JSON listing's format name and version.
+pub const LISTING_FORMAT: &str = "sivi.themes";
+pub const LISTING_VERSION: u32 = 1;
+
+/// The names of the carried themes, each in backticks, joined with commas.
+fn builtin_names() -> String {
+    sivi_theme::BUILTINS
+        .iter()
+        .map(|theme| format!("`{}`", theme.name))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// One carried theme as the listing shows it: its name, its summary, and its master names.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Listed {
+    pub name: &'static str,
+    pub summary: &'static str,
+    pub masters: Vec<String>,
+}
+
+/// Every carried theme with its masters, read from the text the binary embeds.
+///
+/// # Errors
+///
+/// Returns the diagnostics of the first carried theme that fails to load, which is a defect of the build.
+pub fn listed() -> Result<Vec<Listed>, Vec<Diagnostic>> {
+    sivi_theme::BUILTINS
+        .iter()
+        .map(|theme| {
+            let loaded = sivi_theme::parse(theme.text)?;
+            Ok(Listed {
+                name: theme.name,
+                summary: theme.summary,
+                masters: loaded
+                    .masters
+                    .iter()
+                    .map(|master| String::from(master.name.as_str()))
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+/// The listing for a person: one line per theme with its summary, and its masters beneath.
+#[must_use]
+pub fn human_listing(found: &[Listed]) -> String {
+    let width = found
+        .iter()
+        .map(|theme| theme.name.chars().count())
+        .max()
+        .unwrap_or(0);
+    found
+        .iter()
+        .map(|theme| {
+            format!(
+                "{:<width$}  {}\n{:width$}  masters: {}\n",
+                theme.name,
+                theme.summary,
+                "",
+                theme.masters.join(", ")
+            )
+        })
+        .collect::<Vec<_>>()
+        .concat()
+}
+
+/// The listing as one JSON document.
+#[must_use]
+pub fn json_listing(found: &[Listed]) -> String {
+    let entries: Vec<serde_json::Value> = found
+        .iter()
+        .map(|theme| {
+            serde_json::json!({
+                "name": theme.name,
+                "summary": theme.summary,
+                "masters": theme.masters,
+            })
+        })
+        .collect();
+    let document = serde_json::json!({
+        "format": LISTING_FORMAT,
+        "version": LISTING_VERSION,
+        "themes": entries,
+    });
+    format!("{document}\n")
+}
+
+/// Runs `theme list`.
+#[must_use]
+pub fn listing(rendering: Rendering) -> Run {
+    let found = match listed() {
+        Ok(found) => found,
+        Err(diagnostics) => {
+            return Run {
+                stdout: Vec::new(),
+                stderr: format!(
+                    "error: a carried theme does not load: {}\n",
+                    diagnostics
+                        .iter()
+                        .map(|diagnostic| diagnostic.message.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                ),
+                code: INTERNAL_EXIT_CODE,
+            };
+        }
+    };
+    let stdout = match rendering.format {
+        Format::Human => human_listing(&found),
+        Format::Json => json_listing(&found),
+    };
+    Run {
+        stdout: stdout.into_bytes(),
+        stderr: String::new(),
+        code: SUCCESS_EXIT_CODE,
+    }
+}
 
 /// Which theme to load.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -133,8 +253,8 @@ fn text_of(choice: &Choice) -> Result<(String, String, Option<PathBuf>), Vec<Dia
                         format!("no built-in theme is named `{name}`"),
                     )
                     .help(format!(
-                        "the built-in theme is `{}`; a directory with `{THEME_FILE}` holds a custom theme",
-                        sivi_theme::PLAIN_NAME
+                        "the built-in themes are {}; a directory with `{THEME_FILE}` holds a custom theme",
+                        builtin_names()
                     )),
                 ])
             },
@@ -287,10 +407,40 @@ pub fn load(
 
 #[cfg(test)]
 mod tests {
-    use super::{Choice, choose, load};
+    use super::{Choice, choose, human_listing, json_listing, listed, load};
     use sivi_core::diagnostic::Code;
     use sivi_core::text::ThemeRef;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn the_listing_names_every_carried_theme_with_its_fifteen_masters() {
+        let found = listed().unwrap();
+        assert_eq!(found.len(), sivi_theme::BUILTINS.len());
+        for theme in &found {
+            assert_eq!(theme.masters.len(), sivi_theme::MASTERS, "{}", theme.name);
+            assert_eq!(theme.masters[0], "title");
+        }
+        let human = human_listing(&found);
+        assert!(human.starts_with("plain      BIZ UDPGothic"), "{human}");
+        assert!(
+            human.contains("\n           masters: title, section, bullets, comparison, figure, quote, code, blank, hero, image-left, image-right, image-full, grid-2, grid-3, statement\n"),
+            "{human}"
+        );
+        let json = json_listing(&found);
+        assert!(
+            json.starts_with("{\"format\":\"sivi.themes\",\"themes\":["),
+            "{json}"
+        );
+        assert!(json.ends_with("],\"version\":1}\n"), "{json}");
+        assert!(json.contains("\"name\":\"editorial\""), "{json}");
+        let unknown = super::text_of(&Choice::Builtin(String::from("studioo"))).unwrap_err();
+        assert_eq!(unknown[0].code, Code::ThemeToml);
+        assert!(
+            unknown[0].helps.iter().any(|help| help
+                .contains("the built-in themes are `plain`, `blank`, `editorial`, `studio`")),
+            "{unknown:?}"
+        );
+    }
 
     #[test]
     fn the_choice_prefers_the_option_then_the_deck_then_the_built_in_theme() {

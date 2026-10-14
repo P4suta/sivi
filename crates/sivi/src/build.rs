@@ -354,6 +354,37 @@ impl Build<'_> {
     }
 }
 
+/// A deck laid out and judged: its pages, the identity of its inputs, and how many pages it has.
+#[derive(Debug)]
+pub struct Judged {
+    pub compiled: Compiled,
+    pub ident: String,
+    pub pages: u32,
+}
+
+impl Build<'_> {
+    /// Every stage through the layout verdict, or none at the first failing stage.
+    fn judge(&mut self) -> Option<Judged> {
+        let bytes = self.read()?;
+        let deck = self.parse(&bytes)?;
+        let theme = self.theme(&deck)?;
+        let (bound, emitted) = self.compose(&deck, &theme)?;
+        let composed = Composed {
+            deck,
+            theme,
+            bound,
+            emitted,
+        };
+        let (compiled, ident) = self.compile(&composed)?;
+        let measurement = self.verdict(&composed, &compiled)?;
+        Some(Judged {
+            compiled,
+            ident,
+            pages: measurement.pages.0,
+        })
+    }
+}
+
 /// Runs one build to its end or to its first failing stage.
 #[must_use]
 pub fn run(request: &Request<'_>) -> Outcome {
@@ -361,30 +392,29 @@ pub fn run(request: &Request<'_>) -> Outcome {
         request,
         outcome: Outcome::default(),
     };
-    let Some(bytes) = build.read() else {
-        return build.outcome;
-    };
-    let Some(deck) = build.parse(&bytes) else {
-        return build.outcome;
-    };
-    let Some(theme) = build.theme(&deck) else {
-        return build.outcome;
-    };
-    let Some((bound, emitted)) = build.compose(&deck, &theme) else {
-        return build.outcome;
-    };
-    let composed = Composed {
-        deck,
-        theme,
-        bound,
-        emitted,
-    };
-    let Some((compiled, ident)) = build.compile(&composed) else {
-        return build.outcome;
-    };
-    let Some(measurement) = build.verdict(&composed, &compiled) else {
-        return build.outcome;
-    };
-    build.produce(&compiled, ident, measurement.pages.0);
+    if let Some(judged) = build.judge() {
+        build.produce(&judged.compiled, judged.ident, judged.pages);
+    }
     build.outcome
+}
+
+/// Lays a deck out and judges it as `run` does, and hands back the pages instead of a PDF, for a preview or a gallery.
+///
+/// The outcome carries the diagnostics, and the product names the page count with no digest and no path.
+#[must_use]
+pub fn judge(request: &Request<'_>) -> (Outcome, Option<Judged>) {
+    let mut build = Build {
+        request,
+        outcome: Outcome::default(),
+    };
+    let judged = build.judge();
+    if let Some(found) = &judged {
+        build.outcome.product = Some(Product {
+            pages: found.pages,
+            sha256: None,
+            bytes: None,
+            path: None,
+        });
+    }
+    (build.outcome, judged)
 }

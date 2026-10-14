@@ -1308,33 +1308,25 @@ fn geometry_fault(loader: &mut Loader, path: &str, master: &Master) {
 }
 
 /// The grammar of a master as the binder sees it, in a form two masters can be compared by.
-fn grammar(master: &Master) -> Vec<String> {
-    let mut grammar: Vec<String> = master
-        .slots
-        .iter()
-        .map(|slot| {
-            format!(
-                "{:?} {:?} {} {:?} {:?}",
-                slot.binds, slot.accepts, slot.required, slot.capacity, slot.follows
-            )
-        })
-        .collect();
-    grammar.sort();
-    grammar
+/// Whether two masters are one master under two names: the same slots in the same order, and the same decor.
+///
+/// Two masters that bind alike but lay out apart, as a picture on the left and on the right, are distinct.
+fn same_master(master: &Master, other: &Master) -> bool {
+    master.slots == other.slots && master.decor == other.decor
 }
 
 fn ambiguity_fault(loader: &mut Loader, masters: &[Master]) {
     for (index, master) in masters.iter().enumerate() {
         for other in masters.iter().skip(index.saturating_add(1)) {
-            if grammar(master) == grammar(other) {
+            if same_master(master, other) {
                 loader.refuse(
                     &format!("masters.{}", other.name),
                     conflict(
                         format!(
-                            "the masters `{}` and `{}` bind every slide the same way",
+                            "the masters `{}` and `{}` bind and lay out every slide the same way",
                             master.name, other.name
                         ),
-                        "make a slot differ in what it binds, accepts, requires, or holds, or merge the masters",
+                        "make a slot differ in what it binds, accepts, requires, holds, or where it lies, or merge the masters",
                     ),
                 );
             }

@@ -1,0 +1,575 @@
+# The editorial theme: Shippori Mincho and Playfair Display on warm paper, thin rules, and a vermilion marker.
+schema = 1
+
+[theme]
+name = "editorial"
+
+[page]
+width = "960pt"
+height = "540pt"
+background = "paper"
+
+[colors]
+paper = "#f6f1e7"
+ink = "#2a2420"
+muted = "#6b625a"
+accent = "#b5451b"
+rule = "#d9cfbf"
+code_bg = "#efe7d8"
+highlight = "#f2c14e"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "0.7em"
+fallback = ["Shippori Mincho", "BIZ UDPGothic"]
+
+[text.display]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "56pt"
+weight = 700
+color = "ink"
+line_height = 1.35
+align = "left"
+
+[text.title]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "40pt"
+weight = 700
+color = "ink"
+line_height = 1.35
+align = "left"
+
+[text.heading]
+font = "Shippori Mincho"
+size = "28pt"
+weight = 700
+color = "ink"
+line_height = 1.5
+align = "left"
+
+[text.subtitle]
+font = "Shippori Mincho"
+size = "24pt"
+weight = 400
+color = "muted"
+line_height = 1.6
+align = "left"
+
+[text.body]
+font = "Shippori Mincho"
+size = "24pt"
+weight = 400
+color = "ink"
+line_height = 1.7
+align = "left"
+
+[text.quote]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "32pt"
+weight = 400
+color = "ink"
+line_height = 1.5
+align = "left"
+
+[text.caption]
+font = "Shippori Mincho"
+size = "18pt"
+weight = 400
+color = "muted"
+line_height = 1.5
+align = "center"
+
+[text.table]
+font = "Shippori Mincho"
+size = "20pt"
+weight = 400
+color = "ink"
+line_height = 1.5
+align = "left"
+
+[text.meta]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "18pt"
+weight = 400
+color = "muted"
+line_height = 1.4
+align = "left"
+
+[text.hero]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "52pt"
+weight = 700
+color = "paper"
+line_height = 1.35
+align = "left"
+
+[text.lede]
+font = "Shippori Mincho"
+size = "24pt"
+weight = 400
+color = "paper"
+line_height = 1.6
+align = "left"
+
+[text.statement]
+font = ["Playfair Display", "Shippori Mincho"]
+size = "64pt"
+weight = 700
+color = "ink"
+line_height = 1.35
+align = "center"
+
+[inline]
+emphasis = { style = "color", color = "accent" }
+strong = { weight = 700 }
+code = { font = "JetBrains Mono", background = "code_bg" }
+link = { color = "accent", underline = true }
+mark = { marker = { color = "highlight", opacity = 0.55, top = "ascender", bottom = "descender" } }
+
+[lists]
+bullets = ["•", "–", "·"]
+ordered = "1."
+indent = "1.25em"
+gap = "0.4em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.4
+background = "code_bg"
+padding = "14pt"
+highlight = true
+tab_width = 4
+theme = "gruvbox-light-soft"
+
+[tables]
+text = "table"
+header_weight = 700
+rule = "rule"
+padding = "7pt"
+
+[quotes]
+bar = "accent"
+bar_width = "2pt"
+indent = "28pt"
+
+[masters.title.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "140pt", width = "840pt", height = "160pt" }
+text = "display"
+valign = "bottom"
+
+[masters.title.slots.subtitle]
+binds = "subtitle"
+region = { x = "60pt", y = "312pt", width = "840pt", height = "64pt" }
+text = "subtitle"
+valign = "top"
+
+[[masters.title.decor]]
+kind = "rect"
+region = { x = "60pt", y = "304pt", width = "120pt", height = "1pt" }
+color = "accent"
+
+[[masters.title.decor]]
+kind = "field"
+field = "author"
+region = { x = "60pt", y = "440pt", width = "600pt", height = "28pt" }
+text = "meta"
+align = "left"
+
+[[masters.title.decor]]
+kind = "field"
+field = "date"
+region = { x = "660pt", y = "440pt", width = "240pt", height = "28pt" }
+text = "meta"
+align = "right"
+
+[masters.section.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "200pt", width = "840pt", height = "120pt" }
+text = "display"
+valign = "middle"
+
+[[masters.section.decor]]
+kind = "rect"
+region = { x = "60pt", y = "332pt", width = "120pt", height = "1pt" }
+color = "accent"
+
+[[masters.section.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.bullets.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.bullets.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list", "table"]
+region = { x = "60pt", y = "164pt", width = "840pt", height = "316pt" }
+text = "body"
+max_items = 7
+max_depth = 2
+
+[[masters.bullets.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.bullets.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.comparison.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.comparison.slots.left]
+binds = "section"
+section = 1
+accepts = ["paragraph", "list", "table"]
+region = { x = "60pt", y = "164pt", width = "405pt", height = "316pt" }
+text = "body"
+max_items = 5
+max_depth = 2
+
+[masters.comparison.slots.right]
+binds = "section"
+section = 2
+accepts = ["paragraph", "list", "table"]
+region = { x = "495pt", y = "164pt", width = "405pt", height = "316pt" }
+text = "body"
+max_items = 5
+max_depth = 2
+
+[[masters.comparison.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.comparison.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.figure.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.figure.slots.figure]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "164pt", width = "840pt", height = "268pt" }
+text = "body"
+max_blocks = 1
+
+[masters.figure.slots.caption]
+binds = "flow"
+accepts = ["paragraph"]
+follows = "figure"
+region = { x = "60pt", y = "440pt", width = "840pt", height = "40pt" }
+text = "caption"
+max_blocks = 1
+
+[[masters.figure.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.quote.slots.quote]
+binds = "flow"
+accepts = ["quote"]
+required = true
+region = { x = "60pt", y = "120pt", width = "840pt", height = "240pt" }
+text = "quote"
+valign = "middle"
+max_blocks = 1
+
+[masters.quote.slots.attribution]
+binds = "flow"
+accepts = ["paragraph"]
+follows = "quote"
+region = { x = "60pt", y = "380pt", width = "840pt", height = "40pt" }
+text = "caption"
+max_blocks = 1
+
+[[masters.quote.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.code.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.code.slots.code]
+binds = "flow"
+accepts = ["code"]
+required = true
+region = { x = "60pt", y = "164pt", width = "840pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+max_lines = 12
+
+[[masters.code.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.blank.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list", "table", "image", "code", "quote"]
+region = { x = "60pt", y = "40pt", width = "840pt", height = "440pt" }
+text = "body"
+
+[[masters.blank.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.hero.slots.backdrop]
+binds = "flow"
+accepts = ["image"]
+required = true
+layer = "back"
+region = { x = "0pt", y = "0pt", width = "960pt", height = "540pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", scrim = { color = "ink", opacity = 0.75, from = "bottom" } }
+
+[masters.hero.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "290pt", width = "840pt", height = "130pt" }
+text = "hero"
+valign = "bottom"
+
+[masters.hero.slots.lede]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "60pt", y = "432pt", width = "840pt", height = "60pt" }
+text = "lede"
+max_blocks = 1
+
+[masters.image-left.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.image-left.slots.picture]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "164pt", width = "390pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[masters.image-left.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list"]
+region = { x = "510pt", y = "164pt", width = "390pt", height = "316pt" }
+text = "body"
+max_items = 5
+max_depth = 2
+
+[[masters.image-left.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.image-left.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.image-right.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.image-right.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list"]
+region = { x = "60pt", y = "164pt", width = "390pt", height = "316pt" }
+text = "body"
+max_items = 5
+max_depth = 2
+
+[masters.image-right.slots.picture]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "510pt", y = "164pt", width = "390pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[[masters.image-right.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.image-right.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.image-full.slots.backdrop]
+binds = "flow"
+accepts = ["image"]
+required = true
+layer = "back"
+region = { x = "0pt", y = "0pt", width = "960pt", height = "540pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", scrim = { color = "ink", opacity = 0.6, from = "bottom" } }
+
+[masters.image-full.slots.caption]
+binds = "flow"
+accepts = ["paragraph"]
+region = { x = "60pt", y = "452pt", width = "840pt", height = "48pt" }
+text = "lede"
+max_blocks = 1
+
+[masters.grid-2.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.grid-2.slots.left]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "164pt", width = "410pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[masters.grid-2.slots.right]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "left"
+region = { x = "490pt", y = "164pt", width = "410pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[[masters.grid-2.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.grid-2.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.grid-3.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.grid-3.slots.first]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "164pt", width = "264pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[masters.grid-3.slots.second]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "first"
+region = { x = "348pt", y = "164pt", width = "264pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[masters.grid-3.slots.third]
+binds = "flow"
+accepts = ["image"]
+required = true
+follows = "second"
+region = { x = "636pt", y = "164pt", width = "264pt", height = "316pt" }
+text = "body"
+max_blocks = 1
+image = { fit = "cover", radius = "2pt", shadow = { color = "ink", opacity = 0.15, offset = "4pt" } }
+
+[[masters.grid-3.decor]]
+kind = "rect"
+region = { x = "60pt", y = "152pt", width = "840pt", height = "1pt" }
+color = "rule"
+
+[[masters.grid-3.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.statement.slots.statement]
+binds = "flow"
+accepts = ["paragraph"]
+required = true
+region = { x = "60pt", y = "120pt", width = "840pt", height = "300pt" }
+text = "statement"
+valign = "middle"
+align = "center"
+max_blocks = 1
+
+[[masters.statement.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"

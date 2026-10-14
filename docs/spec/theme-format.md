@@ -111,7 +111,7 @@ An `image` table shapes an image that fills a slot alone; an image in a stack wi
 | `E0505` | two front slot regions overlap |
 | `E0506` | a text size below `typography.min_size` |
 | `E0507` | a reference to a color or text style the theme does not define |
-| `E0508` | two masters with the same grammar, section numbers with a gap, a `follows` that leaves the master or loops, two title slots, or a backdrop that holds anything other than one image |
+| `E0508` | two masters with the same slots and decor, section numbers with a gap, a `follows` that leaves the master or loops, two title slots, or a backdrop that holds anything other than one image |
 | `E0509` | no master, or a master without a slot |
 | `E0510` | a face the styles need that no font provides |
 | `E0511` | a line height below its face's natural line box |

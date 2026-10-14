@@ -116,11 +116,34 @@ fn a_warning_passes_unless_warnings_are_denied() {
 }
 
 #[test]
-fn a_theme_check_judges_the_built_in_theme_a_directory_and_a_broken_one() {
-    sivi()
-        .args(["theme", "check", "plain"])
+fn the_theme_listing_names_every_carried_theme_with_its_masters() {
+    let listed = sivi().args(["theme", "list"]).assert().code(SUCCESS);
+    let stdout = String::from_utf8_lossy(&listed.get_output().stdout);
+    for name in ["plain", "blank", "editorial", "studio"] {
+        assert!(stdout.contains(&format!("{name} ")), "{stdout}");
+    }
+    assert!(
+        stdout.contains("masters: title, section, bullets,"),
+        "{stdout}"
+    );
+    let json = sivi()
+        .args(["theme", "list", "--format", "json"])
         .assert()
         .code(SUCCESS);
+    let document = String::from_utf8_lossy(&json.get_output().stdout);
+    assert!(
+        document.starts_with("{\"format\":\"sivi.themes\","),
+        "{document}"
+    );
+    assert!(document.contains("\"name\":\"studio\""), "{document}");
+    assert!(document.contains("\"statement\"]"), "{document}");
+}
+
+#[test]
+fn a_theme_check_judges_the_built_in_theme_a_directory_and_a_broken_one() {
+    for name in ["plain", "blank", "editorial", "studio"] {
+        sivi().args(["theme", "check", name]).assert().code(SUCCESS);
+    }
     sivi()
         .args(["theme", "check", PLAIN_THEME])
         .assert()

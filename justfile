@@ -59,3 +59,7 @@ build deck *args: trust
 # Review the fixture snapshots after a change of a verdict, a number, or a wording, and accept them.
 snapshots *args: trust
     mise x -- cargo insta test --package sivi --test snapshots --review {{args}}
+
+# Render every showcase fixture to PNG pages under `target/gallery/`, one file per slide, for a look at each theme.
+gallery: trust
+    mise x -- cargo nextest run --package sivi --test gallery --run-ignored only --no-capture
