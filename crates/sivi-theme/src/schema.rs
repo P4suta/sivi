@@ -14,7 +14,11 @@ pub struct ThemeFile {
     pub schema: u32,
     pub theme: ThemeSection,
     pub page: PageSection,
+    /// The colors by name; a theme that grows a palette may leave this out and name the palette's roles.
+    #[serde(default)]
     pub colors: BTreeMap<String, String>,
+    /// The palette the theme grows its colors from, behind any color named above.
+    pub palette: Option<PaletteSection>,
     pub typography: TypographySection,
     pub text: BTreeMap<String, TextSection>,
     pub inline: InlineSection,
@@ -32,6 +36,16 @@ pub struct ThemeFile {
 #[serde(deny_unknown_fields)]
 pub struct ThemeSection {
     pub name: String,
+}
+
+/// The seed a palette grows from: a color, or the name of a carried palette, with the mode and the harmony beside it.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteSection {
+    pub seed: Option<String>,
+    pub name: Option<String>,
+    pub mode: Option<String>,
+    pub harmony: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

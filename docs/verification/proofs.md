@@ -12,9 +12,9 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step` | `binder_probe`, the automaton without capacities, which TLC must refute |
 | TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
 | Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
-| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst; in the theme loader, the tests over the full plain theme, the bundled fonts, and the carried font catalog are skipped, since Miri interprets each in minutes, and a small theme and a small catalog stand in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
+| Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst, through nextest under the `miri` profile, which ends a test that outlives two minutes and names it; the tests over the full plain theme, the bundled fonts, the carried font catalog, and the exhaustive color and palette sweeps are skipped, since Miri interprets each in minutes, and smaller tests over the same code stand in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
-| cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
+| cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants; the generated color tables are left out, since a mutated entry is data that the generator check and the light-table proof own | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
 Each run writes a receipt under `target/proofs/receipts/` with the verifier's version and a digest of the core sources and the manifest.
 
@@ -37,6 +37,8 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `publish_rules` | the output is replaced only by the rename, which follows the sync; every stage reaches the end; a failure removes the staging file exactly when it exists | `specs/publish.tla` under TLC owns the interleavings with a crash |
 | `home_rules` | the data directory stands on the first usable variable in precedence, with the tail its base owns, and an empty variable never names a directory, for every combination of unset, empty, and set variables on either kind of host | — |
 | `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
+| `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
+| `palette_rules` | the hues of every harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families; three hues form at least one family and at most three, one when they lie within the span | — |
 
 ## What the fuzz targets replay
 
@@ -59,19 +61,19 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 241 tests passed and the one PDF dump test skipped |
-| Kani | 28 harnesses verified, and every probe and the negative fixture refused |
+| `cargo xtask check` | clean, with 262 tests passed and the one PDF dump test skipped |
+| Kani | 33 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
 | Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
-| Prolog | 239 slides bind the same way under the binder and the reference, and a tampered binding differs |
+| Prolog | 242 slides bind the same way under the binder and the reference, and a tampered binding differs |
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 865 mutants, 427 caught, 438 unviable, none missed |
+| cargo-mutants over `sivi-core` | 1024 mutants, 484 caught, 540 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 267 mutants, 93 caught, 174 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 295 mutants, 95 caught, 200 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.

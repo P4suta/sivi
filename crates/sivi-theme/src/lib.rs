@@ -3,6 +3,7 @@
 //! It reads a theme file into the core's theme model, refuses every value outside the format, and reads font faces for the checks that need their metrics.
 
 pub mod catalog;
+pub mod design;
 pub mod faces;
 pub mod load;
 pub mod schema;
@@ -390,6 +391,82 @@ mod tests {
                 .iter()
                 .any(|note| note.contains("code.theme"))
         );
+    }
+
+    #[test]
+    fn a_palette_grows_the_colors_behind_the_named_ones_and_each_fault_is_named() {
+        use sivi_core::theme::{Color, StyleName};
+        const COLORS: &str = "[colors]\npaper = \"#ffffff\"\nink = \"#000000\"";
+        let seeded = SMALL.replacen(COLORS, "[palette]\nseed = \"#0b57d0\"", 1);
+        let theme = parse(&seeded).unwrap();
+        for role in [
+            "paper",
+            "ink",
+            "muted",
+            "rule",
+            "code_bg",
+            "accent",
+            "accent2",
+            "accent3",
+            "highlight",
+            "soft",
+        ] {
+            assert!(
+                theme.color(&StyleName::new(role).unwrap()).is_some(),
+                "{role}"
+            );
+        }
+        let paper = theme.color(&StyleName::new("paper").unwrap()).unwrap();
+        assert!(
+            paper.red > 240 && paper.green > 240 && paper.blue > 240,
+            "{paper:?}"
+        );
+        let overridden = SMALL.replacen(
+            COLORS,
+            "[palette]\nname = \"sakura\"\nmode = \"dark\"\n\n[colors]\nink = \"#102030\"",
+            1,
+        );
+        let themed = parse(&overridden).unwrap();
+        assert_eq!(
+            themed.color(&StyleName::new("ink").unwrap()),
+            Some(Color {
+                red: 0x10,
+                green: 0x20,
+                blue: 0x30
+            })
+        );
+        let dark_paper = themed.color(&StyleName::new("paper").unwrap()).unwrap();
+        assert!(
+            dark_paper.red < 80 && dark_paper.blue < 80,
+            "{dark_paper:?}"
+        );
+        for (section, path) in [
+            ("[palette]\nname = \"nowhere\"", "palette.name"),
+            (
+                "[palette]\nseed = \"#0b57d0\"\nname = \"sakura\"",
+                "palette",
+            ),
+            ("[palette]\nmode = \"light\"", "palette"),
+            (
+                "[palette]\nseed = \"#0b57d0\"\nmode = \"dim\"",
+                "palette.mode",
+            ),
+            (
+                "[palette]\nseed = \"#0b57d0\"\nharmony = \"square\"",
+                "palette.harmony",
+            ),
+            ("[palette]\nseed = \"blue\"", "palette.seed"),
+        ] {
+            let faulty = SMALL.replacen(COLORS, section, 1);
+            let Err(found) = parse(&faulty) else {
+                panic!("{path}: accepted");
+            };
+            assert!(
+                found.iter().any(|d| d.code == Code::ThemeValue
+                    && d.notes.iter().any(|note| note.contains(path))),
+                "{path}: {found:?}"
+            );
+        }
     }
 
     #[test]

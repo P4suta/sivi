@@ -1,0 +1,20 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0513]: `muted` reads at 1.9 to one on the paper, below 4.5 to one
+  |
+  = note: at `text.caption.color` in the theme
+  = help: darken the text or lighten the paper; a palette grown from a seed keeps seven to one
+
+error[E0513]: `muted` reads at 1.9 to one on the paper, below 4.5 to one
+  |
+  = note: at `text.meta.color` in the theme
+  = help: darken the text or lighten the paper; a palette grown from a seed keeps seven to one
+
+error[E0513]: `muted` reads at 1.9 to one on the paper, below 4.5 to one
+  |
+  = note: at `text.subtitle.color` in the theme
+  = help: darken the text or lighten the paper; a palette grown from a seed keeps seven to one
+
+error: aborting due to 3 errors

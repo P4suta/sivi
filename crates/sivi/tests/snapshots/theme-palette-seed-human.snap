@@ -1,0 +1,5 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+

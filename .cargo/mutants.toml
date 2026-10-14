@@ -9,3 +9,8 @@ exclude_re = [
   # Reconsider when a rule module keeps production code in `proofs`.
   "proofs::",
 ]
+exclude_globs = [
+  # Exempt as data: the color tables are written by `cargo xtask gen` from the standard curves, which `gen --check` holds them to,
+  # and the light table's rise is a Kani obligation of `color_rules`; a mutated entry is no decision.
+  "crates/sivi-core/src/color_tables.rs",
+]

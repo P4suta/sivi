@@ -127,6 +127,7 @@ fn the_earlier_fixtures_still_pass_or_fail_as_their_names_say() {
         "pass-japanese",
         "pass-marks",
         "pass-code-theme",
+        "pass-palette",
     ] {
         let outcome = check(name);
         assert!(

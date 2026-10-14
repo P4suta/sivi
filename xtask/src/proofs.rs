@@ -45,6 +45,8 @@ const MUTANT_JOBS: &str = "2";
 const MUTANT_TEST_THREADS: &str = "1";
 const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
 const MIRI_TARGET: &str = "target/miri";
+/// The nextest profile Miri runs under, which bounds the time of each test.
+const MIRI_PROFILE: &str = "miri";
 const MUTANTS_OUTPUT: &str = "target/proofs/mutants";
 /// The crates the mutation campaign runs over, each judged by its own tests alone.
 const MUTANT_PACKAGES: [&str; 3] = ["sivi-core", "sivi-markdown", "sivi-theme"];
@@ -550,11 +552,18 @@ fn verify_kani(root: &Path) -> Result<()> {
     .context("the Kani fixture must be refused")
 }
 
+/// Miri runs the tests through nextest, whose `miri` profile ends any test that outlives its budget and names it.
 fn miri_command(root: &Path, manifest: Option<&Path>, target: &Path) -> Command {
     let mut command = Tool::CargoNightly.command(root);
-    command.args(["miri", "test", "--locked"]);
-    if let Some(manifest) = manifest {
-        command.arg("--manifest-path").arg(manifest);
+    command.args(["miri", "nextest", "run", "--locked"]);
+    match manifest {
+        Some(manifest) => {
+            command.arg("--manifest-path").arg(manifest);
+        }
+        // The workspace's own profile bounds each test; a fixture workspace runs under its defaults.
+        None => {
+            command.args(["--profile", MIRI_PROFILE]);
+        }
     }
     command.arg("--target-dir").arg(target);
     command

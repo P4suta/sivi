@@ -1,6 +1,7 @@
 //! The argument contract of the `sivi` binary, and the one place that reads its environment.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use sivi_core::palette_rules::{Harmony, Mode};
 use sivi_core::syntax_theme::Variant;
 use std::io::IsTerminal as _;
 use std::path::PathBuf;
@@ -56,6 +57,61 @@ pub enum Command {
         #[command(flatten)]
         rendering: Rendering,
     },
+    /// Grows a palette from a seed color or a carried palette name, as theme text; without a seed, lists the carried palettes.
+    Palette {
+        /// A color as `#rrggbb`, or the name of a carried palette.
+        seed: Option<String>,
+        /// Light or dark paper.
+        #[arg(long, value_enum)]
+        mode: Option<ModeChoice>,
+        /// How the accents relate to the seed on the hue circle.
+        #[arg(long, value_enum)]
+        harmony: Option<HarmonyChoice>,
+        #[command(flatten)]
+        rendering: Rendering,
+    },
+}
+
+/// Which paper a palette sits on.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum ModeChoice {
+    Light,
+    Dark,
+}
+
+impl ModeChoice {
+    /// The mode of the core's palettes.
+    #[must_use]
+    pub const fn mode(self) -> Mode {
+        match self {
+            Self::Light => Mode::Light,
+            Self::Dark => Mode::Dark,
+        }
+    }
+}
+
+/// How the accents of a palette relate to its seed.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum HarmonyChoice {
+    Mono,
+    Analogous,
+    Complementary,
+    Split,
+    Triadic,
+}
+
+impl HarmonyChoice {
+    /// The harmony of the core's palettes.
+    #[must_use]
+    pub const fn harmony(self) -> Harmony {
+        match self {
+            Self::Mono => Harmony::Mono,
+            Self::Analogous => Harmony::Analogous,
+            Self::Complementary => Harmony::Complementary,
+            Self::Split => Harmony::Split,
+            Self::Triadic => Harmony::Triadic,
+        }
+    }
 }
 
 /// Which schemes `code-themes` lists.

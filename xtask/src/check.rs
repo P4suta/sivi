@@ -274,6 +274,7 @@ pub fn push_check(root: &Path) -> Result<()> {
 /// Returns an error when a generator fails.
 pub fn generate(root: &Path) -> Result<()> {
     smt::generate(root)?;
+    crate::color_tables::generate(root)?;
     crate::quint::generate(root)?;
     crate::diagnostics::generate(root)?;
     repository(root, "generate")
@@ -288,6 +289,7 @@ pub fn generated(root: &Path) -> Result<()> {
     let mut report = Report::default();
     report.stage("adr", || adr::check(root));
     report.stage("smt", || smt::check(root));
+    report.stage("color-tables", || crate::color_tables::check(root));
     report.stage("diagnostics", || crate::diagnostics::check(root));
     report.stage("repository", || repository(root, "check"));
     report.finish("gen --check")

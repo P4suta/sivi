@@ -13,6 +13,7 @@ pub mod io;
 pub mod library;
 pub mod net;
 pub mod output;
+pub mod palette;
 pub mod publish;
 pub mod render;
 pub mod themes;

@@ -2,8 +2,8 @@
 
 use crate::schema::{
     CodeSection, DecorSection, FontSection, FontSpec, InlineSection, ListsSection, MarkSection,
-    MarkerSection, MasterSection, QuotesSection, RegionSection, SlotSection, TablesSection,
-    TextSection, ThemeFile, TypographySection, UnderlineSection, UnderlineSpec,
+    MarkerSection, MasterSection, PaletteSection, QuotesSection, RegionSection, SlotSection,
+    TablesSection, TextSection, ThemeFile, TypographySection, UnderlineSection, UnderlineSpec,
 };
 use crate::units::{self, Unit};
 use sivi_core::diagnostic::{Code, Diagnostic};
@@ -12,6 +12,7 @@ use sivi_core::ir::{self, BlockKind};
 use sivi_core::length::{Length, Point, Rect, Size};
 use sivi_core::mark_rules;
 use sivi_core::master_rules::closest_text;
+use sivi_core::palette_rules::{self, Harmony, Mode, Palette, Seed};
 use sivi_core::syntax_theme::Scheme;
 use sivi_core::text::Identifier;
 use sivi_core::theme::{
@@ -1248,6 +1249,111 @@ fn colors(loader: &mut Loader, file: &ThemeFile) -> Vec<(StyleName, Color)> {
     colors
 }
 
+/// The colors of the file with the roles of its palette behind them, when it grows one, which every color reference is then checked against.
+///
+/// A named color wins over a role of the same name.
+fn all_colors(loader: &mut Loader, file: &ThemeFile) -> Vec<(StyleName, Color)> {
+    let mut colors = colors(loader, file);
+    if let Some(section) = &file.palette
+        && let Some(grown) = grown_palette(loader, section)
+    {
+        for (role, color) in grown.roles() {
+            if let Ok(name) = StyleName::new(role)
+                && !colors.iter().any(|(known, _)| *known == name)
+            {
+                colors.push((name, color));
+            }
+        }
+    }
+    loader.colors = colors
+        .iter()
+        .map(|(color_name, _)| color_name.clone())
+        .collect();
+    colors
+}
+
+/// The palette `section` grows: from a seed color or a carried name, in its mode, under its harmony.
+fn grown_palette(loader: &mut Loader, section: &PaletteSection) -> Option<Palette> {
+    let carried = match (&section.seed, &section.name) {
+        (Some(_), None) | (None, Some(_)) => section.name.as_ref().and_then(|name| {
+            let found = palette_rules::curated(name);
+            if found.is_none() {
+                let names: Vec<&str> = palette_rules::CURATED
+                    .iter()
+                    .map(|named| named.name)
+                    .collect();
+                loader.diagnostics.push(
+                    Diagnostic::new(
+                        Code::ThemeValue,
+                        format!("`{name}` is not a palette the binary carries"),
+                    )
+                    .note(String::from("at `palette.name` in the theme"))
+                    .help(format!("name one of {}", names.join(", "))),
+                );
+            }
+            found
+        }),
+        (Some(_), Some(_)) | (None, None) => {
+            loader.refuse(
+                "palette",
+                value(
+                    String::from("a palette grows from a seed or a name"),
+                    "set exactly one of `seed`, a color, and `name`, a carried palette",
+                ),
+            );
+            return None;
+        }
+    };
+    let seed = match &section.seed {
+        Some(text) => Seed::of(loader.color("palette.seed", text)?),
+        None => carried.map(|named| named.seed),
+    }?;
+    let mode = match &section.mode {
+        Some(text) => mode(loader, text)?,
+        None => carried.map_or(Mode::Light, |named| named.mode),
+    };
+    let harmony = match &section.harmony {
+        Some(text) => harmony(loader, text)?,
+        None => carried.map_or(Harmony::Complementary, |named| named.harmony),
+    };
+    let grown = palette_rules::palette(seed, mode, harmony);
+    if grown.is_none() {
+        loader.diagnostics.push(Diagnostic::new(
+            Code::Internal,
+            String::from("the palette could not be grown from its seed"),
+        ));
+    }
+    grown
+}
+
+fn mode(loader: &mut Loader, text: &str) -> Option<Mode> {
+    let found = Mode::from_name(text);
+    if found.is_none() {
+        loader.refuse(
+            "palette.mode",
+            value(
+                format!("`{text}` is not a palette mode"),
+                "write `light` or `dark`",
+            ),
+        );
+    }
+    found
+}
+
+fn harmony(loader: &mut Loader, text: &str) -> Option<Harmony> {
+    let found = Harmony::from_name(text);
+    if found.is_none() {
+        loader.refuse(
+            "palette.harmony",
+            value(
+                format!("`{text}` is not a harmony"),
+                "write `mono`, `analogous`, `complementary`, `split`, or `triadic`",
+            ),
+        );
+    }
+    found
+}
+
 /// The text styles of the file, each at or above the minimum size.
 fn text_styles(
     loader: &mut Loader,
@@ -1317,11 +1423,7 @@ pub fn build(file: &ThemeFile) -> Result<Theme, Vec<Diagnostic>> {
     if let (Some(width), Some(height)) = (width, height) {
         loader.page = Size { width, height };
     }
-    let colors = colors(&mut loader, file);
-    loader.colors = colors
-        .iter()
-        .map(|(color_name, _)| color_name.clone())
-        .collect();
+    let colors = all_colors(&mut loader, file);
     for style_key in file.text.keys() {
         if let Ok(style) = StyleName::new(style_key) {
             loader.styles.push(style);

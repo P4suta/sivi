@@ -131,6 +131,8 @@ pub enum Code {
     LineHeightBelowFace,
     /// E0512: a code theme the carried schemes lack.
     CodeThemeUnknown,
+    /// E0513: a text color that reads below four and a half to one on the paper.
+    LowContrast,
     /// E0601: a font file the theme names is missing.
     FontMissing,
     /// E0602: a font file whose digest differs from the theme's.
@@ -181,11 +183,15 @@ pub enum Code {
     UnusedFont,
     /// W0502: a fallback family without the exact weight a style sets.
     FallbackWeight,
+    /// W0503: more than three hue families among the theme's colors.
+    ManyHues,
+    /// W0504: a paper whose chroma tints every slide.
+    VividPaper,
 }
 
 impl Code {
     /// Every code, in the order of the catalog.
-    pub const ALL: [Self; 80] = [
+    pub const ALL: [Self; 83] = [
         Self::Internal,
         Self::NotUtf8,
         Self::UnclosedFrontMatter,
@@ -241,6 +247,7 @@ impl Code {
         Self::MissingFace,
         Self::LineHeightBelowFace,
         Self::CodeThemeUnknown,
+        Self::LowContrast,
         Self::FontMissing,
         Self::FontDigest,
         Self::FontUnreadable,
@@ -266,6 +273,8 @@ impl Code {
         Self::NoLang,
         Self::UnusedFont,
         Self::FallbackWeight,
+        Self::ManyHues,
+        Self::VividPaper,
     ];
 
     /// The stable code, such as `E0401`.
@@ -327,6 +336,7 @@ impl Code {
             Self::MissingFace => "E0510",
             Self::LineHeightBelowFace => "E0511",
             Self::CodeThemeUnknown => "E0512",
+            Self::LowContrast => "E0513",
             Self::FontMissing => "E0601",
             Self::FontDigest => "E0602",
             Self::FontUnreadable => "E0603",
@@ -352,6 +362,8 @@ impl Code {
             Self::NoLang => "W0108",
             Self::UnusedFont => "W0501",
             Self::FallbackWeight => "W0502",
+            Self::ManyHues => "W0503",
+            Self::VividPaper => "W0504",
         }
     }
 

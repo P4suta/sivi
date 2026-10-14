@@ -3,7 +3,7 @@
   "title": "sivi theme, schema 1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "theme", "page", "colors", "typography", "text", "inline", "lists", "code", "tables", "quotes", "masters"],
+  "required": ["schema", "theme", "page", "typography", "text", "inline", "lists", "code", "tables", "quotes", "masters"],
   "definitions": {
     "length": { "type": "string", "pattern": "^[0-9]*(\\.[0-9]{0,3})?pt$" },
     "measure": { "type": "string", "pattern": "^[0-9]*(\\.[0-9]{0,3})?(pt|em)$" },
@@ -154,6 +154,16 @@
     "colors": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/color" }
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seed": { "$ref": "#/definitions/color" },
+        "name": { "type": "string", "enum": ["ink", "indigo", "sakura", "matcha", "sunset", "ocean", "wine", "sand", "slate-night", "neon-night", "forest", "coral"] },
+        "mode": { "type": "string", "enum": ["light", "dark"] },
+        "harmony": { "type": "string", "enum": ["mono", "analogous", "complementary", "split", "triadic"] }
+      }
     },
     "typography": {
       "type": "object",

@@ -208,3 +208,26 @@ harnesses = [
 probes = [
   { harness = "proofs::rejects_attributing_a_height_to_a_later_part", assertion = "NEGATIVE_ATTRIBUTE_CONTROL" },
 ]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/color_rules.rs"
+harnesses = [
+  { name = "proofs::every_channel_rises_and_reads_back", covers = 2, contract = "the linear light of a channel lies from zero to one, rises with the next channel, and reads back to the channel", input_domain = "every 8-bit channel", bound = "complete" },
+  { name = "proofs::every_color_has_a_luminance_within_one", covers = 2, contract = "the luminance of a color is defined and lies from zero to one", input_domain = "every color", bound = "complete" },
+  { name = "proofs::every_ratio_of_luminances_lies_from_one_to_twenty_one", covers = 2, contract = "the ratio of a lighter luminance over a darker one is defined, lies from one to twenty-one, and is one for equal luminances", input_domain = "every pair of luminances from zero to one, the lighter first", bound = "complete; the symmetry of the contrast of two colors follows from the order the ratio takes them in, which the tests hold over samples, and the Oklab form of every gray is tested, since its root searches lie beyond the solver's budget" },
+]
+probes = [
+  { harness = "proofs::rejects_a_contrast_below_the_extreme_for_black_on_white", assertion = "NEGATIVE_COLOR_CONTROL" },
+]
+
+[[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/palette_rules.rs"
+harnesses = [
+  { name = "proofs::every_harmony_turns_within_the_circle_and_holds_at_most_three_hues", covers = 2, contract = "the hues of a harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families", input_domain = "every hue in tenths of a degree and every harmony", bound = "complete" },
+  { name = "proofs::hue_families_count_the_hues_a_span_apart_once", covers = 2, contract = "three hues form at most three families and at least one, one family when every hue lies within the span of the first, and the distance between hues is symmetric and at most half a turn", input_domain = "every triple of hues in tenths of a degree", bound = "three hues" },
+]
+probes = [
+  { harness = "proofs::rejects_a_fourth_hue_family", assertion = "NEGATIVE_PALETTE_CONTROL" },
+]

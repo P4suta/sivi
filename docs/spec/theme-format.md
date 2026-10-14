@@ -25,7 +25,8 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | --- | --- |
 | `theme` | `name`, an identifier |
 | `page` | `width`, `height`, `background`, a color name |
-| `colors` | color names to colors |
+| `colors` | color names to colors, which a theme with a `palette` may leave out |
+| `palette` | `seed`, a color, or `name`, a carried palette; `mode`, `light` or `dark`; `harmony`, one of `mono`, `analogous`, `complementary`, `split`, `triadic` |
 | `typography` | `min_size`, `paragraph_gap`, `fallback`, a list of families |
 | `text.<name>` | `font`, a font list, `size`, `weight`, `color`, `line_height`, `align` |
 | `inline` | `emphasis`, `strong`, `code`, `link`, `mark`, each a mark |
@@ -48,6 +49,14 @@ An `underline` is `true` for the plain line in the text color, or a table of `co
 An `opacity` needs a `color` beside it, since the plain line takes the text color.
 
 A style sets text in a bundled family, a family of the theme's own `fonts`, or a family of the font catalog, which `sivi fonts list` shows and `sivi fonts install` places in the library.
+
+A `palette` grows ten colors from one seed in the OKLCH space: `paper`, `ink`, `muted`, `rule`, `code_bg`, `accent`, `accent2`, `accent3`, `highlight`, and `soft`, each at a lightness and a chroma the mode sets, on hues the harmony sets, so the ink reads on the paper at seven to one, every accent at three to one, and the palette holds at most three hue families.
+A color named under `colors` wins over the role of the same name.
+`seed` is a color as `#rrggbb`; `name` is one of `ink`, `indigo`, `sakura`, `matcha`, `sunset`, `ocean`, `wine`, `sand`, `slate-night`, `neon-night`, `forest`, and `coral`, each carrying its own mode and harmony, which `mode` and `harmony` beside it replace.
+Without a name, the mode is `light` and the harmony `complementary`.
+`sivi palette` prints the colors a seed or a name grows, as this table, and lists the carried palettes.
+
+Every theme is held to three design rules: a text color that reads below four and a half to one on the paper is `E0513`; more than three hue families among the colors is `W0503`; and a paper with a chroma above six hundredths is `W0504`.
 
 `code.theme` names one of the base16 schemes the binary carries by its slug, such as `dracula` or `catppuccin-latte`, which `sivi code-themes` lists with their variants.
 With a scheme, the scheme's background and foreground replace `code.background` and the color of the code's text style, and every token takes the scheme's color for its role.

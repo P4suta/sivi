@@ -4,6 +4,7 @@ use crate::args::{Arguments, Command, Environment, Format, Rendering, ThemeComma
 use crate::build::{self, Outcome, Request, Sink};
 use crate::code_themes;
 use crate::library;
+use crate::palette;
 use crate::render::{self, Sources};
 use crate::themes;
 use sivi_core::calendar;
@@ -231,6 +232,19 @@ pub fn run(arguments: Arguments, environment: &Environment) -> Run {
         Command::Fonts { command } => library::run(command, environment),
         Command::CodeThemes { variant, rendering } => {
             code_themes::run(variant, rendering, environment)
+        }
+        Command::Palette {
+            seed,
+            mode,
+            harmony,
+            rendering,
+        } => {
+            let request = seed.map(|seed| palette::Request {
+                seed,
+                mode,
+                harmony,
+            });
+            palette::run(request.as_ref(), rendering, environment)
         }
     }
 }

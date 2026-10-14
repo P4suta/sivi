@@ -64,6 +64,7 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [E0510](#e0510) | error | `MissingFace` | a font face the theme needs but no font provides |
 | [E0511](#e0511) | error | `LineHeightBelowFace` | a line height below the face's natural line box |
 | [E0512](#e0512) | error | `CodeThemeUnknown` | a code theme the carried schemes lack |
+| [E0513](#e0513) | error | `LowContrast` | a text color that reads below four and a half to one on the paper |
 | [E0601](#e0601) | error | `FontMissing` | a font file the theme names is missing |
 | [E0602](#e0602) | error | `FontDigest` | a font file whose digest differs from the theme's |
 | [E0603](#e0603) | error | `FontUnreadable` | a font file that cannot be read as a font |
@@ -89,6 +90,8 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [W0108](#w0108) | warning | `NoLang` | a deck without a language |
 | [W0501](#w0501) | warning | `UnusedFont` | a font the theme loads and never uses |
 | [W0502](#w0502) | warning | `FallbackWeight` | a fallback family without the exact weight a style sets |
+| [W0503](#w0503) | warning | `ManyHues` | more than three hue families among the theme's colors |
+| [W0504](#w0504) | warning | `VividPaper` | a paper whose chroma tints every slide |
 
 ## E0001
 
@@ -365,6 +368,11 @@ A line height below the face's natural line box.
 `CodeThemeUnknown`, an error.
 A code theme the carried schemes lack.
 
+## E0513
+
+`LowContrast`, an error.
+A text color that reads below four and a half to one on the paper.
+
 ## E0601
 
 `FontMissing`, an error.
@@ -489,3 +497,13 @@ A font the theme loads and never uses.
 
 `FallbackWeight`, a warning.
 A fallback family without the exact weight a style sets.
+
+## W0503
+
+`ManyHues`, a warning.
+More than three hue families among the theme's colors.
+
+## W0504
+
+`VividPaper`, a warning.
+A paper whose chroma tints every slide.

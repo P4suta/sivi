@@ -277,6 +277,7 @@ pub fn load(
         &loaded.faces,
         &from_catalog.absent,
     ));
+    diagnostics.extend(sivi_theme::design::lints(&loaded.theme));
     if has_error(&diagnostics) {
         Err(diagnostics)
     } else {
