@@ -62,7 +62,7 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 287 tests passed and the PDF dump and gallery tools skipped |
+| `cargo xtask check` | clean, with 290 tests passed and the PDF dump and gallery tools skipped |
 | Kani | 39 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
@@ -72,7 +72,7 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 1101 mutants, 519 caught, 582 unviable, none missed |
+| cargo-mutants over `sivi-core` | 1123 mutants, 530 caught, 593 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
 | cargo-mutants over `sivi-theme` | 337 mutants, 111 caught, 226 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |

@@ -21,7 +21,7 @@ The machine refuses a second build while one runs, keeps a change that arrives d
 `specs/ui.qnt` models the machine with the same events and effects, the model checker holds those four properties over every reachable state, a probe without the guard breaks them, and the committed traces replay through the core's step in a test.
 Kani proves the same properties over every state and every event, which the model checker reaches only within its bounds.
 
-The page shows through the terminal's image protocol where it speaks one, and as a mosaic of half blocks elsewhere, which the core shrinks from the raster the Typst adapter renders.
+The page shows through the terminal's image protocol where it speaks one, which the shell learns by asking the terminal rather than from the variables of the shell, and as a mosaic of quadrant blocks elsewhere, which the core shrinks from the raster the Typst adapter renders.
 
 ## Assurance boundary
 

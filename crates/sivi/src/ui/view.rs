@@ -1,6 +1,6 @@
 //! The frames of the interface: a header, the slides beside a preview, the diagnostics beneath, the keys at the foot, and a picker or the help as a window over it all.
 
-use super::app::App;
+use super::app::{App, Rendered};
 use super::preview::{Mosaic, Protocol};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -269,7 +269,7 @@ fn preview_pane(frame: &mut Frame<'_>, app: &mut App, area: Rect) {
     if app.protocol != Protocol::Mosaic {
         return;
     }
-    let Some(rendered) = app.page(page) else {
+    let Some(Rendered::Pixels(raster)) = app.page(page) else {
         let hint = Paragraph::new(Line::from(Span::styled(
             "build the deck to see its pages",
             Style::default().fg(SLATE),
@@ -278,12 +278,7 @@ fn preview_pane(frame: &mut Frame<'_>, app: &mut App, area: Rect) {
         frame.render_widget(hint, picture);
         return;
     };
-    frame.render_widget(
-        Mosaic {
-            raster: &rendered.raster,
-        },
-        picture,
-    );
+    frame.render_widget(Mosaic { raster }, picture);
 }
 
 /// The diagnostics of the selected slide, and those on no slide, each as its code and message.

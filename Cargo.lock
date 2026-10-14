@@ -3262,6 +3262,7 @@ dependencies = [
  "insta",
  "notify",
  "ratatui",
+ "rustix",
  "serde_json",
  "sha2 0.10.9",
  "sivi-core",

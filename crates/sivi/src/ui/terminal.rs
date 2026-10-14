@@ -1,4 +1,4 @@
-//! The one owner of the terminal: raw mode, the alternate screen, the keys, and the bytes an image protocol writes.
+//! The one owner of the terminal: raw mode, the alternate screen, the keys, the query about an image protocol, and the bytes one writes.
 
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, Event as TermEvent, KeyCode, KeyEventKind, KeyModifiers};
@@ -21,6 +21,13 @@ mod raw {
     use ratatui::{DefaultTerminal, Terminal, backend::CrosstermBackend};
     use std::io;
 
+    /// How long the query waits for the next bytes of an answer, in nanoseconds, which a terminal that answers nothing costs once.
+    #[cfg(unix)]
+    const PROBE_WAIT_NANOS: rustix::event::Nsecs = 300_000_000;
+    /// How many bytes of an answer one read takes.
+    #[cfg(unix)]
+    const PROBE_CHUNK: usize = 256;
+
     pub(super) fn enter() -> io::Result<DefaultTerminal> {
         enable_raw_mode()?;
         let mut out = io::stdout();
@@ -32,6 +39,50 @@ mod raw {
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         terminal.show_cursor()
+    }
+
+    /// Writes `query` and collects what the terminal answers until `complete` says the answer ended or a wait passes with nothing more, before any key is read.
+    #[cfg(unix)]
+    pub(super) fn probe(
+        terminal: &mut DefaultTerminal,
+        query: &[u8],
+        complete: fn(&[u8]) -> bool,
+    ) -> io::Result<Option<Vec<u8>>> {
+        use rustix::event::{PollFd, PollFlags, Timespec, poll};
+        use std::io::Write as _;
+
+        let backend = terminal.backend_mut();
+        backend.write_all(query)?;
+        backend.flush()?;
+        let input = rustix::stdio::stdin();
+        let wait = Timespec {
+            tv_sec: 0,
+            tv_nsec: PROBE_WAIT_NANOS,
+        };
+        let mut answer = Vec::new();
+        let mut chunk = [0; PROBE_CHUNK];
+        while !complete(&answer) {
+            let mut ready = [PollFd::from_borrowed_fd(input, PollFlags::IN)];
+            if poll(&mut ready, Some(&wait))? == 0 {
+                break;
+            }
+            let read = rustix::io::read(input, &mut chunk)?;
+            if read == 0 {
+                break;
+            }
+            answer.extend_from_slice(chunk.get(..read).unwrap_or_default());
+        }
+        Ok(Some(answer))
+    }
+
+    /// No query reaches a terminal outside Unix, where the variables alone name the protocol.
+    #[cfg(not(unix))]
+    pub(super) fn probe(
+        _terminal: &mut DefaultTerminal,
+        _query: &[u8],
+        _complete: fn(&[u8]) -> bool,
+    ) -> io::Result<Option<Vec<u8>>> {
+        Ok(None)
     }
 }
 
@@ -52,18 +103,20 @@ pub(super) enum Key {
 /// A terminal taken for the interface, which goes back to the shell when dropped.
 pub(super) struct Session {
     pub terminal: DefaultTerminal,
+    /// What the terminal answered to `query`, or none where no query could reach it.
+    pub answer: Option<Vec<u8>>,
 }
 
 impl Session {
-    /// Takes the terminal: raw mode on the alternate screen.
+    /// Takes the terminal, raw mode on the alternate screen, and asks it `query`, whose answer `complete` recognizes as whole.
     ///
     /// # Errors
     ///
-    /// Returns the error when the terminal refuses raw mode or the alternate screen.
-    pub(super) fn open() -> io::Result<Self> {
-        Ok(Self {
-            terminal: raw::enter()?,
-        })
+    /// Returns the error when the terminal refuses raw mode or the alternate screen, or cannot be asked.
+    pub(super) fn open(query: &[u8], complete: fn(&[u8]) -> bool) -> io::Result<Self> {
+        let mut terminal = raw::enter()?;
+        let answer = raw::probe(&mut terminal, query, complete)?;
+        Ok(Self { terminal, answer })
     }
 
     /// Writes `bytes` straight to the terminal, as an image protocol asks, and flushes them.

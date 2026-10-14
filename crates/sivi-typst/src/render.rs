@@ -58,16 +58,24 @@ pub fn raster(compiled: &Compiled, index: usize, pixels_per_point: f64) -> Optio
     })
 }
 
-/// The page at `index`, counted from zero, as a PNG at `pixels_per_point`, or none past the last page.
+/// A page as a PNG with its size in pixels.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Picture {
+    pub png: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// The page at `index`, counted from zero, as a picture at `pixels_per_point`, or none past the last page.
 ///
 /// # Errors
 ///
 /// Returns the encoder's refusal, which no page of a slide deck should earn.
-pub fn png(
+pub fn picture(
     compiled: &Compiled,
     index: usize,
     pixels_per_point: f64,
-) -> Result<Option<Vec<u8>>, EncodeError> {
+) -> Result<Option<Picture>, EncodeError> {
     let Some(page) = compiled.document.pages().get(index) else {
         return Ok(None);
     };
@@ -75,13 +83,18 @@ pub fn png(
         pixel_per_pt: Scalar::new(pixels_per_point),
         ..RenderOptions::default()
     };
-    render(page, &options)
-        .encode_png()
-        .map(Some)
-        .map_err(|error| EncodeError {
-            page: index.saturating_add(1),
-            reason: error.to_string(),
-        })
+    let pixmap = render(page, &options);
+    let (Ok(width), Ok(height)) = (
+        usize::try_from(pixmap.width()),
+        usize::try_from(pixmap.height()),
+    ) else {
+        return Ok(None);
+    };
+    let png = pixmap.encode_png().map_err(|error| EncodeError {
+        page: index.saturating_add(1),
+        reason: error.to_string(),
+    })?;
+    Ok(Some(Picture { png, width, height }))
 }
 
 /// Every page of `compiled` as a PNG at `pixels_per_point`, in page order.

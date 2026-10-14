@@ -27,9 +27,10 @@ Quitting is one key away from every screen, and nothing runs after it but the bu
 
 ## The preview
 
-On kitty, Ghostty, WezTerm, and iTerm2 the page shows as a picture through the terminal's image protocol.
-On every other terminal it shows as a mosaic of half blocks in true color, two picture rows to a cell, which keeps the slide's aspect.
-A page is rendered when it is first shown and kept until the next build.
+When the terminal is taken, the interface asks it whether it speaks the kitty graphics protocol, as kitty, Ghostty, and WezTerm do, and shows the page as a picture through it when the terminal says so, whatever the variables of the shell say.
+A terminal that does not answer in kind but whose `TERM_PROGRAM` or `LC_TERMINAL` names iTerm2 shows the page through its inline images.
+Every other terminal, and a multiplexer such as tmux that passes no picture through, shows the page as a mosaic in true color: two picture columns and two picture rows to a cell, each cell split over the two colors closest to its four quarters behind a quadrant glyph, which keeps the slide's aspect.
+A page is rendered when it is first shown and kept until the next build, and a kitty terminal receives it once per build and per frame size, so a page shown again appears at once.
 
 ## The machine behind it
 

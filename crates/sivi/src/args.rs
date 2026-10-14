@@ -216,10 +216,11 @@ pub const SOURCE_DATE_EPOCH: &str = "SOURCE_DATE_EPOCH";
 pub const NO_COLOR: &str = "NO_COLOR";
 /// The variable that names the data directory outright.
 pub const SIVI_HOME: &str = "SIVI_HOME";
-/// The variables that name the terminal, the terminal program, and a kitty window.
+/// The variables that name the terminal, the terminal program, a kitty window, and the terminal iTerm2 carries over a remote shell.
 pub const TERM: &str = "TERM";
 pub const TERM_PROGRAM: &str = "TERM_PROGRAM";
 pub const KITTY_WINDOW_ID: &str = "KITTY_WINDOW_ID";
+pub const LC_TERMINAL: &str = "LC_TERMINAL";
 /// The data base of Unix desktops.
 pub const XDG_DATA_HOME: &str = "XDG_DATA_HOME";
 /// The home directory, under which `.local/share` is the conventional data base.
@@ -239,10 +240,11 @@ pub struct Environment {
     pub local_app_data: Option<String>,
     /// Whether the host is Windows, where `LOCALAPPDATA` is the data base.
     pub windows: bool,
-    /// The terminal's name, program, and kitty window, from which the interface picks an image protocol.
+    /// The terminal's name, program, kitty window, and remote name, from which the interface picks an image protocol where it cannot ask the terminal.
     pub term: Option<String>,
     pub term_program: Option<String>,
     pub kitty_window: Option<String>,
+    pub lc_terminal: Option<String>,
 }
 
 /// The value of a variable as text, when it is set.
@@ -265,6 +267,7 @@ pub fn environment() -> Environment {
         term: variable(TERM),
         term_program: variable(TERM_PROGRAM),
         kitty_window: variable(KITTY_WINDOW_ID),
+        lc_terminal: variable(LC_TERMINAL),
     }
 }
 

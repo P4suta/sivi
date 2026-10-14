@@ -14,12 +14,13 @@ use sivi_core::ir::{BlockBody, Deck, plain_text};
 use sivi_core::mosaic::Raster;
 use sivi_core::ui_rules::{Action, Effect, Event, Message, Picker, Screen, State, Verdict, step};
 use sivi_typst::render;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 
-/// The pixels per point a preview renders at: the slide's own size, enough for a terminal.
-const PREVIEW_PIXELS_PER_POINT: f64 = 1.0;
+/// The pixels per point a preview renders at: twice the slide's size for a picture, crisp on a dense display, and the slide's own size for a mosaic, which shows far fewer samples.
+const PICTURE_PIXELS_PER_POINT: f64 = 2.0;
+const MOSAIC_PIXELS_PER_POINT: f64 = 1.0;
 /// How many ticks a note stays on screen.
 const NOTE_TICKS: u8 = 30;
 /// The extension of a deck, which `sivi ui` looks for in the working directory when no deck is named.
@@ -49,16 +50,23 @@ pub(super) enum Signal {
     Installed(String),
 }
 
-/// A page rendered for the preview.
-pub(super) struct Rendered {
-    pub raster: Raster,
-    pub png: Vec<u8>,
+/// A page rendered for the preview, in the form the terminal's protocol takes.
+pub(super) enum Rendered {
+    /// A picture file with its size in pixels, for the image protocols.
+    Picture {
+        png: Vec<u8>,
+        width: usize,
+        height: usize,
+    },
+    /// The pixels, for the mosaic.
+    Pixels(Raster),
 }
 
-/// Which image the terminal shows, so it is sent again only on a change.
+/// Which image the terminal shows and where, so it is sent again only on a change, which a new frame size counts as, since the terminal may have cleared it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Shown {
     page: usize,
+    frame: ratatui::layout::Rect,
     area: ratatui::layout::Rect,
 }
 
@@ -80,6 +88,9 @@ pub(super) struct App {
     /// The watcher, kept so it runs as long as the shell does.
     _watcher: Option<watch::Watch>,
     shown: Option<Shown>,
+    /// The pages a kitty terminal holds as images, and the frame they were sent under, since a new size may have dropped them.
+    sent: BTreeSet<usize>,
+    kept: Option<ratatui::layout::Rect>,
 }
 
 /// The title of a slide: the text of its first heading, or nothing.
@@ -206,7 +217,7 @@ fn only_deck(dir: &Path) -> Option<PathBuf> {
 }
 
 impl App {
-    fn new(deck: PathBuf, environment: &Environment) -> Self {
+    fn new(deck: PathBuf, environment: &Environment, protocol: Protocol) -> Self {
         let (sender, receiver) = mpsc::channel();
         let dir = deck.parent().unwrap_or_else(|| Path::new("."));
         let notifier = sender.clone();
@@ -222,7 +233,7 @@ impl App {
             };
         Self {
             machine: State::default(),
-            protocol: preview::protocol(environment),
+            protocol,
             slides: Vec::new(),
             outcome: None,
             judged: None,
@@ -238,6 +249,8 @@ impl App {
             receiver,
             _watcher: watcher,
             shown: None,
+            sent: BTreeSet::new(),
+            kept: None,
             deck,
         }
     }
@@ -305,22 +318,40 @@ impl App {
                 self.judged = done.judged;
                 self.pages.clear();
                 self.shown = None;
+                self.sent.clear();
+                self.kept = None;
                 self.event(Event::BuildDone(verdict));
             }
             Signal::Installed(text) => self.note(text),
         }
     }
 
-    /// The page of the selected slide, rendered on first use.
+    /// The page of the selected slide, rendered on first use in the form the protocol takes, or none when no build holds it or the encoder refused it.
     pub(super) fn page(&mut self, index: usize) -> Option<&Rendered> {
         if !self.pages.contains_key(&index) {
             let judged = self.judged.as_ref()?;
-            let raster = render::raster(&judged.compiled, index, PREVIEW_PIXELS_PER_POINT)?;
-            let png = match render::png(&judged.compiled, index, PREVIEW_PIXELS_PER_POINT) {
-                Ok(Some(png)) => png,
-                Ok(None) | Err(_) => Vec::new(),
+            let rendered = match self.protocol {
+                Protocol::Mosaic => Rendered::Pixels(render::raster(
+                    &judged.compiled,
+                    index,
+                    MOSAIC_PIXELS_PER_POINT,
+                )?),
+                Protocol::Kitty | Protocol::Iterm2 => {
+                    match render::picture(&judged.compiled, index, PICTURE_PIXELS_PER_POINT) {
+                        Ok(Some(picture)) => Rendered::Picture {
+                            png: picture.png,
+                            width: picture.width,
+                            height: picture.height,
+                        },
+                        Ok(None) => return None,
+                        Err(error) => {
+                            self.note(error.to_string());
+                            return None;
+                        }
+                    }
+                }
             };
-            self.pages.insert(index, Rendered { raster, png });
+            self.pages.insert(index, rendered);
         }
         self.pages.get(&index)
     }
@@ -371,41 +402,70 @@ impl App {
     }
 
     /// Sends the selected page to the terminal through its image protocol, when the frame shows a preview and the page or its place changed.
+    ///
+    /// A kitty terminal receives each page once per build and per frame size, and then only the placement, so a page shows again at once.
     fn place_image(&mut self, session: &mut Session) -> std::io::Result<()> {
-        let Some(area) = view::preview_area(self, session.terminal.get_frame().area()) else {
-            if self.shown.take().is_some() && self.protocol == Protocol::Kitty {
-                session.write(&preview::kitty_clear())?;
+        let frame = session.terminal.get_frame().area();
+        let Some(area) = view::preview_area(self, frame) else {
+            if let Some(shown) = self.shown.take()
+                && self.protocol == Protocol::Kitty
+            {
+                session.write(&preview::kitty_clear(preview::kitty_image(shown.page)))?;
             }
             return Ok(());
         };
         let page = self.machine.slide;
-        if self.shown == Some(Shown { page, area }) {
+        if self.shown == Some(Shown { page, frame, area }) {
             return Ok(());
         }
         let protocol = self.protocol;
-        let Some(rendered) = self.page(page) else {
+        let shown = self.shown;
+        let fresh = self.kept != Some(frame);
+        let sent = !fresh && self.sent.contains(&page);
+        let Some(Rendered::Picture { png, width, height }) = self.page(page) else {
             return Ok(());
         };
-        let Some((columns, rows)) =
-            preview::fitted_cells(rendered.raster.width, rendered.raster.height, area)
-        else {
+        let Some((columns, rows)) = preview::fitted_cells(*width, *height, area) else {
             return Ok(());
         };
         let mut bytes = Vec::new();
         match protocol {
             Protocol::Kitty => {
-                bytes.extend(preview::kitty_clear());
+                let image = preview::kitty_image(page);
+                if fresh {
+                    bytes.extend(preview::kitty_forget());
+                } else if let Some(shown) = shown {
+                    bytes.extend(preview::kitty_clear(preview::kitty_image(shown.page)));
+                }
+                if !sent {
+                    bytes.extend(preview::kitty_transmit(png, image));
+                }
                 bytes.extend(preview::move_to(area.x, area.y));
-                bytes.extend(preview::kitty_show(&rendered.png, columns, rows));
+                bytes.extend(preview::kitty_place(image, columns, rows));
             }
             Protocol::Iterm2 => {
                 bytes.extend(preview::move_to(area.x, area.y));
-                bytes.extend(preview::iterm2_show(&rendered.png, columns, rows));
+                bytes.extend(preview::iterm2_show(png, columns, rows));
             }
             Protocol::Mosaic => return Ok(()),
         }
         session.write(&bytes)?;
-        self.shown = Some(Shown { page, area });
+        if protocol == Protocol::Kitty {
+            if fresh {
+                self.sent.clear();
+                self.kept = Some(frame);
+            }
+            self.sent.insert(page);
+        }
+        self.shown = Some(Shown { page, frame, area });
+        Ok(())
+    }
+
+    /// Drops the images a kitty terminal keeps, before the shell gives the terminal back.
+    fn forget_images(&self, session: &mut Session) -> std::io::Result<()> {
+        if self.protocol == Protocol::Kitty && self.kept.is_some() {
+            session.write(&preview::kitty_forget())?;
+        }
         Ok(())
     }
 
@@ -437,7 +497,7 @@ fn session_loop(app: &mut App, session: &mut Session) -> std::io::Result<()> {
             None => app.tick(),
         }
     }
-    Ok(())
+    app.forget_images(session)
 }
 
 /// Runs the interface over `deck`, or over the one deck of the working directory, until the person quits.
@@ -458,8 +518,7 @@ pub fn run(deck: Option<&Path>, environment: &Environment) -> Run {
             }
         },
     };
-    let mut app = App::new(deck, environment);
-    let mut session = match Session::open() {
+    let mut session = match Session::open(&preview::query(), preview::answered) {
         Ok(session) => session,
         Err(error) => {
             return Run {
@@ -469,6 +528,8 @@ pub fn run(deck: Option<&Path>, environment: &Environment) -> Run {
             };
         }
     };
+    let protocol = preview::protocol(environment, session.answer.as_deref());
+    let mut app = App::new(deck, environment, protocol);
     let ended = session_loop(&mut app, &mut session);
     drop(session);
     match ended {
