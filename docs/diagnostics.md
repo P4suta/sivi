@@ -63,6 +63,7 @@ The [command line](spec/cli.md) explains the exit statuses and the JSON document
 | [E0509](#e0509) | error | `NoMasterOrSlot` | a theme without a master or a master without a slot |
 | [E0510](#e0510) | error | `MissingFace` | a font face the theme needs but no font provides |
 | [E0511](#e0511) | error | `LineHeightBelowFace` | a line height below the face's natural line box |
+| [E0512](#e0512) | error | `CodeThemeUnknown` | a code theme the carried schemes lack |
 | [E0601](#e0601) | error | `FontMissing` | a font file the theme names is missing |
 | [E0602](#e0602) | error | `FontDigest` | a font file whose digest differs from the theme's |
 | [E0603](#e0603) | error | `FontUnreadable` | a font file that cannot be read as a font |
@@ -358,6 +359,11 @@ A font face the theme needs but no font provides.
 
 `LineHeightBelowFace`, an error.
 A line height below the face's natural line box.
+
+## E0512
+
+`CodeThemeUnknown`, an error.
+A code theme the carried schemes lack.
 
 ## E0601
 

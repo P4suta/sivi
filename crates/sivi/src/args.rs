@@ -1,6 +1,7 @@
 //! The argument contract of the `sivi` binary, and the one place that reads its environment.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use sivi_core::syntax_theme::Variant;
 use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
@@ -47,6 +48,32 @@ pub enum Command {
         #[command(subcommand)]
         command: FontsCommand,
     },
+    /// Lists the code schemes the binary carries, which a theme names under `[code] theme`.
+    CodeThemes {
+        /// Only dark or only light schemes.
+        #[arg(long, value_enum)]
+        variant: Option<VariantChoice>,
+        #[command(flatten)]
+        rendering: Rendering,
+    },
+}
+
+/// Which schemes `code-themes` lists.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum VariantChoice {
+    Dark,
+    Light,
+}
+
+impl VariantChoice {
+    /// The variant of the core's schemes.
+    #[must_use]
+    pub const fn variant(self) -> Variant {
+        match self {
+            Self::Dark => Variant::Dark,
+            Self::Light => Variant::Light,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Subcommand)]

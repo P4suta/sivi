@@ -30,7 +30,7 @@ Every value outside its grammar reports `E0503` with its path, such as `masters.
 | `text.<name>` | `font`, a font list, `size`, `weight`, `color`, `line_height`, `align` |
 | `inline` | `emphasis`, `strong`, `code`, `link`, `mark`, each a mark |
 | `lists` | `bullets`, `ordered`, `indent`, `gap` |
-| `code` | `font`, `size`, `line_height`, `background`, `padding`, `highlight`, `tab_width` |
+| `code` | `font`, `size`, `line_height`, `background`, `padding`, `highlight`, `tab_width`, `theme`, the slug of a carried scheme |
 | `tables` | `text`, `header_weight`, `rule`, `padding` |
 | `quotes` | `bar`, `bar_width`, `indent` |
 | `fonts` | an array of `family`, `path`, `sha256`, the files the theme ships beside itself |
@@ -48,6 +48,10 @@ An `underline` is `true` for the plain line in the text color, or a table of `co
 An `opacity` needs a `color` beside it, since the plain line takes the text color.
 
 A style sets text in a bundled family, a family of the theme's own `fonts`, or a family of the font catalog, which `sivi fonts list` shows and `sivi fonts install` places in the library.
+
+`code.theme` names one of the base16 schemes the binary carries by its slug, such as `dracula` or `catppuccin-latte`, which `sivi code-themes` lists with their variants.
+With a scheme, the scheme's background and foreground replace `code.background` and the color of the code's text style, and every token takes the scheme's color for its role.
+A slug the binary lacks reports `E0512` with the nearest slug.
 
 ## Slots
 

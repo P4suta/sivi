@@ -4,6 +4,7 @@
 
 use crate::ir::BlockKind;
 use crate::length::{Length, Rect, Size};
+use crate::syntax_theme::Scheme;
 use crate::text::Identifier;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -177,12 +178,23 @@ impl WeightRange {
     }
 }
 
-/// A color, as `#rrggbb` spells it.
+/// A color, as `#rrggbb` spells it, which is how it prints.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Color {
     pub red: u8,
     pub green: u8,
     pub blue: u8,
+}
+
+impl fmt::Display for Color {
+    /// `#rrggbb` in lowercase.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "#{:02x}{:02x}{:02x}",
+            self.red, self.green, self.blue
+        )
+    }
 }
 
 /// A length on the page or relative to the current font size.
@@ -379,6 +391,8 @@ pub struct CodeStyle {
     pub padding: Length,
     pub highlight: bool,
     pub tab_width: u8,
+    /// The scheme that colors the code, whose background and foreground replace `background` and the style's color.
+    pub theme: Option<Scheme>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -784,6 +798,7 @@ pub mod fixture {
                 padding: Length::ZERO,
                 highlight: false,
                 tab_width: 4,
+                theme: None,
             },
             tables: TableStyle {
                 text: style("body"),

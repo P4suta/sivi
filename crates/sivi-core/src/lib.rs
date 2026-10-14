@@ -47,6 +47,7 @@ pub mod softbreak_rules;
 pub mod span;
 pub mod split_rules;
 pub mod subset_rules;
+pub mod syntax_theme;
 pub mod text;
 pub mod theme;
 pub mod theme_rules;

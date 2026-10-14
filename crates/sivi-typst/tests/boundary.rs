@@ -5,6 +5,8 @@
 use sivi_core::length::{Length, MILLIPOINTS_PER_POINT, Point, Rect, Size};
 use sivi_core::measure::{Expected, ExpectedRegion, ItemKind, PageCount, PageNumber};
 use sivi_core::protocol::{RegionIndex, SlideIndex};
+use sivi_core::syntax_theme::{FUNCTIONS, KEYWORDS, PALETTE_SIZE, Scheme, Variant};
+use sivi_core::theme::Color;
 use sivi_typst::{
     CompileError, Compiled, PdfSettings, ReadBackError, SiviWorld, UtcTimestamp, compile, export,
     measure,
@@ -455,6 +457,128 @@ fn a_translucent_decoration_keeps_its_alpha_and_lies_behind_the_text() {
     let lined = position("text line").unwrap();
     assert!(band < marked, "{found:?}");
     assert!(line < lined, "{found:?}");
+}
+
+/// The text runs of `frame` and its groups with their solid fills, as `(text, hex)`, in order.
+fn text_fills(frame: &Frame, found: &mut Vec<(String, String)>) {
+    for (_, item) in frame.items() {
+        match item {
+            FrameItem::Group(group) => text_fills(&group.frame, found),
+            FrameItem::Text(text) => {
+                if let Paint::Solid(color) = &text.fill {
+                    found.push((text.text.to_string(), color.to_hex().to_string()));
+                }
+            }
+            FrameItem::Shape(..)
+            | FrameItem::Image(..)
+            | FrameItem::Link(..)
+            | FrameItem::Tag(_) => {}
+        }
+    }
+}
+
+/// Every carried scheme as the core reads it, from the file the binary embeds.
+fn carried_schemes() -> Result<Vec<Scheme>, String> {
+    let text = include_str!("../../../themes/code/schemes.toml");
+    let document: toml::Table = toml::from_str(text).map_err(|error| error.to_string())?;
+    let entries = document
+        .get("scheme")
+        .and_then(toml::Value::as_array)
+        .ok_or("no schemes")?;
+    let mut schemes = Vec::new();
+    for entry in entries {
+        let field = |key: &str| {
+            entry
+                .get(key)
+                .and_then(toml::Value::as_str)
+                .ok_or_else(|| format!("no {key}"))
+        };
+        let colors = entry
+            .get("palette")
+            .and_then(toml::Value::as_array)
+            .ok_or("no palette")?;
+        let mut palette = [Color::default(); PALETTE_SIZE];
+        for (slot, color) in palette.iter_mut().zip(colors) {
+            let digits = color
+                .as_str()
+                .and_then(|spelled| spelled.strip_prefix('#'))
+                .ok_or("a color without a hash")?;
+            let channel = |at: usize| -> Result<u8, String> {
+                let pair = digits
+                    .get(at..at.saturating_add(2))
+                    .ok_or("a short color")?;
+                u8::from_str_radix(pair, 16).map_err(|error| error.to_string())
+            };
+            *slot = Color {
+                red: channel(0)?,
+                green: channel(2)?,
+                blue: channel(4)?,
+            };
+        }
+        schemes.push(Scheme {
+            slug: field("slug")?.to_owned(),
+            name: field("name")?.to_owned(),
+            author: field("author")?.to_owned(),
+            variant: Variant::from_name(field("variant")?)
+                .ok_or("a variant outside dark and light")?,
+            palette,
+        });
+    }
+    Ok(schemes)
+}
+
+#[test]
+fn every_carried_scheme_loads_as_a_raw_theme_and_paints_a_keyword_with_its_keyword_color() {
+    let schemes = carried_schemes().unwrap();
+    assert!(schemes.len() > 300, "{}", schemes.len());
+    let mut pieces = vec![String::from(PAGE)];
+    let mut assets = Vec::new();
+    for scheme in &schemes {
+        let file = scheme.theme_file();
+        let path = file.path().to_owned();
+        // As the emitter does: the scheme's foreground is the fill of every token the highlighter leaves plain.
+        pieces.push(format!(
+            "#[#set raw(theme: \"{path}\"); #show raw: set text(fill: rgb(\"{}\")); #raw(block: true, lang: \"rust\", \"fn main() {{}}\")]\n",
+            scheme.foreground()
+        ));
+        assets.push(sivi_typst::Asset {
+            path,
+            bytes: file.text().as_bytes().to_vec(),
+        });
+    }
+    let source = pieces.concat();
+    let world = SiviWorld::new(&source, assets, Vec::new()).unwrap();
+    let compiled = compile(&world).unwrap();
+    let mut found = Vec::new();
+    for page in compiled.document.pages() {
+        text_fills(&page.frame, &mut found);
+    }
+    let keywords: Vec<&str> = found
+        .iter()
+        .filter(|(text, _)| text == "fn")
+        .map(|(_, fill)| fill.as_str())
+        .collect();
+    let functions: Vec<&str> = found
+        .iter()
+        .filter(|(text, _)| text == "main")
+        .map(|(_, fill)| fill.as_str())
+        .collect();
+    assert_eq!(keywords.len(), schemes.len());
+    assert_eq!(functions.len(), schemes.len());
+    for ((scheme, keyword), function) in schemes.iter().zip(keywords).zip(functions) {
+        assert_eq!(
+            keyword,
+            scheme.color(KEYWORDS).to_string(),
+            "{}",
+            scheme.slug
+        );
+        assert_eq!(
+            function,
+            scheme.color(FUNCTIONS).to_string(),
+            "{}",
+            scheme.slug
+        );
+    }
 }
 
 #[test]

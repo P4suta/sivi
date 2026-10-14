@@ -22,6 +22,7 @@ A Typst upgrade that breaks an assumption fails that test before it can change a
 | A variable font sets the weight the text asks for along its axis, so one file serves every weight a theme sets | `a_variable_font_sets_the_weight_the_text_asks_for` |
 | A font list falls through per glyph to the first family that has the glyph, with `fallback: false` keeping the host's fonts out | `a_font_stack_falls_through_to_the_family_that_has_the_glyph` |
 | A `highlight` fill and an `underline` stroke with an alpha reach the frame as solid paints with that alpha, and as background decorations they come before the text they decorate | `a_translucent_decoration_keeps_its_alpha_and_lies_behind_the_text` |
+| Every carried base16 scheme, written as the core's `tmTheme`, loads through `raw(theme:)` from the world and paints a keyword and a function name with the scheme's keyword and function colors; a token whose color equals the scheme's foreground takes the surrounding fill, which the emitter sets to that foreground | `every_carried_scheme_loads_as_a_raw_theme_and_paints_a_keyword_with_its_keyword_color` |
 
 ## What the adapter trusts and what it checks
 

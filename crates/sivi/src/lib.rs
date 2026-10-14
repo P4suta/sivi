@@ -6,6 +6,7 @@ pub mod args;
 pub mod assets;
 pub mod build;
 pub mod cli;
+pub mod code_themes;
 pub mod digest;
 pub mod fonts;
 pub mod io;

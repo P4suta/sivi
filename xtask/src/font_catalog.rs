@@ -147,21 +147,22 @@ mod raw {
     }
 }
 
-struct Fetcher {
+/// The tasks' one way to the network: an agent with a cache directory under the checkout.
+pub(crate) struct Fetcher {
     agent: ureq::Agent,
     cache: PathBuf,
 }
 
 impl Fetcher {
-    fn new(root: &Path) -> Self {
+    pub(crate) fn new(root: &Path, cache: &str) -> Self {
         Self {
             agent: raw::agent(),
-            cache: root.join(CACHE),
+            cache: root.join(cache),
         }
     }
 
     /// The bytes at `url`, from the cache under `name` when present, or `None` when the server has no such file.
-    fn fetch(&self, url: &str, name: &Path) -> Result<Option<Vec<u8>>> {
+    pub(crate) fn fetch(&self, url: &str, name: &Path) -> Result<Option<Vec<u8>>> {
         let cached = self.cache.join(name);
         if fs::is_file(&cached)? {
             return Ok(Some(fs::read(&cached)?));
@@ -326,7 +327,7 @@ fn family(
 pub fn generate(root: &Path) -> Result<()> {
     let families: Families = toml::from_str(&fs::read_to_string(&root.join(FAMILIES))?)
         .with_context(|| format!("parse {FAMILIES}"))?;
-    let fetcher = Fetcher::new(root);
+    let fetcher = Fetcher::new(root, CACHE);
     let metadata = metadata(&fetcher)?;
     let mut catalog = Catalog {
         commit: families.commit.clone(),

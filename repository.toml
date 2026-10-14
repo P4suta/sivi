@@ -10,6 +10,7 @@ usage = """
 sivi build deck.md
 sivi check deck.md --format json
 sivi theme check themes/plain
-sivi fonts install "Noto Sans JP""""
+sivi fonts install "Noto Sans JP"
+sivi code-themes --variant dark"""
 copyright = "Yasunobu"
 license = "MIT OR Apache-2.0"

@@ -1,0 +1,16 @@
+commit = "abc"
+license_sha256 = "00"
+
+[[scheme]]
+slug = "dim"
+name = "Dim"
+author = "a"
+variant = "dark"
+palette = ["#000000", "#111111", "#222222", "#333333", "#444444", "#555555", "#666666", "#777777", "#888888", "#999999", "#aaaaaa", "#bbbbbb", "#cccccc", "#dddddd", "#eeeeee", "#ffffff"]
+
+[[scheme]]
+slug = "paper-white"
+name = "Paper"
+author = "b"
+variant = "light"
+palette = ["#ffffff", "#eeeeee", "#dddddd", "#cccccc", "#bbbbbb", "#aaaaaa", "#999999", "#888888", "#777777", "#666666", "#555555", "#444444", "#333333", "#222222", "#111111", "#000000"]

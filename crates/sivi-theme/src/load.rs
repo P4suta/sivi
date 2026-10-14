@@ -11,6 +11,8 @@ use sivi_core::geometry_rules::{self, GeometryError};
 use sivi_core::ir::{self, BlockKind};
 use sivi_core::length::{Length, Point, Rect, Size};
 use sivi_core::mark_rules;
+use sivi_core::master_rules::closest_text;
+use sivi_core::syntax_theme::Scheme;
 use sivi_core::text::Identifier;
 use sivi_core::theme::{
     Align, Binding, BlockKindSet, BottomEdge, Capacity, CodeStyle, Color, Decor, Digest,
@@ -671,6 +673,10 @@ fn code(loader: &mut Loader, section: &CodeSection, min_size: Option<Length>) ->
             },
         );
     }
+    let theme = section
+        .theme
+        .as_ref()
+        .map_or(Some(None), |slug| code_theme(loader, slug).map(Some));
     Some(CodeStyle {
         font: font?,
         size: size?,
@@ -679,7 +685,38 @@ fn code(loader: &mut Loader, section: &CodeSection, min_size: Option<Length>) ->
         padding: padding?,
         highlight: section.highlight,
         tab_width: section.tab_width,
+        theme: theme?,
     })
+}
+
+/// The carried scheme `slug` names, or the refusal that names the nearest slug.
+fn code_theme(loader: &mut Loader, slug: &str) -> Option<Scheme> {
+    let schemes = match crate::schemes::schemes() {
+        Ok(schemes) => schemes,
+        Err(why) => {
+            loader.diagnostics.push(Diagnostic::new(
+                Code::Internal,
+                format!("the carried code schemes do not parse: {why}"),
+            ));
+            return None;
+        }
+    };
+    if let Some(found) = schemes.find(slug) {
+        return Some(found.clone());
+    }
+    let help = closest_text(slug, schemes.slugs()).map_or_else(
+        || String::from("`sivi code-themes` lists every scheme"),
+        |nearest| format!("did you mean `{nearest}`? `sivi code-themes` lists every scheme"),
+    );
+    loader.diagnostics.push(
+        Diagnostic::new(
+            Code::CodeThemeUnknown,
+            format!("`{slug}` is not a code theme the binary carries"),
+        )
+        .note(String::from("at `code.theme` in the theme"))
+        .help(help),
+    );
+    None
 }
 
 fn tables(loader: &mut Loader, section: &TablesSection) -> Option<TableStyle> {

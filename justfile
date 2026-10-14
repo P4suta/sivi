@@ -48,6 +48,10 @@ gen *args: trust
 fonts-catalog: trust
     mise x -- cargo xtask fonts catalog
 
+# Regenerate the code themes from tinted-theming/schemes at the pinned commit, which reaches the network.
+code-themes: trust
+    mise x -- cargo xtask code-themes fetch
+
 # Build one deck with the development binary.
 build deck *args: trust
     mise x -- cargo run --quiet --locked --package sivi -- build {{quote(deck)}} {{args}}

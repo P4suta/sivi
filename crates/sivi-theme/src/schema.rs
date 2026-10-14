@@ -155,6 +155,8 @@ pub struct CodeSection {
     pub padding: String,
     pub highlight: bool,
     pub tab_width: u8,
+    /// The slug of a carried scheme, whose colors replace `background` and the style's color.
+    pub theme: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

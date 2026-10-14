@@ -129,6 +129,8 @@ pub enum Code {
     MissingFace,
     /// E0511: a line height below the face's natural line box.
     LineHeightBelowFace,
+    /// E0512: a code theme the carried schemes lack.
+    CodeThemeUnknown,
     /// E0601: a font file the theme names is missing.
     FontMissing,
     /// E0602: a font file whose digest differs from the theme's.
@@ -183,7 +185,7 @@ pub enum Code {
 
 impl Code {
     /// Every code, in the order of the catalog.
-    pub const ALL: [Self; 79] = [
+    pub const ALL: [Self; 80] = [
         Self::Internal,
         Self::NotUtf8,
         Self::UnclosedFrontMatter,
@@ -238,6 +240,7 @@ impl Code {
         Self::NoMasterOrSlot,
         Self::MissingFace,
         Self::LineHeightBelowFace,
+        Self::CodeThemeUnknown,
         Self::FontMissing,
         Self::FontDigest,
         Self::FontUnreadable,
@@ -323,6 +326,7 @@ impl Code {
             Self::NoMasterOrSlot => "E0509",
             Self::MissingFace => "E0510",
             Self::LineHeightBelowFace => "E0511",
+            Self::CodeThemeUnknown => "E0512",
             Self::FontMissing => "E0601",
             Self::FontDigest => "E0602",
             Self::FontUnreadable => "E0603",

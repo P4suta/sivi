@@ -6,6 +6,7 @@ pub mod catalog;
 pub mod faces;
 pub mod load;
 pub mod schema;
+pub mod schemes;
 pub mod units;
 
 use sivi_core::diagnostic::{Code, Diagnostic};
@@ -359,6 +360,36 @@ mod tests {
         );
         let faulty = SMALL.replacen("background = \"paper\"", "background = \"nothing\"", 1);
         assert_eq!(codes(&faulty), vec![Code::UndefinedReference]);
+    }
+
+    #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "the carried schemes are twenty times the plain theme, which parses in minutes under Miri"
+    )]
+    fn a_code_theme_names_a_carried_scheme_and_an_unknown_one_names_its_nearest() {
+        let themed = SMALL.replacen("tab_width = 2", "tab_width = 2\ntheme = \"dracula\"", 1);
+        let theme = parse(&themed).unwrap();
+        let scheme = theme.code.theme.unwrap();
+        assert_eq!(scheme.slug, "dracula");
+        assert_eq!(scheme.name, "Dracula");
+        assert!(parse(SMALL).unwrap().code.theme.is_none());
+        let misspelled = SMALL.replacen("tab_width = 2", "tab_width = 2\ntheme = \"drakula\"", 1);
+        let Err(found) = parse(&misspelled) else {
+            panic!("accepted");
+        };
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].code, Code::CodeThemeUnknown);
+        assert!(
+            found[0].helps.iter().any(|help| help.contains("`dracula`")),
+            "{found:?}"
+        );
+        assert!(
+            found[0]
+                .notes
+                .iter()
+                .any(|note| note.contains("code.theme"))
+        );
     }
 
     #[test]

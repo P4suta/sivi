@@ -12,6 +12,7 @@ sivi theme check <NAME|DIR> [--format human|json] [--deny-warnings] [--color aut
 sivi fonts list [--script <SCRIPT>] [--installed] [--format human|json]
 sivi fonts install <FAMILY>... [--format human|json] [--color auto|always|never]
 sivi fonts dir
+sivi code-themes [--variant dark|light] [--format human|json] [--color auto|always|never]
 ```
 
 `build` reads the deck, binds every slide to a master of its theme, lays the deck out through Typst, reads the layout back, and writes the PDF when no error was reported.
@@ -22,6 +23,7 @@ Without `-o` the PDF goes beside the deck as `<DECK>.pdf` with the `.md` replace
 `fonts list` shows every family of the font catalog with its state on this host: bundled in the binary, installed in the library, or available.
 `fonts install` fetches the files of each named family from google/fonts at the commit the catalog pins, refuses any file whose digest differs, and places them in the library.
 `fonts dir` prints the library, the directory installed fonts live in.
+`code-themes` lists every base16 scheme the binary carries, which a theme names under `[code] theme` by slug, with its variant, name, and author, and with the palette as swatches on a color terminal.
 
 ## Streams
 

@@ -18,12 +18,13 @@ use crate::protocol::{
     WIDTHS_KEY,
 };
 use crate::softbreak_rules::{Joiner, joiner};
+use crate::syntax_theme::Scheme;
 use crate::theme::{
     Align, Decor, FamilyName, Field, FontStack, Mark, Measure, Slot, StyleName, TextStyle, Theme,
     Thousandths, Underline, VerticalAlign,
 };
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
 
@@ -82,12 +83,20 @@ pub struct AssetUse {
     pub width: Length,
 }
 
-/// The source, what the adapter must read back from it, and the files it names.
+/// The source, what the adapter must read back from it, the files it names, and the files it writes itself.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Emitted {
     pub source: TypstSource,
     pub expected: Expected,
     pub assets: Vec<AssetUse>,
+    pub files: Vec<GeneratedFile>,
+}
+
+/// A file the emitter writes for the source to read, such as the theme of a code scheme.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GeneratedFile {
+    pub path: String,
+    pub bytes: Vec<u8>,
 }
 
 /// The virtual directory of the deck's images.
@@ -175,6 +184,7 @@ struct Emitter<'a> {
     source: String,
     expected: Expected,
     assets: Vec<AssetUse>,
+    files: Vec<GeneratedFile>,
     errors: Vec<Diagnostic>,
 }
 
@@ -604,14 +614,28 @@ impl Emitter<'_> {
             theme.code.size,
             theme.code.line_height,
         );
-        let fill = self.rgb(&style.color);
-        let background = self.rgb(&theme.code.background);
+        // A scheme brings its own background and foreground, and the theme file the highlighter reads.
+        let (fill, background, scheme_rule) = match &theme.code.theme {
+            Some(scheme) => {
+                let path = self.scheme_file(scheme);
+                (
+                    format!("rgb({})", lit(&scheme.foreground().to_string())),
+                    format!("rgb({})", lit(&scheme.background().to_string())),
+                    format!(" set raw(theme: {});", lit(&path)),
+                )
+            }
+            None => (
+                self.rgb(&style.color),
+                self.rgb(&theme.code.background),
+                String::new(),
+            ),
+        };
         let lang = code.language.as_ref().map_or(String::new(), |language| {
             format!(", lang: {}", lit(language))
         });
         // The raw element sets its own font, so only a show-set rule reaches it.
         let rules = format!(
-            "show raw: set text(font: {}, size: {}, fill: {fill}); set par(leading: {leading}, justify: false); set align(left);",
+            "show raw: set text(font: {}, size: {}, fill: {fill}); set par(leading: {leading}, justify: false); set align(left);{scheme_rule}",
             self.families(&theme.code.font),
             theme.code.size
         );
@@ -623,6 +647,18 @@ impl Emitter<'_> {
             ),
             format!("{{ {rules} {raw} }}"),
         )
+    }
+
+    /// The virtual path of the scheme's theme file, written once for the world to serve.
+    fn scheme_file(&mut self, scheme: &Scheme) -> String {
+        let file = scheme.theme_file();
+        if !self.files.iter().any(|known| known.path == file.path()) {
+            self.files.push(GeneratedFile {
+                path: String::from(file.path()),
+                bytes: file.text().as_bytes().to_vec(),
+            });
+        }
+        String::from(file.path())
     }
 
     fn image(&mut self, image: &Image, bounds: Rect, sole: bool) -> String {
@@ -934,6 +970,7 @@ pub fn typst_source(
         source: String::new(),
         expected: Expected::default(),
         assets: Vec::new(),
+        files: Vec::new(),
         errors: Vec::new(),
     };
     emitter.preamble();
@@ -954,6 +991,7 @@ pub fn typst_source(
             source: TypstSource(emitter.source),
             expected: emitter.expected,
             assets: emitter.assets,
+            files: emitter.files,
         })
     } else {
         Err(emitter.errors)
@@ -965,17 +1003,18 @@ mod tests {
     use super::{AssetOrigin, DECK_ASSET_PREFIX, LineBoxes, typst_source};
     use crate::bind::bind;
     use crate::ir::{
-        AssetRef, Block, BlockBody, Deck, Head, Heading, HeadingLevel, Image, Inline, LinkDest,
-        List, ListItem, ListKind, Paragraph, PlainText, Slide,
+        AssetRef, Block, BlockBody, CodeBlock, Deck, Head, Heading, HeadingLevel, Image, Inline,
+        LinkDest, List, ListItem, ListKind, Paragraph, PlainText, Slide,
     };
     use crate::length::{Length, Point, Rect, Size};
     use crate::protocol::{RegionIndex, SlideIndex};
     use crate::span::Span;
+    use crate::syntax_theme::Scheme;
     use crate::text::{Identifier, Lang};
     use crate::theme::fixture::{family, slot, style, tiny};
     use crate::theme::{
-        Align, Binding, BlockKindSet, BottomEdge, Decor, Marker, Slot, Theme, Thousandths, TopEdge,
-        Underline,
+        Align, Binding, BlockKindSet, BottomEdge, Color, Decor, Marker, Slot, Theme, Thousandths,
+        TopEdge, Underline,
     };
     use alloc::string::String;
     use alloc::vec;
@@ -1237,6 +1276,65 @@ mod tests {
         assert_eq!(
             crate::ir::plain_text(&[Inline::Mark(vec![Inline::Text(String::from("m"))])]).as_str(),
             "m"
+        );
+    }
+
+    #[test]
+    fn a_code_scheme_colors_the_block_and_writes_its_theme_file_once() {
+        let mut theme = theme();
+        if let Some(page) = theme.masters.last_mut()
+            && let Some(body) = page.slots.get_mut(1)
+        {
+            body.accepts = body.accepts.with(crate::ir::BlockKind::Code);
+        }
+        let mut palette = [Color {
+            red: 0x28,
+            green: 0x2a,
+            blue: 0x36,
+        }; crate::syntax_theme::PALETTE_SIZE];
+        palette[crate::syntax_theme::FOREGROUND] = Color {
+            red: 0xf8,
+            green: 0xf8,
+            blue: 0xf2,
+        };
+        theme.code.theme = Some(Scheme {
+            slug: String::from("dracula"),
+            name: String::from("Dracula"),
+            author: String::new(),
+            variant: crate::syntax_theme::Variant::Dark,
+            palette,
+        });
+        let code = || {
+            block(BlockBody::Code(CodeBlock {
+                language: Some(String::from("rust")),
+                text: String::from("fn main() {}"),
+            }))
+        };
+        let deck = Deck {
+            head: Head::default(),
+            slides: vec![slide(1, None, vec![code(), code()])],
+        };
+        let bound = bind(&deck, &theme).unwrap();
+        let emitted = typst_source(&theme, &deck, &bound, &LineBoxes::default()).unwrap();
+        let source = emitted.source.as_str();
+        assert!(
+            source.contains("fill: rgb(\"#f8f8f2\")); set par(leading: "),
+            "{source}"
+        );
+        assert!(
+            source.contains("set raw(theme: \"code/dracula.tmTheme\");"),
+            "{source}"
+        );
+        assert!(
+            source.contains("block(width: 100%, fill: rgb(\"#282a36\"), inset: "),
+            "{source}"
+        );
+        assert_eq!(emitted.files.len(), 1);
+        assert_eq!(emitted.files[0].path, "code/dracula.tmTheme");
+        assert!(
+            String::from_utf8(emitted.files[0].bytes.clone())
+                .unwrap()
+                .contains("<key>name</key><string>Dracula</string>")
         );
     }
 

@@ -17,6 +17,7 @@ sivi build deck.md
 sivi check deck.md --format json
 sivi theme check themes/plain
 sivi fonts install "Noto Sans JP"
+sivi code-themes --variant dark
 ```
 
 ## License

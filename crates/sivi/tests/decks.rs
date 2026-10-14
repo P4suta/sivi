@@ -122,7 +122,12 @@ fn a_code_line_too_wide_is_refused_with_the_line_and_the_columns_that_fit() {
 
 #[test]
 fn the_earlier_fixtures_still_pass_or_fail_as_their_names_say() {
-    for name in ["pass-basic", "pass-japanese", "pass-marks"] {
+    for name in [
+        "pass-basic",
+        "pass-japanese",
+        "pass-marks",
+        "pass-code-theme",
+    ] {
         let outcome = check(name);
         assert!(
             !has_error(&outcome.diagnostics),

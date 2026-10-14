@@ -48,6 +48,7 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `theme_units` | `sivi_theme::units::parse` | no panic; a unit that reads prints back to text that reads to the same unit |
 | `theme_toml` | `sivi_theme::parse` | no panic; a theme that loads has masters with slots; a refusal names a diagnostic; the load is deterministic |
 | `image_header` | `sivi_core::image::dimensions` | no panic; a header reads the same twice; a header that names pixels holds more than a signature |
+| `schemes_toml` | `sivi_theme::schemes::parse` | no panic; every accepted entry is found by its slug and spells its colors as `#rrggbb`; a refusal names a reason; the read is deterministic |
 
 The Typst layout engine is an external boundary; `docs/verification/typst-boundary.md` lists the assumptions and the tests that keep them.
 
@@ -58,19 +59,19 @@ The receipts under `target/proofs/receipts/` name one input digest for every ver
 
 | Gate | Outcome |
 | --- | --- |
-| `cargo xtask check` | clean, with 231 tests passed and the one PDF dump test skipped |
+| `cargo xtask check` | clean, with 241 tests passed and the one PDF dump test skipped |
 | Kani | 28 harnesses verified, and every probe and the negative fixture refused |
 | Verus | every listed function verified under `--no-cheating`, and the negative fixture refused |
 | Z3 | the generated lemma unsatisfiable, and its negative twin satisfiable |
 | Alloy | 3 assertions hold within their scope, have an instance, and fail without their validator |
 | Quint | the binder model typechecks, holds its invariant, witnesses every outcome, and reproduces its traces, and its probe breaks the invariant |
-| Prolog | 237 slides bind the same way under the binder and the reference, and a tampered binding differs |
+| Prolog | 239 slides bind the same way under the binder and the reference, and a tampered binding differs |
 | TLA+ | the publication model holds every invariant and its property in every behavior, and its probe configuration is refuted |
 | Miri | every test of the pure crates passed, and the fixture refused |
 | cargo-fuzz | every corpus replayed without a panic, and the fixture refused |
-| cargo-mutants over `sivi-core` | 841 mutants, 416 caught, 425 unviable, none missed |
+| cargo-mutants over `sivi-core` | 865 mutants, 427 caught, 438 unviable, none missed |
 | cargo-mutants over `sivi-markdown` | 113 mutants, 44 caught, 69 unviable, none missed |
-| cargo-mutants over `sivi-theme` | 253 mutants, 87 caught, 166 unviable, none missed |
+| cargo-mutants over `sivi-theme` | 267 mutants, 93 caught, 174 unviable, none missed |
 | cargo-mutants over the fixture | 5 mutants left alive, as the gate requires |
 
 The workflows under `.github/` passed actionlint and zizmor and have never run, since the repository has no remote.

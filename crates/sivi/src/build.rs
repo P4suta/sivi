@@ -15,7 +15,7 @@ use sivi_core::measure::Measurement;
 use sivi_core::report::{self, Measured};
 use sivi_typst::raw;
 use sivi_typst::{
-    CompileError, Compiled, PdfSettings, SiviWorld, UtcTimestamp, compile, export, measure,
+    Asset, CompileError, Compiled, PdfSettings, SiviWorld, UtcTimestamp, compile, export, measure,
 };
 use std::path::{Path, PathBuf};
 
@@ -215,7 +215,12 @@ impl Build<'_> {
         if has_error(&self.outcome.diagnostics) {
             return None;
         }
-        let assets = loaded.assets;
+        let mut assets = loaded.assets;
+        // The files the emitter writes itself, such as the theme of a code scheme, need no disk.
+        assets.extend(composed.emitted.files.iter().map(|file| Asset {
+            path: file.path.clone(),
+            bytes: file.bytes.clone(),
+        }));
         let mut parts: Vec<&[u8]> = vec![
             self.outcome.deck_text.as_bytes(),
             composed.theme.text.as_bytes(),

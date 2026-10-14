@@ -1,0 +1,315 @@
+# The theme the binary carries: a 960 by 540 point page, the bundled fonts, and eight masters.
+schema = 1
+
+[theme]
+name = "dracula-code"
+
+[page]
+width = "960pt"
+height = "540pt"
+background = "paper"
+
+[colors]
+paper = "#ffffff"
+ink = "#1f1f1f"
+muted = "#5f6368"
+accent = "#0b57d0"
+rule = "#d9dde3"
+code_bg = "#f3f5f7"
+highlight = "#ffd54a"
+
+[typography]
+min_size = "18pt"
+paragraph_gap = "0.6em"
+fallback = ["BIZ UDPGothic"]
+
+[text.display]
+font = "BIZ UDPGothic"
+size = "48pt"
+weight = 700
+color = "ink"
+line_height = 1.2
+align = "left"
+
+[text.title]
+font = "BIZ UDPGothic"
+size = "40pt"
+weight = 700
+color = "ink"
+line_height = 1.2
+align = "left"
+
+[text.heading]
+font = "BIZ UDPGothic"
+size = "28pt"
+weight = 700
+color = "ink"
+line_height = 1.25
+align = "left"
+
+[text.subtitle]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "muted"
+line_height = 1.4
+align = "left"
+
+[text.body]
+font = "BIZ UDPGothic"
+size = "24pt"
+weight = 400
+color = "ink"
+line_height = 1.45
+align = "left"
+
+[text.quote]
+font = "BIZ UDPGothic"
+size = "32pt"
+weight = 400
+color = "ink"
+line_height = 1.4
+align = "left"
+
+[text.caption]
+font = "BIZ UDPGothic"
+size = "18pt"
+weight = 400
+color = "muted"
+line_height = 1.3
+align = "center"
+
+[text.table]
+font = "BIZ UDPGothic"
+size = "20pt"
+weight = 400
+color = "ink"
+line_height = 1.3
+align = "left"
+
+[text.meta]
+font = "BIZ UDPGothic"
+size = "18pt"
+weight = 400
+color = "muted"
+line_height = 1.2
+align = "left"
+
+[inline]
+emphasis = { style = "color", color = "accent" }
+strong = { weight = 700 }
+code = { font = "JetBrains Mono", background = "code_bg" }
+link = { color = "accent", underline = true }
+mark = { marker = { color = "highlight", opacity = 0.5, top = "ascender", bottom = "descender" } }
+
+[lists]
+bullets = ["•", "–", "·"]
+ordered = "1."
+indent = "1.25em"
+gap = "0.35em"
+
+[code]
+font = "JetBrains Mono"
+size = "18pt"
+line_height = 1.35
+background = "code_bg"
+padding = "12pt"
+highlight = true
+tab_width = 4
+theme = "dracula"
+
+[tables]
+text = "table"
+header_weight = 700
+rule = "rule"
+padding = "6pt"
+
+[quotes]
+bar = "accent"
+bar_width = "4pt"
+indent = "24pt"
+
+[masters.title.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "150pt", width = "840pt", height = "140pt" }
+text = "display"
+valign = "bottom"
+
+[masters.title.slots.subtitle]
+binds = "subtitle"
+region = { x = "60pt", y = "300pt", width = "840pt", height = "60pt" }
+text = "subtitle"
+valign = "top"
+
+[[masters.title.decor]]
+kind = "field"
+field = "author"
+region = { x = "60pt", y = "440pt", width = "600pt", height = "28pt" }
+text = "meta"
+align = "left"
+
+[[masters.title.decor]]
+kind = "field"
+field = "date"
+region = { x = "660pt", y = "440pt", width = "240pt", height = "28pt" }
+text = "meta"
+align = "right"
+
+[masters.section.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "200pt", width = "840pt", height = "120pt" }
+text = "display"
+valign = "middle"
+
+[[masters.section.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.bullets.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.bullets.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list", "table"]
+region = { x = "60pt", y = "156pt", width = "840pt", height = "324pt" }
+text = "body"
+max_items = 8
+max_depth = 2
+
+[[masters.bullets.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.comparison.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.comparison.slots.left]
+binds = "section"
+section = 1
+accepts = ["paragraph", "list", "table"]
+region = { x = "60pt", y = "156pt", width = "405pt", height = "324pt" }
+text = "body"
+max_items = 6
+max_depth = 2
+
+[masters.comparison.slots.right]
+binds = "section"
+section = 2
+accepts = ["paragraph", "list", "table"]
+region = { x = "495pt", y = "156pt", width = "405pt", height = "324pt" }
+text = "body"
+max_items = 6
+max_depth = 2
+
+[[masters.comparison.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.figure.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.figure.slots.figure]
+binds = "flow"
+accepts = ["image"]
+required = true
+region = { x = "60pt", y = "156pt", width = "840pt", height = "276pt" }
+text = "body"
+max_blocks = 1
+
+[masters.figure.slots.caption]
+binds = "flow"
+accepts = ["paragraph"]
+follows = "figure"
+region = { x = "60pt", y = "440pt", width = "840pt", height = "40pt" }
+text = "caption"
+max_blocks = 1
+
+[[masters.figure.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.quote.slots.quote]
+binds = "flow"
+accepts = ["quote"]
+required = true
+region = { x = "60pt", y = "120pt", width = "840pt", height = "240pt" }
+text = "quote"
+valign = "middle"
+max_blocks = 1
+
+[masters.quote.slots.attribution]
+binds = "flow"
+accepts = ["paragraph"]
+follows = "quote"
+region = { x = "60pt", y = "380pt", width = "840pt", height = "40pt" }
+text = "caption"
+max_blocks = 1
+
+[[masters.quote.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.code.slots.title]
+binds = "title"
+required = true
+region = { x = "60pt", y = "40pt", width = "840pt", height = "104pt" }
+text = "title"
+valign = "bottom"
+
+[masters.code.slots.code]
+binds = "flow"
+accepts = ["code"]
+required = true
+region = { x = "60pt", y = "156pt", width = "840pt", height = "324pt" }
+text = "body"
+max_blocks = 1
+max_lines = 14
+
+[[masters.code.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"
+
+[masters.blank.slots.body]
+binds = "flow"
+accepts = ["paragraph", "list", "table", "image", "code", "quote"]
+region = { x = "60pt", y = "40pt", width = "840pt", height = "440pt" }
+text = "body"
+
+[[masters.blank.decor]]
+kind = "page_number"
+region = { x = "840pt", y = "496pt", width = "60pt", height = "24pt" }
+text = "meta"
+align = "right"
+format = "{n}"

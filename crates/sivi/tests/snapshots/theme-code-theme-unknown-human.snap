@@ -1,0 +1,10 @@
+---
+source: crates/sivi/tests/snapshots.rs
+expression: "render::human(&diagnostics, &sources, false)"
+---
+error[E0512]: `drakula` is not a code theme the binary carries
+  |
+  = note: at `code.theme` in the theme
+  = help: did you mean `dracula`? `sivi code-themes` lists every scheme
+
+error: aborting due to 1 errors

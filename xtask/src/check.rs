@@ -2,7 +2,7 @@
 
 use crate::report::Report;
 use crate::tool::{Tool, capture, succeed};
-use crate::{adr, fonts, fs, proofs, smt, structure};
+use crate::{adr, code_themes, fonts, fs, proofs, smt, structure};
 use anyhow::{Context, Result};
 use std::io::ErrorKind;
 use std::path::Path;
@@ -208,6 +208,7 @@ fn everything(root: &Path) -> Result<()> {
     report.stage("clippy", || clippy(root));
     report.stage("structure", || structure::check(root));
     report.stage("fonts", || fonts::verify(root));
+    report.stage("code-themes", || code_themes::verify(root));
     report.stage("adr", || adr::check(root));
     report.stage("repository", || repository(root, "check"));
     report.stage("workflows", || workflows(root));

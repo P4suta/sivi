@@ -13,5 +13,8 @@ typst = "=0.15.1"
 typst-layout = "=0.15.1"
 typst-pdf = "=0.15.1"
 
+[dev-dependencies]
+toml.workspace = true
+
 [lints]
 workspace = true

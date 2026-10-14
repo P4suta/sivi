@@ -1,0 +1,16 @@
+commit = "abc"
+license_sha256 = "00"
+
+[[scheme]]
+slug = "short"
+name = "Short"
+author = ""
+variant = "dim"
+palette = ["#00000", "#111111"]
+
+[[scheme]]
+slug = "short"
+name = ""
+author = ""
+variant = "light"
+palette = []

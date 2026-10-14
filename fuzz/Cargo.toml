@@ -57,5 +57,12 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "schemes_toml"
+path = "fuzz_targets/schemes_toml.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
 members = ["."]

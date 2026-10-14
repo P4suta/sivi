@@ -2,6 +2,7 @@
 
 use crate::args::{Arguments, Command, Environment, Format, Rendering, ThemeCommand};
 use crate::build::{self, Outcome, Request, Sink};
+use crate::code_themes;
 use crate::library;
 use crate::render::{self, Sources};
 use crate::themes;
@@ -228,6 +229,9 @@ pub fn run(arguments: Arguments, environment: &Environment) -> Run {
             },
         ),
         Command::Fonts { command } => library::run(command, environment),
+        Command::CodeThemes { variant, rendering } => {
+            code_themes::run(variant, rendering, environment)
+        }
     }
 }
 
