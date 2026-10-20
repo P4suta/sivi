@@ -1,11 +1,11 @@
 [tools]
-rust = { version = "1.99.0", components = ["clippy", "rustfmt"] }
-just = "1.58.0"
+rust = { version = "1.99.1", components = ["clippy", "rustfmt"] }
+just = "1.59.0"
 taplo = "0.10.0"
-typos = "1.50.3"
-lefthook = "2.1.15"
+typos = "1.51.1"
+lefthook = "2.2.2"
 actionlint = "1.7.12"
-zizmor = "1.30.1"
+zizmor = "1.31.1"
 ast-grep = "0.45.3"
 "aqua:crate-ci/committed" = "1.1.11"
 "aqua:EmbarkStudios/cargo-deny" = "0.20.2"
@@ -14,7 +14,7 @@ ast-grep = "0.45.3"
 "cargo:kani-verifier" = { version = "0.68.0", os = ["macos", "linux"] }
 "cargo:cargo-mutants" = { version = "27.1.0", os = ["macos", "linux"] }
 "cargo:cargo-fuzz" = { version = "0.13.2", os = ["macos", "linux"] }
-"cargo:cargo-insta" = { version = "1.48.0", os = ["macos", "linux"] }
+"cargo:cargo-insta" = { version = "1.49.0", os = ["macos", "linux"] }
 "github:Z3Prover/z3" = "z3-5.1.0"
 "github:ouch-org/ouch" = "0.8.3"
 gh = "2.102.0"
