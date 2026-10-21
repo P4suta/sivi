@@ -20,6 +20,7 @@ pub const NIGHTLY: &str = "nightly-2026-08-21";
 pub const KANI_VERSION: &str = "0.68.0";
 pub const MUTANTS_VERSION: &str = "27.1.0";
 pub const FUZZ_VERSION: &str = "0.13.2";
+pub const TIMEOUT_PROGRAM: &str = "/usr/bin/timeout";
 
 mod raw {
     #![expect(
@@ -84,6 +85,7 @@ pub enum Tool {
     Rustup,
     /// Docker, which hosts the verifiers that ship as Java programs.
     Docker,
+    Timeout,
     /// SWI-Prolog, which runs the executable references.
     Swipl,
 }
@@ -104,6 +106,7 @@ impl Tool {
             Self::Ouch => "ouch",
             Self::Rustup => "rustup",
             Self::Docker => "docker",
+            Self::Timeout => TIMEOUT_PROGRAM,
             Self::Swipl => "swipl",
         }
     }
