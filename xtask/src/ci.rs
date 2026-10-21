@@ -4,6 +4,31 @@ use crate::{check, proofs, tool};
 use anyhow::{Context, Result, bail, ensure};
 use std::path::Path;
 
+fn proof_base() -> Result<Option<String>> {
+    match std::env::var("PROOF_BASE") {
+        Ok(base) if base.is_empty() => Ok(None),
+        Ok(base) => Ok(Some(base)),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(error) => Err(error).context("read PROOF_BASE"),
+    }
+}
+
+fn proof_options() -> Result<proofs::Options> {
+    let full = match std::env::var("PROOF_FULL") {
+        Ok(value) if value == "true" => true,
+        Ok(value) if value == "false" || value.is_empty() => false,
+        Err(std::env::VarError::NotPresent) => false,
+        Ok(value) => bail!("invalid PROOF_FULL value {value}"),
+        Err(error) => return Err(error).context("read PROOF_FULL"),
+    };
+    Ok(proofs::Options {
+        ci: !full,
+        only: None,
+        base: if full { None } else { proof_base()? },
+        plan: false,
+    })
+}
+
 /// The variable a workflow sets to the JSON of its `needs` context.
 pub const NEEDS_VARIABLE: &str = "NEEDS_JSON";
 
@@ -18,6 +43,7 @@ pub fn unsuccessful(needs: &str) -> Result<Vec<String>> {
     let jobs = needs
         .as_object()
         .context("the needs context is an object of jobs")?;
+    ensure!(!jobs.is_empty(), "the gate received no job results");
     let mut failed = Vec::new();
     for (job, outcome) in jobs {
         let result = outcome
@@ -34,7 +60,28 @@ pub fn unsuccessful(needs: &str) -> Result<Vec<String>> {
 fn gate(name: &str) -> Result<()> {
     let needs = std::env::var(NEEDS_VARIABLE)
         .with_context(|| format!("the {name} gate reads {NEEDS_VARIABLE}"))?;
-    let failed = unsuccessful(&needs)?;
+    validate_jobs(name, &needs)?;
+    Ok(())
+}
+
+fn validate_jobs(name: &str, needs: &str) -> Result<()> {
+    let expected: &[&str] = match name {
+        "ci" => &["check", "test", "proofs"],
+        "codeql" => &["analyze"],
+        "dependency-review" => &["review"],
+        "scorecard" => &["analysis"],
+        _ => bail!("unknown gate {name}"),
+    };
+    let context: serde_json::Value = serde_json::from_str(needs)?;
+    let jobs = context
+        .as_object()
+        .context("the gate requires named job results")?;
+    ensure!(
+        jobs.len() == expected.len() && expected.iter().all(|job| jobs.contains_key(*job)),
+        "the {name} gate requires the exact jobs {}",
+        expected.join(", ")
+    );
+    let failed = unsuccessful(needs)?;
     ensure!(
         failed.is_empty(),
         "the {name} gate requires every selected job to succeed:\n{}",
@@ -62,13 +109,7 @@ pub fn run(root: &Path, words: &[&str]) -> Result<()> {
             ]),
             "cargo nextest",
         ),
-        ["proofs"] => proofs::run(
-            root,
-            proofs::Options {
-                ci: true,
-                only: None,
-            },
-        ),
+        ["proofs"] => proofs::run(root, &proof_options()?),
         ["gate", name] => gate(name),
         _ => bail!("usage: cargo xtask ci check|test|proofs|gate NAME"),
     }
@@ -76,7 +117,7 @@ pub fn run(root: &Path, words: &[&str]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::unsuccessful;
+    use super::{unsuccessful, validate_jobs};
 
     #[test]
     fn every_job_must_succeed() {
@@ -87,5 +128,9 @@ mod tests {
         assert_eq!(failed, ["proofs: skipped", "test: failure"]);
         unsuccessful(r#"{"check":{}}"#).unwrap_err();
         unsuccessful("[]").unwrap_err();
+        unsuccessful("{}").unwrap_err();
+        validate_jobs("ci", r#"{"check":{"result":"success"}}"#).unwrap_err();
+        validate_jobs("codeql", r#"{"other":{"result":"success"}}"#).unwrap_err();
+        validate_jobs("codeql", r#"{"analyze":{"result":"success"}}"#).unwrap();
     }
 }

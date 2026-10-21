@@ -260,9 +260,10 @@ pub fn push_check(root: &Path) -> Result<()> {
     run(root, Scope::Everything)?;
     proofs::run(
         root,
-        proofs::Options {
+        &proofs::Options {
             ci: false,
             only: None,
+            ..proofs::Options::default()
         },
     )
 }

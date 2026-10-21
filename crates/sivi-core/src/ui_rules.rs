@@ -4,6 +4,12 @@
 //! The shell owns every effect; this module decides.
 //! `specs/ui.qnt` models the same machine, and `crates/sivi/tests/ui_replay.rs` replays its traces through [`step`].
 
+/// Whether the interface can own both streams.
+#[must_use]
+pub const fn terminal_available(input: bool, output: bool) -> bool {
+    input && output
+}
+
 /// What the terminal shows.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 #[cfg_attr(kani, derive(kani::Arbitrary))]
@@ -358,6 +364,16 @@ mod proofs {
     #[cfg(kani)]
     use super::{Picker, Screen, Verdict};
 
+    #[cfg(kani)]
+    #[kani::proof]
+    fn both_streams_are_terminals_before_the_interface_opens() {
+        let input: bool = kani::any();
+        let output: bool = kani::any();
+        assert_eq!(super::terminal_available(input, output), input && output);
+        kani::cover!(super::terminal_available(input, output));
+        kani::cover!(!super::terminal_available(input, output));
+    }
+
     /// Quitting is one key away from every state.
     pub(super) fn spec_quit(state: State) {
         let quit = step(state, Event::Key(Action::Quit));
@@ -445,6 +461,18 @@ mod tests {
     use super::{
         Action, Effect, Event, Job, Message, Picker, SPINNER, Screen, State, Verdict, proofs, step,
     };
+
+    #[test]
+    fn redirecting_either_stream_refuses_the_interface() {
+        for (input, output, expected) in [
+            (false, false, false),
+            (false, true, false),
+            (true, false, false),
+            (true, true, true),
+        ] {
+            assert_eq!(super::terminal_available(input, output), expected);
+        }
+    }
 
     fn states() -> [State; 6] {
         [

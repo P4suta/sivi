@@ -17,8 +17,8 @@ pub const RELEASE_TAG: &str = "release/0.2026.10.04.426d8b0";
 /// The Rust toolchain the release drives, which `rustup` must hold.
 pub const TOOLCHAIN: &str = "1.98.1";
 
-/// Where the release unpacks, under the build directory.
-pub const INSTALL: &str = "target/tools/verus";
+/// Where the proof image installs the release.
+pub const INSTALL: &str = "/opt/sivi/verus";
 
 /// The crate root Verus verifies.
 pub const SOURCE: &str = "crates/sivi-core/src/lib.rs";
@@ -188,6 +188,7 @@ fn require_identity(report: &Report) -> Result<()> {
 ///
 /// Returns an error when a specification fails, no function was verified, or the false specification passes.
 pub fn verify(root: &Path) -> Result<()> {
+    crate::containers::require_worker()?;
     let version = capture(
         Tool::Rustup
             .command(root)

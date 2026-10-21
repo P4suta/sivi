@@ -2,8 +2,9 @@
 //!
 //! The slides come from the deck fixtures bound to the plain theme and from a seeded generator over the plain theme's masters.
 
+use crate::containers::{self, Campaign};
 use crate::fs;
-use crate::tool::{self, Tool};
+use crate::quint::{self, Session};
 use anyhow::{Context, Result, anyhow, ensure};
 use serde_json::{Value, json};
 use sivi_core::bind::{self, Overflow, grammar};
@@ -325,23 +326,40 @@ pub fn outcome_json(text: &str) -> Result<Outcome> {
 }
 
 /// Runs the reference over a case.
-fn reference(root: &Path, scratch: &Path, case: &Case) -> Result<Outcome> {
+fn reference(root: &Path, scratch: &Path, campaign: &Campaign<'_>, case: &Case) -> Result<Outcome> {
     let input = scratch.join("input.json");
     fs::write(&input, serde_json::to_string(&input_json(case))?.as_bytes())?;
-    let mut swipl = Tool::Swipl.command(root);
-    swipl
-        .args([
-            "--no-packs",
-            "--on-error=status",
-            "--on-warning=status",
-            "-g",
-            "main",
-            "-t",
-            "halt",
-            SPEC,
-        ])
-        .arg(&input);
-    let text = tool::capture(&mut swipl, "swipl")?;
+    let image = containers::prolog_image(root)?;
+    let session = Session {
+        root,
+        output: scratch,
+        image: &image,
+    };
+    let ran = campaign.run(
+        session.image,
+        &quint::program_arguments(
+            session,
+            "swipl",
+            &[
+                "--no-packs",
+                "--on-error=status",
+                "--on-warning=status",
+                "-g",
+                "main",
+                "-t",
+                "halt",
+                &format!("{}/{SPEC}", quint::SOURCE),
+                &format!("{}/input.json", quint::OUTPUT),
+            ],
+        ),
+    )?;
+    ensure!(
+        ran.status.success(),
+        "swipl failed: {}\n{}",
+        ran.status,
+        String::from_utf8_lossy(&ran.stderr)
+    );
+    let text = String::from_utf8(ran.stdout).context("swipl printed invalid UTF-8")?;
     outcome_json(&text).with_context(|| format!("the reference's outcome for {}", case.name))
 }
 
@@ -350,8 +368,7 @@ fn reference(root: &Path, scratch: &Path, case: &Case) -> Result<Outcome> {
 /// # Errors
 ///
 /// Returns an error when the reference is unavailable, a case differs, or the tampered control agrees.
-pub fn verify(root: &Path, generated: u32, seed: u64) -> Result<()> {
-    tool::require_version(&mut Tool::Swipl.command(root), "swipl", SWIPL_VERSION)?;
+pub fn verify(root: &Path, campaign: &Campaign<'_>, generated: u32, seed: u64) -> Result<()> {
     ensure!(
         fs::is_file(&root.join(SPEC))?,
         "the reference {SPEC} is missing"
@@ -364,7 +381,7 @@ pub fn verify(root: &Path, generated: u32, seed: u64) -> Result<()> {
     ensure!(!cases.is_empty(), "no slide to bind");
     for case in &cases {
         let ours = bind(case);
-        let theirs = reference(root, scratch.path(), case)?;
+        let theirs = reference(root, scratch.path(), campaign, case)?;
         ensure!(
             ours == theirs,
             "{}: the binder and the reference differ:\n  binder:    {ours:?}\n  reference: {theirs:?}",
@@ -380,7 +397,7 @@ pub fn verify(root: &Path, generated: u32, seed: u64) -> Result<()> {
         *first = Err(Code::NoSlotForBlock);
     }
     ensure!(
-        control != reference(root, scratch.path(), tampered)?,
+        control != reference(root, scratch.path(), campaign, tampered)?,
         "the reference agreed with a tampered binding, so the comparison cannot fail"
     );
     eprintln!(

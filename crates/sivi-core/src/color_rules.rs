@@ -29,16 +29,14 @@ mod proofs {
     const CLEAR: Thousandths = Thousandths(0);
 
     /// A channel over another at an opacity from clear to solid lies between the two, and is the lower one when clear and the upper one when solid; outside clear to solid it is undefined.
-    pub(super) fn spec_mix(above: u8, opacity: Thousandths, below: u8) {
+    pub(super) fn spec_mix(above: u8, opacity: Thousandths, below: u8) -> Option<u8> {
         let mixed = color::mix(above, opacity, below);
         if opacity.0 < CLEAR.0 || opacity.0 > SOLID.0 {
             assert!(mixed.is_none());
-            return;
+            return mixed;
         }
         assert!(mixed.is_some(), "every opacity from clear to solid mixes");
-        let Some(mixed) = mixed else {
-            return;
-        };
+        let mixed = mixed?;
         assert!(mixed >= above.min(below) && mixed <= above.max(below));
         if opacity == CLEAR {
             assert_eq!(mixed, below);
@@ -46,6 +44,7 @@ mod proofs {
         if opacity == SOLID {
             assert_eq!(mixed, above);
         }
+        Some(mixed)
     }
 
     /// A color over another is its channels each over the other's, which the tests hold over samples.
@@ -155,9 +154,9 @@ mod proofs {
         // The opacities outside clear to solid are refused before any arithmetic, which the tests hold.
         let opacity = Thousandths(kani::any());
         kani::assume(opacity.0 >= CLEAR.0 && opacity.0 <= SOLID.0);
-        spec_mix(above, opacity, below);
+        let mixed = spec_mix(above, opacity, below);
         kani::cover!(
-            color::mix(above, opacity, below).is_some_and(|mixed| mixed != above && mixed != below),
+            mixed.is_some_and(|mixed| mixed != above && mixed != below),
             "a mix apart from both"
         );
         kani::cover!(opacity == SOLID, "solid");
@@ -258,7 +257,7 @@ mod tests {
         for above in [0, 1, 2, 127, 128, 254, 255] {
             for below in [0, 1, 2, 127, 128, 254, 255] {
                 for opacity in [-1, 0, 1, 333, 500, 667, 999, 1000, 1001, i64::MAX, i64::MIN] {
-                    spec_mix(above, Thousandths(opacity), below);
+                    let _mixed = spec_mix(above, Thousandths(opacity), below);
                 }
             }
         }

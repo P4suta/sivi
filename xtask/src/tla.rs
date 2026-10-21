@@ -1,11 +1,10 @@
 //! The TLA+ obligations: TLC checks every invariant and the property of each model over all its behaviors in the pinned image, and refutes each probe configuration.
 
+use crate::containers::{Campaign, Output};
 use crate::obligations::{self, Obligation, TlaModel};
 use crate::quint::{self, Session};
-use crate::tool::{self, Tool};
 use anyhow::{Context, Result, ensure};
 use std::path::Path;
-use std::process::Output;
 
 /// The model checker's entry class, which the Apalache distribution of the image carries.
 const TLC_CLASS: &str = "tlc2.TLC";
@@ -32,7 +31,7 @@ fn jar() -> String {
 }
 
 /// Runs TLC on `spec` under `config`, returning its output.
-fn tlc(session: Session<'_>, spec: &str, config: &str) -> Result<Output> {
+fn tlc(session: Session<'_>, campaign: &Campaign<'_>, spec: &str, config: &str) -> Result<Output> {
     let jar = jar();
     let states = format!("{}/tlc-states", quint::OUTPUT);
     let arguments = [
@@ -50,9 +49,10 @@ fn tlc(session: Session<'_>, spec: &str, config: &str) -> Result<Output> {
         &states,
         spec,
     ];
-    let mut docker = Tool::Docker.command(session.root);
-    docker.args(quint::program_arguments(session, "java", &arguments));
-    tool::output(&mut docker, "docker run of TLC")
+    campaign.run(
+        session.image,
+        &quint::program_arguments(session, "java", &arguments),
+    )
 }
 
 fn models(manifest: &obligations::Manifest) -> Vec<&TlaModel> {
@@ -70,10 +70,11 @@ fn models(manifest: &obligations::Manifest) -> Vec<&TlaModel> {
         .collect()
 }
 
-fn check(session: Session<'_>, model: &TlaModel) -> Result<()> {
+fn check(session: Session<'_>, campaign: &Campaign<'_>, model: &TlaModel) -> Result<()> {
     let spec = format!("{}/{}", quint::SOURCE, model.spec);
     let checked = tlc(
         session,
+        campaign,
         &spec,
         &format!("{}/{}", quint::SOURCE, model.config),
     )?;
@@ -90,12 +91,13 @@ fn check(session: Session<'_>, model: &TlaModel) -> Result<()> {
     );
     let probed = tlc(
         session,
+        campaign,
         &spec,
         &format!("{}/{}", quint::SOURCE, model.probe_config),
     )?;
     let probe_report = String::from_utf8_lossy(&probed.stdout);
     ensure!(
-        probed.status.code() == Some(SAFETY_VIOLATION)
+        probed.status.code() == SAFETY_VIOLATION
             && probe_report.contains(&format!("Invariant {} is violated", model.probe_invariant)),
         "the model checker did not refute {} under {}, so nothing shows the check can fail; it ended with {}:\n{probe_report}",
         model.probe_invariant,
@@ -110,12 +112,12 @@ fn check(session: Session<'_>, model: &TlaModel) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error when Docker cannot build or run the image, a model fails its check, or a probe is not refuted.
-pub fn verify(root: &Path) -> Result<()> {
+pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
     let output = tempfile::tempdir().context("create the TLC output directory")?;
     let image = quint::image(&root)?;
-    quint::build(&root, &image)?;
+    quint::build(&root, &image, campaign)?;
     let session = Session {
         root: &root,
         output: output.path(),
@@ -127,7 +129,7 @@ pub fn verify(root: &Path) -> Result<()> {
         "the manifest declares no TLA+ obligation"
     );
     for model in &found {
-        check(session, model)?;
+        check(session, campaign, model)?;
     }
     eprintln!(
         "tla: {} models hold every invariant and their property in every behavior, and each probe configuration is refuted",

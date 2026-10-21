@@ -299,9 +299,10 @@ mod proofs {
         let Some(line) = bytes.get(..len) else {
             return;
         };
-        assert_eq!(classify(line) == LineKind::Separator, spec_separator(line));
-        kani::cover!(classify(line) == LineKind::Separator);
-        kani::cover!(classify(line) == LineKind::Content);
+        let kind = classify(line);
+        assert_eq!(kind == LineKind::Separator, spec_separator(line));
+        kani::cover!(kind == LineKind::Separator);
+        kani::cover!(kind == LineKind::Content);
     }
 
     #[cfg(kani)]
@@ -326,10 +327,11 @@ mod proofs {
         let Some(line) = bytes.get(..len) else {
             return;
         };
-        assert_eq!(closes(open, line), spec_closes(open, line));
-        kani::cover!(closes(open, line) && open.marker == Marker::Tilde);
-        kani::cover!(closes(open, line) && open.marker == Marker::Backtick);
-        kani::cover!(!closes(open, line) && classify(line) != LineKind::Content);
+        let closes = closes(open, line);
+        assert_eq!(closes, spec_closes(open, line));
+        kani::cover!(closes && open.marker == Marker::Tilde);
+        kani::cover!(closes && open.marker == Marker::Backtick);
+        kani::cover!(!closes && classify(line) != LineKind::Content);
     }
 
     /// Whether the byte at `index` of `trimmed` is a pipe with an even run of backslashes right before it, which no escape reaches.

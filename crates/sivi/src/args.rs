@@ -228,11 +228,19 @@ pub const HOME: &str = "HOME";
 /// The per-user data base of Windows.
 pub const LOCALAPPDATA: &str = "LOCALAPPDATA";
 
+/// Which standard streams can carry the terminal interface.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct TerminalStreams {
+    pub input: bool,
+    pub output: bool,
+}
+
 /// What the binary read from its environment, once, before any decision.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Environment {
     pub source_date_epoch: Option<String>,
     pub no_color: bool,
+    pub terminals: TerminalStreams,
     pub stderr_is_terminal: bool,
     pub sivi_home: Option<String>,
     pub xdg_data_home: Option<String>,
@@ -258,6 +266,10 @@ pub fn environment() -> Environment {
     Environment {
         source_date_epoch: variable(SOURCE_DATE_EPOCH),
         no_color: std::env::var_os(NO_COLOR).is_some_and(|value| !value.is_empty()),
+        terminals: TerminalStreams {
+            input: std::io::stdin().is_terminal(),
+            output: crate::output::is_terminal(),
+        },
         stderr_is_terminal: std::io::stderr().is_terminal(),
         sivi_home: variable(SIVI_HOME),
         xdg_data_home: variable(XDG_DATA_HOME),

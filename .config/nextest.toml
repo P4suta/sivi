@@ -8,7 +8,7 @@ leak-timeout = { period = "1s", result = "fail" }
 
 # Miri interprets each test about a hundred times slower, so a test that outlives two minutes is ended and named.
 [profile.miri]
-test-threads = 4
+test-threads = 1
 slow-timeout = { period = "60s", terminate-after = 2 }
 fail-fast = true
 status-level = "fail"

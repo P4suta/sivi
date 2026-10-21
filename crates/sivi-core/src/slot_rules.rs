@@ -143,23 +143,22 @@ mod proofs {
         filled: &[u32],
         last: Option<usize>,
         block: BlockFacts,
-    ) {
+    ) -> Choice {
         let choice = choose(slots, filled, last, block);
-        let admitting: alloc::vec::Vec<usize> = (0..slots.len())
-            .filter(|index| flow_admits(slots, filled, *index, block).is_ok())
-            .collect();
+        let admits = |index| flow_admits(slots, filled, index, block).is_ok();
+        let first = (0..slots.len()).find(|index| admits(*index));
         match choice {
             Choice::Slot(index) => {
-                assert!(admitting.contains(&index));
+                assert!(admits(index));
                 let follower =
                     last.and_then(|last| slots.iter().position(|slot| slot.follows == Some(last)));
                 match follower {
-                    Some(follower) if admitting.contains(&follower) => assert_eq!(index, follower),
-                    Some(_) | None => assert_eq!(admitting.first(), Some(&index)),
+                    Some(follower) if admits(follower) => assert_eq!(index, follower),
+                    Some(_) | None => assert_eq!(first, Some(index)),
                 }
             }
             Choice::Full => {
-                assert_eq!(admitting.len(), 0);
+                assert!(first.is_none());
                 assert!((0..slots.len()).any(|index| {
                     flow_admits(slots, filled, index, block) == Err(Refusal::Capacity)
                 }));
@@ -170,6 +169,7 @@ mod proofs {
                 }));
             }
         }
+        choice
     }
 
     /// A slot admits a block exactly when it accepts the kind and every measure stays within its capacity.
@@ -218,8 +218,7 @@ mod proofs {
         let last: Option<usize> = kani::any();
         kani::assume(last.is_none_or(|index| index < SLOTS));
         let block: BlockFacts = kani::any();
-        spec_choice(&slots, &filled, last, block);
-        let choice = choose(&slots, &filled, last, block);
+        let choice = spec_choice(&slots, &filled, last, block);
         kani::cover!(
             matches!(choice, Choice::Slot(index) if slots[index].follows == last && last.is_some())
         );

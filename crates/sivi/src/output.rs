@@ -8,7 +8,11 @@ mod raw {
         reason = "the binary's one stream owner reaches standard output in a single statement"
     )]
 
-    use std::io::{self, Write as _};
+    use std::io::{self, IsTerminal as _, Write as _};
+
+    pub(super) fn is_terminal() -> bool {
+        io::stdout().is_terminal()
+    }
 
     /// Writes `bytes` to standard output and flushes it.
     pub(super) fn stdout(bytes: &[u8]) -> io::Result<()> {
@@ -25,6 +29,12 @@ mod raw {
 /// Returns the write error when standard output is closed or full.
 pub fn stdout(bytes: &[u8]) -> io::Result<()> {
     raw::stdout(bytes)
+}
+
+/// Whether standard output is a terminal the interface can own.
+#[must_use]
+pub fn is_terminal() -> bool {
+    raw::is_terminal()
 }
 
 /// Writes text for a person to standard error.

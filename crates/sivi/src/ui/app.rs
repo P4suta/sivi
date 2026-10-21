@@ -518,6 +518,18 @@ pub fn run(deck: Option<&Path>, environment: &Environment) -> Run {
             }
         },
     };
+    if !sivi_core::ui_rules::terminal_available(
+        environment.terminals.input,
+        environment.terminals.output,
+    ) {
+        return Run {
+            stdout: Vec::new(),
+            stderr: String::from(
+                "error: the terminal cannot be taken: standard input and output must be terminals\n",
+            ),
+            code: USAGE_EXIT_CODE,
+        };
+    }
     let mut session = match Session::open(&preview::query(), preview::answered) {
         Ok(session) => session,
         Err(error) => {

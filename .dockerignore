@@ -1,0 +1,8 @@
+.git
+target
+**/target
+**/artifacts
+.pr-workflow
+.agents
+.codex
+.DS_Store

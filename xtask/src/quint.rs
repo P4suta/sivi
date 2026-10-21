@@ -4,14 +4,13 @@
 //! It also witnesses every outcome and writes its traces again, while its probe module breaks the invariant.
 //! Quint runs in a pinned image with no network, the checkout mounted read-only, and one writable output directory.
 
+use crate::containers::{Campaign, Output};
 use crate::fs;
 use crate::obligations::{self, Obligation, QuintModel};
-use crate::tool::{self, Tool};
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::ffi::OsString;
 use std::path::Path;
-use std::process::Output;
 
 /// The Quint release the image's lockfile pins.
 pub const QUINT_VERSION: &str = "0.33.0";
@@ -72,23 +71,11 @@ pub fn image(root: &Path) -> Result<String> {
 /// # Errors
 ///
 /// Returns an error when Docker cannot build it.
-pub fn build(root: &Path, image: &str) -> Result<()> {
-    let mut inspect = Tool::Docker.command(root);
-    inspect.args(["image", "inspect", image]);
-    if tool::output(&mut inspect, "docker image inspect")?
-        .status
-        .success()
-    {
-        return Ok(());
-    }
-    let mut build = Tool::Docker.command(root);
-    build
-        .args(["build", "--tag", image])
-        .arg(root.join(IMAGE_DIRECTORY));
-    tool::succeed(&mut build, "docker build of the Quint image")
+pub fn build(root: &Path, image: &str, campaign: &Campaign<'_>) -> Result<()> {
+    campaign.build(image, IMAGE_DIRECTORY, &root.join(IMAGE_DIRECTORY))
 }
 
-fn mount(source: &Path, target: &str, readonly: bool) -> OsString {
+pub(crate) fn mount(source: &Path, target: &str, readonly: bool) -> OsString {
     // Docker reads `--mount` as one CSV record, so quoting keeps a comma in the path inside the field.
     let mut mount = OsString::from("type=bind,\"source=");
     mount.push(source);
@@ -201,15 +188,13 @@ pub fn probe_trace_name(probe: &str) -> String {
 }
 
 impl Session<'_> {
-    fn quint(self, arguments: &[&str]) -> Result<Output> {
-        let mut docker = Tool::Docker.command(self.root);
-        docker.args(run_arguments(self, arguments));
-        tool::output(&mut docker, "docker run of Quint")
+    fn quint(self, campaign: &Campaign<'_>, arguments: &[&str]) -> Result<Output> {
+        campaign.run(self.image, &run_arguments(self, arguments))
     }
 
     /// Runs `quint` and requires success, returning its standard output.
-    fn passing(self, what: &str, arguments: &[&str]) -> Result<String> {
-        let ran = self.quint(arguments)?;
+    fn passing(self, campaign: &Campaign<'_>, what: &str, arguments: &[&str]) -> Result<String> {
+        let ran = self.quint(campaign, arguments)?;
         let stdout = String::from_utf8_lossy(&ran.stdout).into_owned();
         ensure!(
             ran.status.success(),
@@ -221,34 +206,39 @@ impl Session<'_> {
     }
 
     /// The model checker with one worker on `module`, which returns Quint's output.
-    fn tlc(self, model: &str, module: &str, invariant: &str) -> Result<Output> {
+    fn tlc(self, campaign: &Campaign<'_>, model: &str, claim: (&str, &str)) -> Result<Output> {
+        let (module, invariant) = claim;
         let config = format!("{OUTPUT}/tlc.json");
-        self.quint(&[
-            "verify",
-            model,
-            "--main",
-            module,
-            "--backend",
-            "tlc",
-            "--tlc-config",
-            &config,
-            "--invariant",
-            invariant,
-            "--verbosity",
-            TLC_REPORT,
-        ])
+        self.quint(
+            campaign,
+            &[
+                "verify",
+                model,
+                "--main",
+                module,
+                "--backend",
+                "tlc",
+                "--tlc-config",
+                &config,
+                "--invariant",
+                invariant,
+                "--verbosity",
+                TLC_REPORT,
+            ],
+        )
     }
 
     /// Typechecks the model, runs its tests and those of its probe, and checks the invariant in every reachable state.
-    fn check(self, model: &str, quint: &QuintModel) -> Result<()> {
-        self.passing("quint typecheck", &["typecheck", model])?;
+    fn check(self, campaign: &Campaign<'_>, model: &str, quint: &QuintModel) -> Result<()> {
+        self.passing(campaign, "quint typecheck", &["typecheck", model])?;
         for module in [&quint.main, &quint.probe] {
             self.passing(
+                campaign,
                 &format!("the tests of {module}"),
                 &["test", model, "--backend", "typescript", "--main", module],
             )?;
         }
-        let checked = self.tlc(model, &quint.main, &quint.invariant)?;
+        let checked = self.tlc(campaign, model, (&quint.main, &quint.invariant))?;
         let report = String::from_utf8_lossy(&checked.stdout);
         let found = distinct_states(&report)?;
         ensure!(
@@ -259,7 +249,7 @@ impl Session<'_> {
             obligations::MANIFEST,
             quint.distinct_states
         );
-        let probed = self.tlc(model, &quint.probe, &quint.invariant)?;
+        let probed = self.tlc(campaign, model, (&quint.probe, &quint.invariant))?;
         ensure!(
             !probed.status.success()
                 && String::from_utf8_lossy(&probed.stderr).contains("found a counterexample"),
@@ -271,7 +261,7 @@ impl Session<'_> {
     }
 
     /// Simulates the model at its seed and requires a trace for every witness.
-    fn witness(self, model: &str, quint: &QuintModel) -> Result<()> {
+    fn witness(self, campaign: &Campaign<'_>, model: &str, quint: &QuintModel) -> Result<()> {
         let samples = quint.samples.to_string();
         let steps = quint.steps.to_string();
         let mut simulate = vec![
@@ -292,7 +282,11 @@ impl Session<'_> {
             "--witnesses",
         ];
         simulate.extend(quint.witnesses.iter().map(String::as_str));
-        let report = self.passing(&format!("the simulation of {}", quint.main), &simulate)?;
+        let report = self.passing(
+            campaign,
+            &format!("the simulation of {}", quint.main),
+            &simulate,
+        )?;
         for name in &quint.witnesses {
             let count = witnessed(&report, name)?;
             ensure!(
@@ -306,7 +300,7 @@ impl Session<'_> {
     }
 
     /// Writes the traces of the model and the violation of its probe under `OUTPUT/traces`, at the seed.
-    fn write_traces(self, model: &str, quint: &QuintModel) -> Result<()> {
+    fn write_traces(self, campaign: &Campaign<'_>, model: &str, quint: &QuintModel) -> Result<()> {
         fs::create_dir_all(&self.output.join("traces"))?;
         let steps = quint.steps.to_string();
         let count = quint.traces.to_string();
@@ -336,7 +330,7 @@ impl Session<'_> {
             "--verbosity",
             "0",
         ]);
-        self.passing(&format!("the traces of {}", quint.main), &traced)?;
+        self.passing(campaign, &format!("the traces of {}", quint.main), &traced)?;
         let mut violated = base.to_vec();
         violated.extend([
             "--main",
@@ -354,7 +348,7 @@ impl Session<'_> {
             "0",
         ]);
         // The probe's run fails on the violation it records.
-        let probed = self.quint(&violated)?;
+        let probed = self.quint(campaign, &violated)?;
         ensure!(
             !probed.status.success(),
             "the probe {} broke no invariant in {PROBE_SAMPLES} runs at seed {}",
@@ -374,8 +368,8 @@ impl Session<'_> {
     }
 
     /// Writes the traces again and requires the committed states.
-    fn traces(self, model: &str, quint: &QuintModel) -> Result<()> {
-        self.write_traces(model, quint)?;
+    fn traces(self, campaign: &Campaign<'_>, model: &str, quint: &QuintModel) -> Result<()> {
+        self.write_traces(campaign, model, quint)?;
         for name in Self::trace_names(quint) {
             let committed = self.root.join(TRACES).join(&name);
             let fresh = fs::read_to_string(&self.output.join("traces").join(&name))
@@ -411,9 +405,9 @@ fn models(manifest: &obligations::Manifest) -> Vec<(String, &QuintModel)> {
 }
 
 /// A session over a fresh output directory with the TLC configuration written.
-fn start(root: &Path, output: &Path) -> Result<String> {
+fn start(root: &Path, output: &Path, campaign: &Campaign<'_>) -> Result<String> {
     let image = image(root)?;
-    build(root, &image)?;
+    build(root, &image, campaign)?;
     fs::write(&output.join("tlc.json"), TLC_CONFIG.as_bytes())?;
     Ok(image)
 }
@@ -423,11 +417,11 @@ fn start(root: &Path, output: &Path) -> Result<String> {
 /// # Errors
 ///
 /// Returns an error when Docker cannot build or run the image, or any check of an obligation fails.
-pub fn verify(root: &Path) -> Result<()> {
+pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
     let output = tempfile::tempdir().context("create the Quint output directory")?;
-    let image = start(&root, output.path())?;
+    let image = start(&root, output.path(), campaign)?;
     let session = Session {
         root: &root,
         output: output.path(),
@@ -439,9 +433,9 @@ pub fn verify(root: &Path) -> Result<()> {
         "the manifest declares no Quint obligation"
     );
     for (model, quint) in &found {
-        session.check(model, quint)?;
-        session.witness(model, quint)?;
-        session.traces(model, quint)?;
+        session.check(campaign, model, quint)?;
+        session.witness(campaign, model, quint)?;
+        session.traces(campaign, model, quint)?;
     }
     eprintln!(
         "quint: {} models typecheck, pass their tests, hold their invariant in every reachable state, witness every outcome, and reproduce their traces, and each probe breaks the invariant",
@@ -456,10 +450,16 @@ pub fn verify(root: &Path) -> Result<()> {
 ///
 /// Returns an error when Docker cannot build or run the image, or Quint writes no trace.
 pub fn generate(root: &Path) -> Result<()> {
+    let campaign = Campaign::open(root)?;
+    let result = generate_in(root, &campaign);
+    crate::containers::finish(result, campaign.close())
+}
+
+fn generate_in(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
     let output = tempfile::tempdir().context("create the Quint output directory")?;
-    let image = start(&root, output.path())?;
+    let image = start(&root, output.path(), campaign)?;
     let session = Session {
         root: &root,
         output: output.path(),
@@ -467,7 +467,7 @@ pub fn generate(root: &Path) -> Result<()> {
     };
     fs::create_dir_all(&root.join(TRACES))?;
     for (model, quint) in models(&manifest) {
-        session.write_traces(&model, quint)?;
+        session.write_traces(campaign, &model, quint)?;
         for name in Session::trace_names(quint) {
             let fresh = fs::read(&output.path().join("traces").join(&name))
                 .with_context(|| format!("Quint wrote no trace {name}"))?;

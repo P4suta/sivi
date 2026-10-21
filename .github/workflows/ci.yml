@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      full_proofs:
+        description: Verify the full portfolio, including mutation testing
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -39,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-26.04, macos-26, windows-2025]
+        os: [macos-26, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -58,23 +64,37 @@ jobs:
 
   proofs:
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 130
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
-          install_args: rust aqua:nextest-rs/nextest/cargo-nextest cargo:kani-verifier@0.68.0 cargo:cargo-fuzz@0.13.2
+          install_args: rust
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: sivi-proofs-v1
           cache-bin: false
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install the pinned nightly for Miri and cargo-fuzz
-        run: rustup toolchain install nightly-2026-08-21 --profile minimal --component miri --component rust-src
-      - run: cargo kani setup
-      - run: cargo xtask ci proofs
+      - name: Verify the affected contracts in bounded containers
+        env:
+          PROOF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PROOF_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.full_proofs }}
+        run: cargo xtask ci proofs
+      - name: Preserve verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: proof-evidence
+          path: |
+            target/proofs/receipts/
+            target/proofs/containers/
+            target/proofs/container-build/*.log
+            target/proofs/jobs/**/kani/*.json
+          if-no-files-found: error
+          retention-days: 5
 
   ci-success:
     name: ci-success

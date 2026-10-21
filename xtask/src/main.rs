@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 const USAGE_EXIT_CODE: u8 = 2;
 
-const USAGE: &str = "usage: cargo xtask check [--staged] | push-check | structure | fonts verify | fonts catalog | code-themes fetch | code-themes verify | commit-msg FILE | proofs [--ci] [--only kani|verus|smt|miri|fuzz|mutants] | fuzz TARGET RUNS | gen [--check] | ci check|test|proofs|gate NAME";
+const USAGE: &str = "usage: cargo xtask check [--staged] | push-check | structure | fonts verify | fonts catalog | code-themes fetch | code-themes verify | commit-msg FILE | proofs [--ci] [--only VERIFIER | --affected BASE] [--plan] | proofs --status | proofs --cleanup RESERVATION_ID | proofs --self-check | fuzz TARGET RUNS | gen [--check] | ci check|test|proofs|gate NAME";
 
 fn report(task: &str, result: anyhow::Result<()>) -> ExitCode {
     match result {
@@ -37,11 +37,25 @@ fn dispatch(root: &Path, words: &[&str]) -> ExitCode {
             "commit-msg",
             xtask::commit_msg::check(root, Path::new(message)),
         ),
+        ["proofs", "--status"] => report("proof-status", xtask::containers::status(root)),
+        ["proofs", "--cleanup", identity] => {
+            report("proof-cleanup", xtask::containers::cleanup(root, identity))
+        }
+        ["proofs", "--self-check"] => report("proof-boundary", xtask::containers::self_check(root)),
+        ["proof-boundary", probe] => match xtask::containers::boundary(root, probe) {
+            Ok(code) => ExitCode::from(code),
+            Err(error) => report("proof-boundary", Err(error)),
+        },
         ["proofs", options @ ..] => xtask::proofs::Options::from_words(options)
             .map_or_else(usage, |options| {
-                report("proofs", xtask::proofs::run(root, options))
+                report("proofs", xtask::proofs::run(root, &options))
             }),
         ["fuzz", target, runs] => report("fuzz", xtask::proofs::fuzz(root, target, runs)),
+        ["proof-worker", step] => report("proof-worker", xtask::proofs::worker(root, step)),
+        ["fuzz-worker", target, runs] => report(
+            "fuzz-worker",
+            xtask::proofs::fuzz_worker(root, target, runs),
+        ),
         ["gen"] => report("gen", xtask::check::generate(root)),
         ["gen", "--check"] => report("gen", xtask::check::generated(root)),
         ["ci", rest @ ..] if !rest.is_empty() => report("ci", xtask::ci::run(root, rest)),
