@@ -1,7 +1,7 @@
 //! The resource-limited owner of verification containers and their image builder.
 
 use crate::fs;
-use crate::tool::{self, Tool};
+use crate::tool::{self, TIMEOUT_PROGRAM, Tool};
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use sha2::Digest as _;
@@ -27,7 +27,6 @@ const PLATFORM: &str = "linux/amd64";
 const ID_DIGITS: usize = 12;
 const BUILDKIT_CONFIG: &str = "[worker.oci]\nrootless = true\nsnapshotter = \"native\"\nmax-parallelism = 1\nmaxUsedSpace = \"10GB\"\nreservedSpace = \"1GB\"\n";
 const BUILDKIT_CONFIG_PATH: &str = "/etc/buildkit/sivi.toml";
-const TIMEOUT_PROGRAM: &str = "/usr/bin/timeout";
 const PROOF_WORKER: &str = "/usr/local/bin/sivi-proof-worker";
 const RUST_IMAGE_DIRECTORY: &str = "xtask/proofs/rust";
 const PROLOG_RECIPE: &str = "xtask/proofs/prolog/Dockerfile";
@@ -39,6 +38,8 @@ const CGROUP_SWAP: &str = "/sys/fs/cgroup/memory.swap.max";
 const CGROUP_PIDS: &str = "/sys/fs/cgroup/pids.max";
 const BOUNDARY_OUTPUT: &str = "/out/boundary-evidence";
 const BOUNDARY_TIMEOUT: u8 = 124;
+const BOUNDARY_DEADLINE: &str = "1s";
+const BOUNDARY_PAUSE: &str = "10s";
 const CORPORA: [&str; 2] = ["fuzz/corpus", "xtask/proofs/fuzz-fixture/corpus"];
 const WRITABLE_DIRECTORIES: [&str; 8] = [
     "target/proofs",
@@ -1086,7 +1087,23 @@ pub fn boundary(root: &Path, probe: &str) -> Result<u8> {
             Ok(0)
         }
         "failure" => Ok(BOUNDARY_FAILURE),
-        "timeout" => Ok(BOUNDARY_TIMEOUT),
+        "timeout" => {
+            let output = tool::output(
+                Tool::Timeout.command(root).args([
+                    "--kill-after=1s",
+                    BOUNDARY_DEADLINE,
+                    "sleep",
+                    BOUNDARY_PAUSE,
+                ]),
+                "exercise the worker deadline",
+            )?;
+            ensure!(
+                output.status.code() == Some(i32::from(BOUNDARY_TIMEOUT)),
+                "the deadline fixture didn't stop its child: {}",
+                output.status
+            );
+            Ok(BOUNDARY_TIMEOUT)
+        }
         "oom" => {
             let bytes = vec![1_u8; OVER_BUDGET_ALLOCATION];
             drop(std::hint::black_box(bytes));
