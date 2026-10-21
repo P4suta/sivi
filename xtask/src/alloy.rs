@@ -193,12 +193,12 @@ impl Session<'_> {
 pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
-    let output = tempfile::tempdir().context("create the Alloy output directory")?;
+    let output = crate::containers::job(&root, "alloy-")?;
     let image = image(&root)?;
     build(&root, &image, campaign)?;
     let session = Session {
         root: &root,
-        output: output.path(),
+        output: &output,
         image: &image,
     };
     let mut checked: usize = 0;
