@@ -4,7 +4,7 @@
   extends: ['github>P4suta/renovate-config'],
   // A release waits three days before Renovate proposes it, so a pulled release never reaches a host.
   minimumReleaseAge: '3 days',
-  enabledManagers: ['github-actions', 'mise', 'cargo', 'dockerfile', 'custom.regex'],
+  enabledManagers: ['github-actions', 'mise', 'cargo', 'dockerfile', 'npm', 'custom.regex'],
   customManagers: [
     {
       customType: 'regex',
