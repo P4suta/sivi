@@ -375,13 +375,13 @@ pub fn verify(root: &Path, campaign: &Campaign<'_>, generated: u32, seed: u64) -
     );
     let theme = sivi_theme::parse(sivi_theme::PLAIN)
         .map_err(|diagnostics| anyhow::anyhow!("the plain theme does not load: {diagnostics:?}"))?;
-    let scratch = tempfile::tempdir().context("create the reference scratch directory")?;
+    let scratch = containers::job(root, "prolog-")?;
     let mut cases = fixture_cases(root, &theme)?;
     cases.extend(generated_cases(&theme, generated, seed)?);
     ensure!(!cases.is_empty(), "no slide to bind");
     for case in &cases {
         let ours = bind(case);
-        let theirs = reference(root, scratch.path(), campaign, case)?;
+        let theirs = reference(root, &scratch, campaign, case)?;
         ensure!(
             ours == theirs,
             "{}: the binder and the reference differ:\n  binder:    {ours:?}\n  reference: {theirs:?}",
@@ -397,7 +397,7 @@ pub fn verify(root: &Path, campaign: &Campaign<'_>, generated: u32, seed: u64) -
         *first = Err(Code::NoSlotForBlock);
     }
     ensure!(
-        control != reference(root, scratch.path(), campaign, tampered)?,
+        control != reference(root, &scratch, campaign, tampered)?,
         "the reference agreed with a tampered binding, so the comparison cannot fail"
     );
     eprintln!(

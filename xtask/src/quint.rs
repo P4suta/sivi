@@ -420,11 +420,11 @@ fn start(root: &Path, output: &Path, campaign: &Campaign<'_>) -> Result<String> 
 pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
-    let output = tempfile::tempdir().context("create the Quint output directory")?;
-    let image = start(&root, output.path(), campaign)?;
+    let output = crate::containers::job(&root, "quint-")?;
+    let image = start(&root, &output, campaign)?;
     let session = Session {
         root: &root,
-        output: output.path(),
+        output: &output,
         image: &image,
     };
     let found = models(&manifest);
@@ -458,18 +458,18 @@ pub fn generate(root: &Path) -> Result<()> {
 fn generate_in(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
-    let output = tempfile::tempdir().context("create the Quint output directory")?;
-    let image = start(&root, output.path(), campaign)?;
+    let output = crate::containers::job(&root, "quint-")?;
+    let image = start(&root, &output, campaign)?;
     let session = Session {
         root: &root,
-        output: output.path(),
+        output: &output,
         image: &image,
     };
     fs::create_dir_all(&root.join(TRACES))?;
     for (model, quint) in models(&manifest) {
         session.write_traces(campaign, &model, quint)?;
         for name in Session::trace_names(quint) {
-            let fresh = fs::read(&output.path().join("traces").join(&name))
+            let fresh = fs::read(&output.join("traces").join(&name))
                 .with_context(|| format!("Quint wrote no trace {name}"))?;
             fs::write(&root.join(TRACES).join(&name), &settled(&fresh)?)?;
         }
