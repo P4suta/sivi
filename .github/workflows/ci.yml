@@ -93,6 +93,10 @@ jobs:
             target/proofs/containers/
             target/proofs/container-build/*.log
             target/proofs/jobs/**/kani/*.json
+            target/proofs/jobs/alloy-*/**/*.json
+            target/proofs/jobs/alloy-*/**/*.xml
+            target/proofs/jobs/quint-*/**/*.json
+            target/proofs/jobs/prolog-*/*.json
           if-no-files-found: error
           retention-days: 5
 

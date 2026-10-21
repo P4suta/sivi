@@ -115,12 +115,12 @@ fn check(session: Session<'_>, campaign: &Campaign<'_>, model: &TlaModel) -> Res
 pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
-    let output = tempfile::tempdir().context("create the TLC output directory")?;
+    let output = crate::containers::job(&root, "tla-")?;
     let image = quint::image(&root)?;
     quint::build(&root, &image, campaign)?;
     let session = Session {
         root: &root,
-        output: output.path(),
+        output: &output,
         image: &image,
     };
     let found = models(&manifest);

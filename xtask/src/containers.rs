@@ -10,7 +10,7 @@ use std::cell::{Cell, RefCell};
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub const LEASE_IMAGE: &str = "docker.io/library/busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e";
@@ -967,16 +967,23 @@ pub fn cleanup(root: &Path, identity: &str) -> Result<()> {
     campaign.close()
 }
 
-fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<Output> {
-    let image = rust_image(root)?;
-    campaign.build(&image, RUST_IMAGE_DIRECTORY, root)?;
+/// Keeps verifier outputs available after success, refusal, or cancellation.
+pub(crate) fn job(root: &Path, prefix: &str) -> Result<PathBuf> {
     let jobs = root.join(JOB_DIRECTORY);
     fs::create_dir_all(&jobs)?;
     let job = tempfile::Builder::new()
-        .prefix("rust-")
+        .prefix(prefix)
         .tempdir_in(&jobs)
         .context("create the proof job directory")?
         .keep();
+    eprintln!("proof outputs: {}", job.display());
+    Ok(job)
+}
+
+fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<Output> {
+    let image = rust_image(root)?;
+    campaign.build(&image, RUST_IMAGE_DIRECTORY, root)?;
+    let job = job(root, "rust-")?;
     fs::create_dir_all(&job.join("tmp"))?;
     for corpus in CORPORA {
         fs::copy_directory(&root.join(corpus), &job.join(corpus))?;
@@ -1011,7 +1018,6 @@ fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<O
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    eprintln!("proof outputs: {}", job.display());
     Ok(output)
 }
 
@@ -1094,6 +1100,25 @@ pub fn boundary(root: &Path, probe: &str) -> Result<u8> {
 mod tests {
     use super::{create_arguments, finish};
     use std::ffi::OsString;
+
+    #[test]
+    fn model_jobs_keep_separate_evidence_after_their_creation_scope_ends() {
+        let root = tempfile::tempdir().unwrap();
+        let first = super::job(root.path(), "quint-").unwrap();
+        let second = super::job(root.path(), "quint-").unwrap();
+        assert_ne!(first, second);
+        assert!(first.starts_with(root.path().join(super::JOB_DIRECTORY)));
+        crate::fs::write(&first.join("evidence.json"), b"first").unwrap();
+        crate::fs::write(&second.join("evidence.json"), b"second").unwrap();
+        assert_eq!(
+            crate::fs::read(&first.join("evidence.json")).unwrap(),
+            b"first"
+        );
+        assert_eq!(
+            crate::fs::read(&second.join("evidence.json")).unwrap(),
+            b"second"
+        );
+    }
 
     #[test]
     fn image_recipes_keep_the_verifier_versions_the_gate_requires() {
