@@ -6,6 +6,14 @@ use std::path::{Path, PathBuf};
 /// The most bytes one read admits, which is the image limit of the deck format.
 pub const MAX_READ: u64 = 32 * 1024 * 1024;
 
+/// The path label used by diagnostics, with forward slashes between native components.
+#[must_use]
+pub fn path_label(path: &Path) -> String {
+    path.display()
+        .to_string()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
 mod raw {
     #![expect(
         clippy::disallowed_methods,
@@ -73,14 +81,14 @@ impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             ReadErrorKind::Io(error) => {
-                write!(formatter, "cannot read {}: {error}", self.path.display())
+                write!(formatter, "cannot read {}: {error}", path_label(&self.path))
             }
             ReadErrorKind::TooLarge => write!(
                 formatter,
                 "{} holds more than {MAX_READ} bytes",
-                self.path.display()
+                path_label(&self.path)
             ),
-            ReadErrorKind::NotUtf8 => write!(formatter, "{} is not UTF-8", self.path.display()),
+            ReadErrorKind::NotUtf8 => write!(formatter, "{} is not UTF-8", path_label(&self.path)),
         }
     }
 }
@@ -156,8 +164,21 @@ pub fn entries(path: &Path) -> Result<Vec<PathBuf>, ReadError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReadErrorKind, read, read_to_string};
+    use super::{ReadErrorKind, path_label, read, read_to_string};
     use std::path::Path;
+
+    #[test]
+    fn diagnostic_paths_use_slashes_between_native_components() {
+        let path = Path::new("slides").join("図").join("deck.md");
+        assert_eq!(path_label(&path), "slides/図/deck.md");
+        #[cfg(unix)]
+        assert_eq!(path_label(Path::new(r"literal\name")), r"literal\name");
+        #[cfg(windows)]
+        assert_eq!(
+            path_label(Path::new(r"C:\slides\deck.md")),
+            "C:/slides/deck.md"
+        );
+    }
 
     #[test]
     fn a_read_returns_the_bytes_and_names_a_missing_file() {
