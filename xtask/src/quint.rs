@@ -41,7 +41,7 @@ const DIGEST_DIGITS: usize = 16;
 const PROBE_SAMPLES: &str = "1000";
 
 /// One worker keeps the model checker's state count exact and the run repeatable.
-const TLC_CONFIG: &str = r#"{"workers": 1}"#;
+const TLC_CONFIG: &str = r#"{"workers":1,"maxHeap":"-Xmx2g","stackSize":"-Xss8m"}"#;
 
 /// The verbosity at which Quint passes on the model checker's own report, which holds the state count.
 const TLC_REPORT: &str = "3";
@@ -484,6 +484,35 @@ mod tests {
         witnessed,
     };
     use std::path::Path;
+
+    #[test]
+    fn model_checker_memory_leaves_headroom_for_the_compiler_and_node() {
+        const GIB: i64 = 1024 * 1024 * 1024;
+        const MIB: i64 = 1024 * 1024;
+        let config: serde_json::Value = serde_json::from_str(super::TLC_CONFIG).unwrap();
+        let heap: i64 = config["maxHeap"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("-Xmx")
+            .unwrap()
+            .strip_suffix('g')
+            .unwrap()
+            .parse()
+            .unwrap();
+        let stack: i64 = config["stackSize"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("-Xss")
+            .unwrap()
+            .strip_suffix('m')
+            .unwrap()
+            .parse()
+            .unwrap();
+        let memory = sivi_core::verification_rules::MEMORY_BYTES;
+        assert!(heap > 0 && heap * GIB <= memory / 2);
+        assert!(stack > 0 && stack * MIB <= memory / 64);
+        assert_eq!(config["workers"], 1);
+    }
 
     #[test]
     fn a_settled_trace_keeps_its_states_and_forgets_the_run() {
