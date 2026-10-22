@@ -1,8 +1,14 @@
 ---
-status: accepted
+status: amended
 date: 2026-10-13
 ---
 # Deliver the first version through local commits without a hosted repository
+
+## Status
+
+The [release-gate decision](run-heavy-verification-at-the-release-gate.md) amends the gate timing from 2026-10-22.
+`just push-check` now runs only the fast gate, and release acceptance requires the heavy inventory.
+The original local-delivery decision below records the initial workflow.
 
 ## Context
 

@@ -1,0 +1,118 @@
+name: Release check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MISE_AUTO_INSTALL: "false"
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+
+jobs:
+  acceptance:
+    name: Complete candidate verification
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+        with:
+          install_args: >-
+            rust just taplo typos actionlint zizmor
+            aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit
+            aqua:nextest-rs/nextest/cargo-nextest cargo:kani-verifier@0.68.0
+            cargo:cargo-fuzz@0.13.2 cargo:cargo-mutants@27.1.0
+            github:ouch-org/ouch gh
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: sivi-release-v1
+          cache-bin: false
+      - name: Install the pinned proof toolchains
+        run: |
+          rustup toolchain install nightly-2026-08-21 --profile minimal --component miri --component rust-src
+          rustup toolchain install 1.98.1 --profile minimal
+      - run: cargo kani setup
+      - name: Install checksum-verified Z3
+        env:
+          Z3_VERSION: 5.1.0
+          Z3_LINUX_X64_SHA256: f47be8d27d3230e823bf1eeede2fe0abaca55bb78d0b59974370e6689a92284a
+        run: |
+          archive="$RUNNER_TEMP/z3.zip"
+          curl --fail --show-error --location --output "$archive" \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-2.39.zip"
+          printf '%s  %s\n' "$Z3_LINUX_X64_SHA256" "$archive" | sha256sum --check --strict -
+          unzip -q "$archive" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/z3-${Z3_VERSION}-x64-glibc-2.39/bin" >> "$GITHUB_PATH"
+      - name: Install checksum-verified SWI-Prolog
+        env:
+          SWIPL_VERSION: 10.0.2
+          # The digest is published at https://www.swi-prolog.org/download/stable.
+          SWIPL_SHA256: e42cc098f7b8a6051c4f79a99b55162d467098aba60f69649bdc7583f0734b57
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends cmake ninja-build libgmp-dev libssl-dev libedit-dev libarchive-dev libpcre2-dev libyaml-dev zlib1g-dev uuid-dev
+          archive="$RUNNER_TEMP/swipl.tar.gz"
+          curl --fail --show-error --location --output "$archive" \
+            "https://www.swi-prolog.org/download/stable/src/swipl-${SWIPL_VERSION}.tar.gz"
+          printf '%s  %s\n' "$SWIPL_SHA256" "$archive" | sha256sum --check --strict -
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/swipl-${SWIPL_VERSION}" -B "$RUNNER_TEMP/swipl-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/swipl" \
+            -DSWIPL_PACKAGES_X=OFF -DSWIPL_PACKAGES_JAVA=OFF -DSWIPL_PACKAGES_ODBC=OFF \
+            -DINSTALL_DOCUMENTATION=OFF -DBUILD_TESTING=OFF
+          cmake --build "$RUNNER_TEMP/swipl-build" --parallel 2
+          cmake --install "$RUNNER_TEMP/swipl-build"
+          echo "$RUNNER_TEMP/swipl/bin" >> "$GITHUB_PATH"
+      - name: Run the fast gate and every verifier, including mutation testing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise x -- just release-check
+
+  test:
+    name: Native tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+        with:
+          install_args: rust aqua:nextest-rs/nextest/cargo-nextest
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: sivi-release-v1
+          cache-bin: false
+      - run: cargo xtask ci test
+
+  release-success:
+    name: release-success
+    if: always()
+    needs: [acceptance, test]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+        with:
+          install_args: rust
+      - name: Require complete candidate verification
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: cargo xtask ci gate release

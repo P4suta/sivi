@@ -14,7 +14,7 @@ When a new class of bug appears, the fix adds a rule to this list, not only a pa
 | The obligation manifest matches the harnesses the rule modules define | A harness added or removed without its contract and bound being stated | `cargo xtask proofs` |
 | Each verifier of the portfolio owns one class of property | Two proofs of one property, which diverge and double the cost | `verification/obligations.toml`; the verification portfolio record |
 | Every verifier is shown to refuse a false claim before its result counts | A tool error or an empty run read as a pass | The fixtures under `xtask/proofs/` |
-| A parser has a fuzz target with a committed corpus, replayed before every push | A crash on a shape no test wrote | The machine-wide parser shape; `cargo xtask proofs` |
+| A parser has a fuzz target with a committed corpus, replayed at the release gate and on demand | A crash on a shape no test wrote | The machine-wide parser shape; `cargo xtask proofs` |
 | Each effect has one owner, and only its private `raw` module calls the reserved API | Effects scattered where no policy applies | Clippy `disallowed-methods`, `disallowed-macros`, `disallowed-types` |
 | Errors are matched, never turned into absence | A failure mistaken for "nothing there" | `disallowed-methods` on `Result::ok`, `unwrap_or`, `Path::exists`, and similar |
 | Every match is exhaustive | A new variant silently taking a default path | `clippy::wildcard_enum_match_arm` |
@@ -46,6 +46,8 @@ Everything outside `raw`, including the rest of the owner, stays fully linted.
 ## Verification
 
 - `just check` runs the lint, structure, record, test, and dependency gates.
-- `just proofs` runs Kani with its rejecting probes, Miri, the fuzz corpus replays, and the mutation campaign, and refuses each verifier's fixture.
-- `just proofs-ci` runs the same without the mutation campaign, which stays local.
+- `just push-check` runs only that fast gate on the current host; pull-request CI runs it on one pinned Linux runner.
+- The manually dispatched release workflow runs `just release-check`, which adds the full proof inventory, Miri, fuzz corpus replays, and mutation testing, and adds native macOS and Windows tests.
+- `just proofs`, `just mutants`, and `just fuzz` remain on-demand commands, and `just proofs-ci` is a reduced on-demand inventory without mutation testing.
+- Heavy local commands run through `just bounded IMAGE COMMAND...` under the owner's container resource policy, as [Contributing](../CONTRIBUTING.md) describes.
 - The generated repository files are checked with the owner's `dotfiles repository check`; a host without that tool notes its absence instead of claiming the check.
