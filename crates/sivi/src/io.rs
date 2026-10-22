@@ -80,6 +80,11 @@ pub enum ReadErrorKind {
 impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
+            ReadErrorKind::Io(error) if error.kind() == std::io::ErrorKind::NotFound => write!(
+                formatter,
+                "cannot read {}: file or directory not found",
+                path_label(&self.path)
+            ),
             ReadErrorKind::Io(error) => {
                 write!(formatter, "cannot read {}: {error}", path_label(&self.path))
             }
@@ -93,7 +98,14 @@ impl fmt::Display for ReadError {
     }
 }
 
-impl std::error::Error for ReadError {}
+impl std::error::Error for ReadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            ReadErrorKind::Io(error) => Some(error),
+            ReadErrorKind::TooLarge | ReadErrorKind::NotUtf8 => None,
+        }
+    }
+}
 
 /// The bytes of the file at `path`, up to `MAX_READ`.
 ///
@@ -164,7 +176,8 @@ pub fn entries(path: &Path) -> Result<Vec<PathBuf>, ReadError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReadErrorKind, path_label, read, read_to_string};
+    use super::{ReadError, ReadErrorKind, path_label, read, read_to_string};
+    use std::error::Error as _;
     use std::path::Path;
 
     #[test]
@@ -178,6 +191,24 @@ mod tests {
             path_label(Path::new(r"C:\slides\deck.md")),
             "C:/slides/deck.md"
         );
+    }
+
+    #[test]
+    fn missing_entries_have_one_diagnostic_and_keep_the_native_source() {
+        for native in [
+            "No such file or directory (os error 2)",
+            "The system cannot find the path specified. (os error 3)",
+        ] {
+            let error = ReadError {
+                path: Path::new("themes").join("missing").join("theme.toml"),
+                kind: ReadErrorKind::Io(std::io::Error::new(std::io::ErrorKind::NotFound, native)),
+            };
+            assert_eq!(
+                error.to_string(),
+                "cannot read themes/missing/theme.toml: file or directory not found"
+            );
+            assert_eq!(error.source().unwrap().to_string(), native);
+        }
     }
 
     #[test]
