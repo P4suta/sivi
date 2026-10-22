@@ -32,6 +32,7 @@ const RUST_IMAGE_DIRECTORY: &str = "xtask/proofs/rust";
 const PROLOG_RECIPE: &str = "xtask/proofs/prolog/Dockerfile";
 const JOB_DIRECTORY: &str = "target/proofs/jobs";
 const DOCKER_MARKER: &str = "/.dockerenv";
+const DOCKER_NOT_STARTED: &str = "0001-01-01T00:00:00Z";
 const CGROUP_CPU: &str = "/sys/fs/cgroup/cpu.max";
 const CGROUP_MEMORY: &str = "/sys/fs/cgroup/memory.max";
 const CGROUP_SWAP: &str = "/sys/fs/cgroup/memory.swap.max";
@@ -86,6 +87,7 @@ struct State {
     oom_killed: bool,
     exit_code: i32,
     error: String,
+    started_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -520,7 +522,7 @@ impl<'a> Campaign<'a> {
             if !verification_rules::completed(
                 after.state.exit_code,
                 after.state.oom_killed,
-                !after.state.error.is_empty(),
+                !after.state.error.is_empty() || after.state.started_at == DOCKER_NOT_STARTED,
             ) {
                 return Err(anyhow::Error::new(Incomplete {
                     oom: after.state.oom_killed,
@@ -593,7 +595,6 @@ impl<'a> Campaign<'a> {
             Tool::Docker.command(self.root).args(["logs", name]),
             "read the bounded worker log",
         )?;
-        ensure!(logs.status.success(), "the worker log is unavailable");
         fs::write(&evidence.with_extension("stdout"), &logs.stdout)?;
         fs::write(&evidence.with_extension("stderr"), &logs.stderr)?;
         fs::write(&evidence, serde_json::to_vec_pretty(&serde_json::json!({
@@ -603,9 +604,16 @@ impl<'a> Campaign<'a> {
             "memory_swap": after.host_config.memory_swap, "processes": after.host_config.pids_limit,
             "role": after.config.labels.get("org.sivi.verification"),
             "exit_code": after.state.exit_code, "oom_killed": after.state.oom_killed,
-            "error": after.state.error, "elapsed_seconds": self.started.elapsed().as_secs()
+            "error": after.state.error, "started_at": after.state.started_at,
+            "log_exit_code": logs.status.code(),
+            "elapsed_seconds": self.started.elapsed().as_secs()
         }))?.as_slice())?;
         self.evidence.borrow_mut().push(serde_json::json!({"container": after.id, "image": after.image, "evidence": crate::portable(&evidence)}));
+        ensure!(
+            logs.status.success()
+                || (!after.state.running && after.state.started_at == DOCKER_NOT_STARTED),
+            "the worker log is unavailable"
+        );
         Ok((after, logs))
     }
 }
@@ -628,12 +636,6 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
         "org.sivi.verification=builder",
         "--label",
         &format!("org.sivi.campaign={campaign}"),
-        "--log-driver",
-        "local",
-        "--log-opt",
-        "max-size=10m",
-        "--log-opt",
-        "max-file=1",
         "--security-opt",
         "seccomp=unconfined",
         "--security-opt",
@@ -645,6 +647,7 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
     ]
     .map(OsString::from)
     .into();
+    arguments.extend(log_arguments());
     arguments.extend(limit_arguments().map(OsString::from));
     arguments.extend(
         [
@@ -669,6 +672,20 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
         .map(OsString::from),
     );
     arguments
+}
+
+fn log_arguments() -> [OsString; 8] {
+    [
+        "--log-driver",
+        "local",
+        "--log-opt",
+        &format!("max-size={LOG_LIMIT}"),
+        "--log-opt",
+        "max-file=1",
+        "--log-opt",
+        "compress=false",
+    ]
+    .map(OsString::from)
 }
 
 const fn limit_arguments() -> [&'static str; 12] {
@@ -732,12 +749,6 @@ pub fn create_arguments(image: &str, arguments: &[OsString]) -> Result<Vec<OsStr
         "no-new-privileges=true",
         "--label",
         "org.sivi.verification=worker",
-        "--log-driver",
-        "local",
-        "--log-opt",
-        &format!("max-size={LOG_LIMIT}"),
-        "--log-opt",
-        "max-file=1",
         "--entrypoint",
         TIMEOUT_PROGRAM,
         "--platform",
@@ -745,6 +756,7 @@ pub fn create_arguments(image: &str, arguments: &[OsString]) -> Result<Vec<OsStr
     ]
     .map(OsString::from)
     .into();
+    result.extend(log_arguments());
     result.extend(limit_arguments().map(OsString::from));
     result.extend_from_slice(options);
     result.push(image.into());
@@ -1175,6 +1187,24 @@ mod tests {
                 .windows(2)
                 .any(|pair| pair == ["--memory-swap", "4g"].map(OsString::from))
         );
+    }
+
+    #[test]
+    fn a_single_retained_log_file_needs_compression_off_for_both_container_roles() {
+        let input: Vec<OsString> = ["run", "--rm", "--network", "none", "image", "false"]
+            .map(OsString::from)
+            .into();
+        for arguments in [
+            super::builder_arguments(std::path::Path::new("/config"), "lease"),
+            create_arguments("image", &input).unwrap(),
+        ] {
+            let options: Vec<_> = arguments
+                .windows(2)
+                .filter(|pair| pair[0] == "--log-opt")
+                .map(|pair| pair[1].to_str().unwrap())
+                .collect();
+            assert_eq!(options, ["max-size=10m", "max-file=1", "compress=false"]);
+        }
     }
 
     #[test]
