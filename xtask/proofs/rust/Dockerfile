@@ -3,10 +3,14 @@ FROM docker.io/library/rust:1.99.1-trixie@sha256:767c71592f7d1f3f242292000f8efd4
 ENV CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
 WORKDIR /source
 COPY . .
-RUN cargo build --locked --package xtask \
+RUN --mount=type=cache,id=sivi-worker-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=sivi-worker-target,target=/source/target,sharing=locked \
+    cargo build --locked --package xtask \
     && cp target/debug/xtask /usr/local/bin/sivi-proof-worker \
     && cargo fetch --locked --manifest-path fuzz/Cargo.toml \
-    && cargo fetch --locked --manifest-path xtask/proofs/fuzz-fixture/Cargo.toml
+    && cargo fetch --locked --manifest-path xtask/proofs/fuzz-fixture/Cargo.toml \
+    && mkdir -p /opt/sivi \
+    && cp -a /usr/local/cargo/registry /opt/sivi/registry
 
 FROM worker AS boundary
 
@@ -50,7 +54,7 @@ FROM tools AS proofs
 
 WORKDIR /source
 COPY --from=worker /source /source
-COPY --from=worker /usr/local/cargo/registry /usr/local/cargo/registry
+COPY --from=worker /opt/sivi/registry /usr/local/cargo/registry
 COPY --from=worker /usr/local/bin/sivi-proof-worker /usr/local/bin/sivi-proof-worker
 ENV CARGO_NET_OFFLINE=true CARGO_TARGET_DIR=/out/build TMPDIR=/out/tmp
 RUN mkdir -p /out/tmp

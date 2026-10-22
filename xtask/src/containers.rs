@@ -27,7 +27,7 @@ const WORKER_TIMEOUT: &str = "7200s";
 const LOG_LIMIT: &str = "10m";
 const PLATFORM: &str = "linux/amd64";
 const ID_DIGITS: usize = 12;
-const BUILDKIT_CONFIG: &str = "[worker.oci]\nrootless = true\nsnapshotter = \"native\"\nmax-parallelism = 1\nmaxUsedSpace = \"10GB\"\nreservedSpace = \"1GB\"\n";
+const BUILDKIT_CONFIG: &str = "[worker.oci]\nrootless = true\nsnapshotter = \"overlayfs\"\nmax-parallelism = 1\nmaxUsedSpace = \"10GB\"\nreservedSpace = \"1GB\"\n";
 const BUILDKIT_CONFIG_PATH: &str = "/etc/buildkit/sivi.toml";
 const PROOF_WORKER: &str = "/usr/local/bin/sivi-proof-worker";
 const RUST_IMAGE_DIRECTORY: &str = "xtask/proofs/rust";
@@ -1087,8 +1087,21 @@ fn rust_output(
         .iter()
         .position(|value| value == image.as_str())
         .context("worker image")?;
+    let mounts = writable_mounts(root, &job)?;
+    arguments.splice(image_index..image_index, mounts);
+    let output = campaign.run(&image, &arguments)?;
+    eprint!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(output)
+}
+
+fn writable_mounts(root: &Path, job: &Path) -> Result<Vec<OsString>> {
     let mut mounts = Vec::new();
     for directory in WRITABLE_DIRECTORIES {
+        fs::create_dir_all(&root.join(directory))?;
         let output = job.join(directory);
         fs::create_dir_all(&output)?;
         mounts.extend([
@@ -1100,14 +1113,7 @@ fn rust_output(
             ),
         ]);
     }
-    arguments.splice(image_index..image_index, mounts);
-    let output = campaign.run(&image, &arguments)?;
-    eprint!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    Ok(output)
+    Ok(mounts)
 }
 
 /// Exercises the real Docker boundary, including intentional incomplete results.
@@ -1210,6 +1216,21 @@ pub fn boundary(root: &Path, probe: &str) -> Result<u8> {
 mod tests {
     use super::{create_arguments, finish};
     use std::ffi::OsString;
+
+    #[test]
+    fn output_mountpoints_exist_before_the_parent_source_becomes_read_only() {
+        let source = tempfile::tempdir().unwrap();
+        let job = tempfile::tempdir().unwrap();
+        let corpus = source.path().join("fuzz/corpus/seed");
+        crate::fs::write(&corpus, b"original seed").unwrap();
+        let mounts = super::writable_mounts(source.path(), job.path()).unwrap();
+        assert_eq!(mounts.len(), super::WRITABLE_DIRECTORIES.len() * 2);
+        for directory in super::WRITABLE_DIRECTORIES {
+            assert!(crate::fs::is_directory(&source.path().join(directory)).unwrap());
+            assert!(crate::fs::is_directory(&job.path().join(directory)).unwrap());
+        }
+        assert_eq!(crate::fs::read(&corpus).unwrap(), b"original seed");
+    }
 
     #[test]
     fn model_jobs_keep_separate_evidence_after_their_creation_scope_ends() {

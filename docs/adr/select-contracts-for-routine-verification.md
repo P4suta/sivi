@@ -26,8 +26,11 @@ These deadlines limit occupancy and never establish a verdict.
 
 The boundary image builds the worker without installing proof tools.
 The tool stage is independent of the source stage, so source edits don't invalidate tool preparation in the BuildKit cache.
+Cargo's registry and worker artifacts also use bounded BuildKit caches across source changes.
+Rootless overlayfs avoids copying the whole compiler filesystem for each build step and requires [Linux 5.11 or an Ubuntu kernel](https://github.com/moby/buildkit/blob/v0.34.1/docs/rootless.md#known-limitations).
 Official prebuilt nextest, cargo-fuzz, and cargo-mutants binaries replace source installation, with fixed release URLs and SHA-256 checksums.
 The existing CPU, memory, swap, process, isolation, evidence, and cleanup contracts stay in force.
+Generated mountpoint directories exist before the source becomes read-only; writable submounts still belong to each job and never replace the committed corpus.
 
 Automatic CI runs on pull requests and merge groups, without repeating the same checks on a push to main.
 The manual full-portfolio option defaults to off.
