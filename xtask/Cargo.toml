@@ -10,6 +10,7 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+ctrlc = { version = "3.5.2", features = ["termination"] }
 sivi-core.workspace = true
 sivi-markdown.workspace = true
 sivi-theme.workspace = true

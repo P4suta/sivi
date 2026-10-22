@@ -6,6 +6,14 @@ use std::path::{Path, PathBuf};
 /// The most bytes one read admits, which is the image limit of the deck format.
 pub const MAX_READ: u64 = 32 * 1024 * 1024;
 
+/// The path label used by diagnostics, with forward slashes between native components.
+#[must_use]
+pub fn path_label(path: &Path) -> String {
+    path.display()
+        .to_string()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
 mod raw {
     #![expect(
         clippy::disallowed_methods,
@@ -72,20 +80,32 @@ pub enum ReadErrorKind {
 impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
+            ReadErrorKind::Io(error) if error.kind() == std::io::ErrorKind::NotFound => write!(
+                formatter,
+                "cannot read {}: file or directory not found",
+                path_label(&self.path)
+            ),
             ReadErrorKind::Io(error) => {
-                write!(formatter, "cannot read {}: {error}", self.path.display())
+                write!(formatter, "cannot read {}: {error}", path_label(&self.path))
             }
             ReadErrorKind::TooLarge => write!(
                 formatter,
                 "{} holds more than {MAX_READ} bytes",
-                self.path.display()
+                path_label(&self.path)
             ),
-            ReadErrorKind::NotUtf8 => write!(formatter, "{} is not UTF-8", self.path.display()),
+            ReadErrorKind::NotUtf8 => write!(formatter, "{} is not UTF-8", path_label(&self.path)),
         }
     }
 }
 
-impl std::error::Error for ReadError {}
+impl std::error::Error for ReadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            ReadErrorKind::Io(error) => Some(error),
+            ReadErrorKind::TooLarge | ReadErrorKind::NotUtf8 => None,
+        }
+    }
+}
 
 /// The bytes of the file at `path`, up to `MAX_READ`.
 ///
@@ -156,8 +176,40 @@ pub fn entries(path: &Path) -> Result<Vec<PathBuf>, ReadError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReadErrorKind, read, read_to_string};
+    use super::{ReadError, ReadErrorKind, path_label, read, read_to_string};
+    use std::error::Error as _;
     use std::path::Path;
+
+    #[test]
+    fn diagnostic_paths_use_slashes_between_native_components() {
+        let path = Path::new("slides").join("図").join("deck.md");
+        assert_eq!(path_label(&path), "slides/図/deck.md");
+        #[cfg(unix)]
+        assert_eq!(path_label(Path::new(r"literal\name")), r"literal\name");
+        #[cfg(windows)]
+        assert_eq!(
+            path_label(Path::new(r"C:\slides\deck.md")),
+            "C:/slides/deck.md"
+        );
+    }
+
+    #[test]
+    fn missing_entries_have_one_diagnostic_and_keep_the_native_source() {
+        for native in [
+            "No such file or directory (os error 2)",
+            "The system cannot find the path specified. (os error 3)",
+        ] {
+            let error = ReadError {
+                path: Path::new("themes").join("missing").join("theme.toml"),
+                kind: ReadErrorKind::Io(std::io::Error::new(std::io::ErrorKind::NotFound, native)),
+            };
+            assert_eq!(
+                error.to_string(),
+                "cannot read themes/missing/theme.toml: file or directory not found"
+            );
+            assert_eq!(error.source().unwrap().to_string(), native);
+        }
+    }
 
     #[test]
     fn a_read_returns_the_bytes_and_names_a_missing_file() {

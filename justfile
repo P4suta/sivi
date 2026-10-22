@@ -25,10 +25,6 @@ release-check: trust
     mise x -- cargo xtask check
     mise x -- cargo xtask proofs
 
-# Run an on-demand command in a prepared immutable Linux image under the owner's resource policy.
-bounded image +command: trust
-    dotfiles bounded run --image {{ quote(image) }} --project {{ quote(justfile_directory()) }} -- {{ command }}
-
 # The pure core keeps its boundary and every crate keeps its place.
 structure: trust
     mise x -- cargo xtask structure

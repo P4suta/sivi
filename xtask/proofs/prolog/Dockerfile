@@ -1,0 +1,1 @@
+FROM docker.io/library/swipl:10.1.16@sha256:7c5f436905b725ced323818c96b07b1e971fe52dbcc25de91b9332cb20f98615

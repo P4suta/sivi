@@ -4,7 +4,16 @@
   extends: ['github>P4suta/renovate-config'],
   // A release waits three days before Renovate proposes it, so a pulled release never reaches a host.
   minimumReleaseAge: '3 days',
-  enabledManagers: ['github-actions', 'mise', 'cargo', 'dockerfile'],
+  enabledManagers: ['github-actions', 'mise', 'cargo', 'dockerfile', 'custom.regex'],
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^xtask/src/containers\\.rs$/'],
+      matchStrings: ['(?<depName>docker\\.io/[a-z0-9_/-]+):(?<currentValue>[^@"]+)@(?<currentDigest>sha256:[a-f0-9]{64})'],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
+  ],
   packageRules: [
     {
       // The Typst crates move together, so one pull request carries the whole family.

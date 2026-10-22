@@ -14,12 +14,12 @@ Unrun heavy checks remain unverified until a candidate run supplies their eviden
 | Alloy | 6.2.0 in a pinned image, offline | `specs/theme.als`: under the theme validators a point lies in at most one front slot interior, with a backdrop under a front slot in the instance, every section number names one slot, and every `follows` chain ends; each with an instance | Each assertion without its validator, which Alloy must refute |
 | Quint | 0.33.0 with Apalache 0.62.1 in a pinned image, offline | `specs/binder.qnt`: the binding automaton holds `safe` in every reachable state under TLC with the recorded state count, witnesses every outcome, and reproduces the committed traces, which `crates/sivi/tests/binder_replay.rs` replays through `binder::step`; `specs/ui.qnt`: the interface machine holds `safe`, that quitting is one key away, one build runs at a time, and every selection stays within its count, with its traces replayed by `crates/sivi/tests/ui_replay.rs` through `ui_rules::step` | `binder_probe`, the automaton without capacities, and `ui_probe`, the machine without its build guard, which TLC must refute |
 | TLA+ | TLC of Apalache 0.62.1 in the Quint image, offline | `specs/publish.tla`: the atomic publication never lets the output name a partial file, success leaves the new file, failure leaves the old one, and every run ends, over every interleaving with a failure or a crash at each step, with the recorded state count | `specs/publish_probe.cfg`, which writes the output in place and which TLC must refute on `OutputNeverPartial` |
-| Prolog | SWI-Prolog 10.0.2 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
+| Prolog | SWI-Prolog 10.1.16 | `specs/binding.pl`, an executable reference of the binding grammar written apart from the binder: every fixture slide and two hundred generated slides bind the same way under both | A tampered binding of one slide, which the comparison must refuse |
 | Miri | nightly-2026-08-21 | The tests of every crate that never calls Typst, through nextest under the `miri` profile, which ends a test that outlives two minutes and names it; the tests over the full plain theme, the bundled fonts, the carried font catalog, and the exhaustive color and palette sweeps are skipped, since Miri interprets each in minutes, and smaller tests over the same code stand in for them | `xtask/proofs/miri-fixture`, which reads past a slice |
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
 | cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants; the generated color tables are left out, since a mutated entry is data that the generator check and the light-table proof own | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
-Each run writes a receipt under `target/proofs/receipts/` with the verifier's version and a digest of the core sources and the manifest.
+Each run writes a receipt under `target/proofs/receipts/` bound to the complete source inputs, selected scope, verifier version, container image, limits, and completed result.
 
 ## What each rule module proves
 
@@ -42,7 +42,8 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
 | `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; a channel over another lies between the two and is either one at the ends; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
 | `palette_rules` | the hues of every harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families; three hues form at least one family and at most three, one when they lie within the span | — |
-| `ui_rules` | the quit key leaves every state quitting; a build starts only when none runs or the one that ran has ended; every selection stays within its count after every event, over every state and event | — |
+| `ui_rules` | both streams must be terminals before the interface opens; the quit key leaves every state quitting; a build starts only when none runs or the one that ran has ended; every selection stays within its count after every event, over every state and event | — |
+| `verification_rules` | admitted workers have hard CPU, memory, swap, and process ceilings; incomplete terminations never supply a result; verifier selection preserves every input's obligations | — |
 
 ## What the fuzz targets replay
 
@@ -60,7 +61,7 @@ The Typst layout engine is an external boundary; `docs/verification/typst-bounda
 
 ## The last full run
 
-`just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with every version above.
+`just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with the versions pinned at that time.
 At that time, `push-check` included the heavy inventory; [the release-gate decision](../adr/run-heavy-verification-at-the-release-gate.md) changes its timing from 2026-10-22 onward.
 The receipts under `target/proofs/receipts/` name one input digest for every verifier of that run.
 

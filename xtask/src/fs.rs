@@ -26,6 +26,14 @@ mod raw {
         std::fs::write(path, bytes)
     }
 
+    pub(super) fn create(path: &Path) -> std::io::Result<std::fs::File> {
+        std::fs::File::create(path)
+    }
+
+    pub(super) fn copy(source: &Path, destination: &Path) -> std::io::Result<u64> {
+        std::fs::copy(source, destination)
+    }
+
     pub(super) fn create_dir_all(path: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(path)
     }
@@ -71,6 +79,18 @@ pub fn write(path: &Path, bytes: &[u8]) -> Result<()> {
         create_dir_all(parent)?;
     }
     raw::write(path, bytes).with_context(|| format!("write {}", path.display()))
+}
+
+/// Opens a new output stream, creating its parent directories.
+///
+/// # Errors
+///
+/// Reports an unavailable output path.
+pub fn create(path: &Path) -> Result<std::fs::File> {
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent)?;
+    }
+    raw::create(path).with_context(|| format!("create {}", path.display()))
 }
 
 /// Creates a directory and its parents.
@@ -160,6 +180,36 @@ pub fn files_with_suffix(directory: &Path, suffix: &str) -> Result<Vec<PathBuf>>
     Ok(found)
 }
 
+/// Copies corpus inputs into one job's writable directory.
+///
+/// # Errors
+///
+/// Reports missing or unreadable inputs without changing the source corpus.
+pub fn copy_directory(source: &Path, destination: &Path) -> Result<()> {
+    anyhow::ensure!(is_directory(source)?, "missing corpus {}", source.display());
+    create_dir_all(destination)?;
+    for path in entries(source)? {
+        anyhow::ensure!(
+            !std::fs::symlink_metadata(&path)?.file_type().is_symlink(),
+            "corpus symlink {}",
+            path.display()
+        );
+        let name = path.file_name().context("a corpus entry has a name")?;
+        let target = destination.join(name);
+        match kind(&path)? {
+            Some(Kind::Directory) => copy_directory(&path, &target)?,
+            Some(Kind::File) => {
+                raw::copy(&path, &target)
+                    .with_context(|| format!("copy corpus {}", path.display()))?;
+            }
+            Some(Kind::Other) | None => {
+                anyhow::bail!("unsupported corpus input {}", path.display())
+            }
+        }
+    }
+    Ok(())
+}
+
 fn collect(directory: &Path, suffix: &str, found: &mut Vec<PathBuf>) -> Result<()> {
     for path in entries(directory)? {
         match kind(&path)? {
@@ -205,5 +255,17 @@ mod tests {
         remove_dir_all(&directory.path().join("a")).unwrap();
         assert_eq!(kind(&nested).unwrap(), None);
         remove_dir_all(&directory.path().join("a")).unwrap();
+    }
+
+    #[test]
+    fn a_copied_corpus_is_writable_without_changing_its_source() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let copied = directory.path().join("copy");
+        write(&source.join("nested/seed"), b"text").unwrap();
+        super::copy_directory(&source, &copied).unwrap();
+        assert_eq!(read_to_string(&copied.join("nested/seed")).unwrap(), "text");
+        write(&copied.join("nested/seed"), b"changed").unwrap();
+        assert_eq!(read_to_string(&source.join("nested/seed")).unwrap(), "text");
     }
 }

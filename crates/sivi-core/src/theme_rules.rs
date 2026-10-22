@@ -227,13 +227,11 @@ mod proofs {
         let Some(slice) = follows.get(..len) else {
             return;
         };
-        assert_eq!(follows_fault(slice).is_none(), spec_follows_ok(slice));
-        kani::cover!(follows_fault(slice).is_none() && slice.iter().any(Option::is_some));
-        kani::cover!(matches!(follows_fault(slice), Some(FollowsFault::Cycle(_))));
-        kani::cover!(matches!(
-            follows_fault(slice),
-            Some(FollowsFault::Unknown(_))
-        ));
+        let fault = follows_fault(slice);
+        assert_eq!(fault.is_none(), spec_follows_ok(slice));
+        kani::cover!(fault.is_none() && slice.iter().any(Option::is_some));
+        kani::cover!(matches!(fault, Some(FollowsFault::Cycle(_))));
+        kani::cover!(matches!(fault, Some(FollowsFault::Unknown(_))));
     }
 
     #[cfg(kani)]

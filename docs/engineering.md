@@ -49,5 +49,5 @@ Everything outside `raw`, including the rest of the owner, stays fully linted.
 - `just push-check` runs only that fast gate on the current host; pull-request CI runs it on one pinned Linux runner.
 - The manually dispatched release workflow runs `just release-check`, which adds the full proof inventory, Miri, fuzz corpus replays, and mutation testing, and adds native macOS and Windows tests.
 - `just proofs`, `just mutants`, and `just fuzz` remain on-demand commands, and `just proofs-ci` is a reduced on-demand inventory without mutation testing.
-- Heavy local commands run through `just bounded IMAGE COMMAND...` under the owner's container resource policy, as [Contributing](../CONTRIBUTING.md) describes.
+- Heavy commands prepare and run pinned, bounded containers automatically, as [Contributing](../CONTRIBUTING.md) describes.
 - The generated repository files are checked with the owner's `dotfiles repository check`; a host without that tool notes its absence instead of claiming the check.

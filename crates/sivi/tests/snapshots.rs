@@ -53,7 +53,7 @@ fn every_deck_fixture_renders_as_its_snapshots_say() {
     settings().bind(|| {
         for (name, dir) in fixtures(DECKS).unwrap() {
             let path = dir.join("deck.md");
-            let shown = path.display().to_string();
+            let shown = sivi::io::path_label(&path);
             let outcome = check(&path);
             assert_eq!(outcome.failure, None, "{name}");
             let sources = sources(&shown, &outcome);
@@ -75,7 +75,7 @@ fn every_theme_fixture_renders_as_its_snapshot_says() {
         for (name, dir) in fixtures(THEMES).unwrap() {
             let (label, text, diagnostics) = match themes::load(&Choice::Dir(dir.clone()), None) {
                 Ok((loaded, warnings)) => (loaded.label, loaded.text, warnings),
-                Err(diagnostics) => (dir.display().to_string(), String::new(), diagnostics),
+                Err(diagnostics) => (sivi::io::path_label(&dir), String::new(), diagnostics),
             };
             let sources = Sources {
                 deck_path: "",

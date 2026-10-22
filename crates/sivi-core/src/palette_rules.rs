@@ -726,6 +726,20 @@ mod tests {
 
     #[test]
     fn every_carried_palette_keeps_its_rules_under_a_name_of_its_own() {
+        let tested = [
+            "ink",
+            "indigo",
+            "sakura",
+            "matcha",
+            "sunset",
+            "ocean",
+            "wine",
+            "sand",
+            "slate-night",
+            "neon-night",
+            "forest",
+            "coral",
+        ];
         let mut names: Vec<&str> = Vec::new();
         for named in super::CURATED {
             assert!(!names.contains(&named.name), "{}", named.name);
@@ -738,12 +752,67 @@ mod tests {
                 named.name
             );
             names.push(named.name);
-            let grown = palette(named.seed, named.mode, named.harmony).unwrap();
-            assert_eq!(keeps(&grown), Some(true), "{named:?} {grown:?}");
+            assert!(tested.contains(&named.name));
             assert_eq!(super::curated(named.name), Some(named));
         }
         assert_eq!(names.len(), super::CURATED_COUNT);
+        assert_eq!(names.len(), tested.len());
         assert_eq!(super::curated("Sakura"), None);
+    }
+
+    fn carried(name: &str) {
+        let named = super::curated(name).unwrap();
+        let grown = palette(named.seed, named.mode, named.harmony).unwrap();
+        assert_eq!(keeps(&grown), Some(true), "{named:?} {grown:?}");
+    }
+
+    #[test]
+    fn ink_keeps_its_rules() {
+        carried("ink");
+    }
+    #[test]
+    fn indigo_keeps_its_rules() {
+        carried("indigo");
+    }
+    #[test]
+    fn sakura_keeps_its_rules() {
+        carried("sakura");
+    }
+    #[test]
+    fn matcha_keeps_its_rules() {
+        carried("matcha");
+    }
+    #[test]
+    fn sunset_keeps_its_rules() {
+        carried("sunset");
+    }
+    #[test]
+    fn ocean_keeps_its_rules() {
+        carried("ocean");
+    }
+    #[test]
+    fn wine_keeps_its_rules() {
+        carried("wine");
+    }
+    #[test]
+    fn sand_keeps_its_rules() {
+        carried("sand");
+    }
+    #[test]
+    fn slate_night_keeps_its_rules() {
+        carried("slate-night");
+    }
+    #[test]
+    fn neon_night_keeps_its_rules() {
+        carried("neon-night");
+    }
+    #[test]
+    fn forest_keeps_its_rules() {
+        carried("forest");
+    }
+    #[test]
+    fn coral_keeps_its_rules() {
+        carried("coral");
     }
 
     #[test]

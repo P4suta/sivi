@@ -69,19 +69,16 @@ mod proofs {
             && inner_bottom.wrapping_sub(outer_bottom) <= slack
     }
 
-    pub(super) fn spec_covered(backdrops: &[Rect], item: Rect, tolerance: Length) {
-        assert_eq!(
-            covered(backdrops, item, tolerance),
-            backdrops
-                .iter()
-                .any(|backdrop| spec_holds(*backdrop, item, tolerance))
-        );
+    pub(super) fn spec_covered(backdrops: &[Rect], item: Rect, tolerance: Length) -> bool {
+        let actual = covered(backdrops, item, tolerance);
+        let mut expected = false;
         for backdrop in backdrops {
-            assert_eq!(
-                holds(*backdrop, item, tolerance),
-                spec_holds(*backdrop, item, tolerance)
-            );
+            let contained = spec_holds(*backdrop, item, tolerance);
+            assert_eq!(holds(*backdrop, item, tolerance), contained);
+            expected |= contained;
         }
+        assert_eq!(actual, expected);
+        actual
     }
 
     pub(super) fn spec_region_of(regions: &[Rect], point: Point) {
@@ -177,9 +174,9 @@ mod proofs {
         let item = any_rect();
         let tolerance = any_length();
         kani::assume(tolerance.0 >= 0);
-        spec_covered(&backdrops[..count], item, tolerance);
-        kani::cover!(covered(&backdrops[..count], item, tolerance));
-        kani::cover!(!covered(&backdrops[..count], item, tolerance));
+        let covered = spec_covered(&backdrops[..count], item, tolerance);
+        kani::cover!(covered);
+        kani::cover!(!covered);
     }
 
     #[cfg(kani)]

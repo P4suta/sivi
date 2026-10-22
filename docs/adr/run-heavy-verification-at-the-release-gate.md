@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: amended
 date: 2026-10-22
 ---
 # Run heavy verification at the release gate
@@ -8,6 +8,7 @@ date: 2026-10-22
 
 Accepted on 2026-10-22 under the [shared verification boundary](https://github.com/P4suta/dotfiles/pull/325) and [issue 11](https://github.com/P4suta/sivi/issues/11).
 This amends the check timing in [the verification portfolio](verification-portfolio.md), [the Markdown subset](markdown-subset-for-v1.md), and [local delivery](local-only-delivery.md).
+The [container-boundary decision](bounded-container-verification.md) amends the execution route while retaining this development and release timing.
 
 ## Context
 

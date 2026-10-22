@@ -57,3 +57,4 @@ pub mod text;
 pub mod theme;
 pub mod theme_rules;
 pub mod ui_rules;
+pub mod verification_rules;

@@ -4,9 +4,9 @@
 //! and each assertion without its validator finds a counterexample, which shows the gate can fail.
 //! Alloy runs in a pinned image with no network, the checkout mounted read-only, and one writable output directory.
 
+use crate::containers::Campaign;
 use crate::fs;
 use crate::obligations::{self, AlloyCheck, Obligation};
-use crate::tool::{self, Tool};
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::Value;
 use std::ffi::OsString;
@@ -47,20 +47,8 @@ pub fn image(root: &Path) -> Result<String> {
 /// # Errors
 ///
 /// Returns an error when Docker cannot build it.
-pub fn build(root: &Path, image: &str) -> Result<()> {
-    let mut inspect = Tool::Docker.command(root);
-    inspect.args(["image", "inspect", image]);
-    if tool::output(&mut inspect, "docker image inspect")?
-        .status
-        .success()
-    {
-        return Ok(());
-    }
-    let mut build = Tool::Docker.command(root);
-    build
-        .args(["build", "--tag", image])
-        .arg(root.join(IMAGE_DIRECTORY));
-    tool::succeed(&mut build, "docker build of the Alloy image")
+pub fn build(root: &Path, image: &str, campaign: &Campaign<'_>) -> Result<()> {
+    campaign.build(image, IMAGE_DIRECTORY, &root.join(IMAGE_DIRECTORY))
 }
 
 /// Where one gate run happens: the checkout, the output directory, and the image.
@@ -151,10 +139,8 @@ pub fn solved(receipt: &Value, command: &str) -> Result<bool> {
 }
 
 impl Session<'_> {
-    fn run(self, model: Model<'_>, command: &str) -> Result<bool> {
-        let mut docker = Tool::Docker.command(self.root);
-        docker.args(run_arguments(self, model, command));
-        let ran = tool::output(&mut docker, "docker run of Alloy")?;
+    fn run(self, campaign: &Campaign<'_>, model: Model<'_>, command: &str) -> Result<bool> {
+        let ran = campaign.run(self.image, &run_arguments(self, model, command))?;
         ensure!(
             ran.status.success(),
             "Alloy failed on {command} of {}: {}\n{}",
@@ -168,23 +154,28 @@ impl Session<'_> {
         solved(&receipt, command)
     }
 
-    fn verify_check(self, model: Model<'_>, check: &AlloyCheck) -> Result<()> {
+    fn verify_check(
+        self,
+        campaign: &Campaign<'_>,
+        model: Model<'_>,
+        check: &AlloyCheck,
+    ) -> Result<()> {
         ensure!(
-            !self.run(model, &check.assertion)?,
+            !self.run(campaign, model, &check.assertion)?,
             "Alloy found a counterexample to {} in {} {}",
             check.assertion,
             model.spec,
             check.scope
         );
         ensure!(
-            self.run(model, &check.instance)?,
+            self.run(campaign, model, &check.instance)?,
             "Alloy found no instance of {} in {}, so {} may hold vacuously",
             check.instance,
             model.spec,
             check.assertion
         );
         ensure!(
-            self.run(model, &check.counterexample)?,
+            self.run(campaign, model, &check.counterexample)?,
             "Alloy found no counterexample to {} in {}, so nothing shows {} can fail",
             check.counterexample,
             model.spec,
@@ -199,15 +190,15 @@ impl Session<'_> {
 /// # Errors
 ///
 /// Returns an error when Docker cannot build or run the image, or a command ends otherwise than its obligation requires.
-pub fn verify(root: &Path) -> Result<()> {
+pub fn verify(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
     let root = std::fs::canonicalize(root).context("resolve the checkout")?;
     let manifest = obligations::load(&root)?;
-    let output = tempfile::tempdir().context("create the Alloy output directory")?;
+    let output = crate::containers::job(&root, "alloy-")?;
     let image = image(&root)?;
-    build(&root, &image)?;
+    build(&root, &image, campaign)?;
     let session = Session {
         root: &root,
-        output: output.path(),
+        output: &output,
         image: &image,
     };
     let mut checked: usize = 0;
@@ -226,7 +217,7 @@ pub fn verify(root: &Path) -> Result<()> {
         );
         let model = Model { spec, solver };
         for check in checks {
-            session.verify_check(model, check)?;
+            session.verify_check(campaign, model, check)?;
             checked = checked.saturating_add(1);
         }
     }

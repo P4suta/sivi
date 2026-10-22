@@ -4,6 +4,18 @@
 # A Verus obligation lists the functions the pinned driver verifies for inputs of any size, each with the property its specification states.
 
 [[obligation]]
+verifier = "kani"
+source = "crates/sivi-core/src/verification_rules.rs"
+harnesses = [
+  { name = "proofs::every_admitted_worker_has_hard_cpu_memory_and_process_ceilings", covers = 2, contract = "every admitted worker has positive hard CPU, memory, and process ceilings within the campaign budget, with no swap", input_domain = "every signed 64-bit resource limit", bound = "complete" },
+  { name = "proofs::adding_changed_inputs_never_removes_a_selected_verifier", covers = 2, contract = "selection union preserves each input's required verifiers, the full selection contains every verifier, and the empty selection contains none", input_domain = "every subset of the ten verifiers and every verifier", bound = "complete" },
+  { name = "proofs::exhausted_workers_never_supply_a_complete_verdict", covers = 2, contract = "OOM, infrastructure errors, and timeout or kill statuses never supply a complete result, even when the reported exit code is zero", input_domain = "every signed 32-bit exit status and both OOM and infrastructure error flags", bound = "complete" },
+]
+probes = [
+  { harness = "proofs::rejects_a_worker_with_unlimited_memory", assertion = "NEGATIVE_VERIFICATION_CONTROL" },
+]
+
+[[obligation]]
 verifier = "verus"
 source = "crates/sivi-core/src/lib.rs"
 functions = [
@@ -239,6 +251,7 @@ probes = [
 verifier = "kani"
 source = "crates/sivi-core/src/ui_rules.rs"
 harnesses = [
+  { name = "proofs::both_streams_are_terminals_before_the_interface_opens", covers = 2, contract = "the interface opens only when both standard input and standard output are terminals", input_domain = "every pair of stream availability values", bound = "complete" },
   { name = "proofs::quitting_is_one_key_away_from_every_state", covers = 2, contract = "the quit key leaves every state quitting with the quit effect", input_domain = "every state of the interface", bound = "complete" },
   { name = "proofs::a_build_starts_only_when_none_runs", covers = 2, contract = "a start effect follows only a state with no build running or the end of the build that ran, and leaves one running", input_domain = "every state and every event", bound = "complete" },
   { name = "proofs::every_selection_stays_within_its_count", covers = 1, contract = "after every event the selected slide and the picker cursor lie within their counts and the spinner within its phases", input_domain = "every state with the spinner within its phases, and every event", bound = "complete over the admitted spinner phases" },

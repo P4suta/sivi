@@ -1,14 +1,12 @@
 //! The proof gate: every verifier of the obligation manifest, each shown to refuse a false claim.
 
+use crate::containers::{self, Campaign};
 use crate::obligations::{self, Harness, Manifest, Obligation, Probe};
-use crate::report::Report;
 use crate::structure::{self, CORE, Harnesses};
 use crate::tool::{self, FUZZ_VERSION, KANI_VERSION, MUTANTS_VERSION, Tool};
 use crate::{fs, portable, verus};
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -40,7 +38,6 @@ pub const MIRI_CRATES: [&str; 3] = ["sivi-core", "sivi-markdown", "sivi-theme"];
 pub const MISSED_CEILING: u64 = 0;
 pub const TIMEOUT_CEILING: u64 = 0;
 
-const HARNESS_TIMEOUT: &str = "60s";
 const MUTANT_JOBS: &str = "2";
 const MUTANT_TEST_THREADS: &str = "1";
 const MAX_REPORT_BYTES: u64 = 16 * 1024 * 1024;
@@ -53,86 +50,39 @@ const MUTANT_PACKAGES: [&str; 3] = ["sivi-core", "sivi-markdown", "sivi-theme"];
 const CORE_PACKAGE: &str = "sivi-core";
 const FIXTURE_OUTPUT: &str = "target/proofs/fixtures";
 
-/// One verifier the gate runs.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Step {
-    Kani,
-    Verus,
-    Smt,
-    Alloy,
-    Quint,
-    Prolog,
-    Tla,
-    Miri,
-    Fuzz,
-    Mutants,
-}
-
-impl Step {
-    pub const ALL: [Self; 10] = [
-        Self::Kani,
-        Self::Verus,
-        Self::Smt,
-        Self::Alloy,
-        Self::Quint,
-        Self::Prolog,
-        Self::Tla,
-        Self::Miri,
-        Self::Fuzz,
-        Self::Mutants,
-    ];
-
-    #[must_use]
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::Kani => "kani",
-            Self::Verus => "verus",
-            Self::Smt => "smt",
-            Self::Alloy => "alloy",
-            Self::Quint => "quint",
-            Self::Prolog => "prolog",
-            Self::Tla => "tla",
-            Self::Miri => "miri",
-            Self::Fuzz => "fuzz",
-            Self::Mutants => "mutants",
-        }
-    }
-
-    #[must_use]
-    pub fn named(word: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|step| step.name() == word)
-    }
-}
+pub use sivi_core::verification_rules::Verifier as Step;
+use sivi_core::verification_rules::{Selection, affected};
 
 /// Which verifiers run.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Options {
-    /// A hosted run, which skips the mutation campaign that stays local.
+    /// An automatic run, which leaves mutation testing to an explicit full campaign.
     pub ci: bool,
     pub only: Option<Step>,
+    pub base: Option<String>,
+    pub plan: bool,
 }
 
 impl Options {
     /// Reads `--ci` and `--only STEP`, refusing anything else.
     #[must_use]
     pub fn from_words(words: &[&str]) -> Option<Self> {
-        let mut options = Self {
-            ci: false,
-            only: None,
-        };
+        let mut options = Self::default();
         let mut words = words.iter();
         while let Some(word) = words.next() {
             match *word {
                 "--ci" => options.ci = true,
                 "--only" => options.only = Some(Step::named(words.next()?)?),
+                "--affected" => options.base = Some((*words.next()?).to_owned()),
+                "--plan" => options.plan = true,
                 _ => return None,
             }
         }
-        Some(options)
+        (!(options.only.is_some() && options.base.is_some())).then_some(options)
     }
 
     #[must_use]
-    pub fn selected(self) -> Vec<Step> {
+    pub fn selected(&self) -> Vec<Step> {
         self.only.map_or_else(
             || {
                 Step::ALL
@@ -143,6 +93,67 @@ impl Options {
             |step| vec![step],
         )
     }
+
+    fn selection(&self, root: &Path) -> Result<Plan> {
+        let Some(base) = &self.base else {
+            return Ok(Plan {
+                base: None,
+                inputs: containers::source_digest(root)?,
+                steps: self.selected().iter().map(|step| step.name()).collect(),
+            });
+        };
+        let commit = tool::capture(
+            Tool::Git.command(root).args([
+                "rev-parse",
+                "--verify",
+                "--end-of-options",
+                &format!("{base}^{{commit}}"),
+            ]),
+            "resolve the proof selection base",
+        )?;
+        let commit = commit.trim();
+        let paths = tool::capture(
+            Tool::Git.command(root).args([
+                "diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                commit,
+                "--",
+            ]),
+            "select changed proof inputs",
+        )?;
+        let untracked = tool::capture(
+            Tool::Git
+                .command(root)
+                .args(["ls-files", "--others", "--exclude-standard", "-z"]),
+            "select new proof inputs",
+        )?;
+        let selection = paths
+            .split('\0')
+            .chain(untracked.split('\0'))
+            .filter(|path| !path.is_empty())
+            .fold(Selection::NONE, |selected, path| {
+                selected.union(affected(path))
+            });
+        Ok(Plan {
+            base: Some(commit.to_owned()),
+            inputs: containers::source_digest(root)?,
+            steps: self
+                .selected()
+                .iter()
+                .filter(|step| selection.contains(**step))
+                .map(|step| step.name())
+                .collect(),
+        })
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+struct Plan {
+    base: Option<String>,
+    inputs: String,
+    steps: Vec<&'static str>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -317,7 +328,7 @@ fn kani_command(root: &Path, manifest: Option<&Path>, target: &Path, report: &Pa
             "--output-format=terse",
             "-Z",
             "unstable-options",
-            &format!("--harness-timeout={HARNESS_TIMEOUT}"),
+            "--jobs=1",
         ])
         .arg("--target-dir")
         .arg(target)
@@ -452,7 +463,7 @@ fn specification_findings(discovered: &[(String, Harnesses)], manifest: &Manifes
 }
 
 fn run_probe(root: &Path, scratch: &Path, manifest: Option<&Path>, probe: &Probe) -> Result<()> {
-    let target = scratch.join(format!("probe-{}", probe.harness));
+    let target = scratch.join("target");
     let report = scratch.join(format!("probe-{}.json", probe.harness));
     let mut command = kani_command(root, manifest, &target, &report);
     command.args(["--harness", &probe.harness]);
@@ -490,7 +501,8 @@ fn verify_kani(root: &Path) -> Result<()> {
         "the proof inventory is stale:\n{}",
         findings.join("\n")
     );
-    let scratch = tempfile::tempdir().context("create the proof scratch directory")?;
+    let scratch = root.join("target/proofs/kani");
+    fs::create_dir_all(&scratch)?;
     let has_kani = manifest
         .obligation
         .iter()
@@ -517,8 +529,8 @@ fn verify_kani(root: &Path) -> Result<()> {
             })
             .collect();
         let harnesses: Vec<&Harness> = qualified.iter().collect();
-        let report = scratch.path().join("proofs.json");
-        let mut command = kani_command(root, None, &scratch.path().join("proofs"), &report);
+        let report = scratch.join("proofs.json");
+        let mut command = kani_command(root, None, &scratch.join("target"), &report);
         for harness in &harnesses {
             command.args(["--harness", &harness.name]);
         }
@@ -533,7 +545,7 @@ fn verify_kani(root: &Path) -> Result<()> {
                     harness: qualify(source, &probe.harness),
                     assertion: probe.assertion.clone(),
                 };
-                run_probe(root, scratch.path(), None, &probe)?;
+                run_probe(root, &scratch, None, &probe)?;
             }
         }
     } else {
@@ -545,7 +557,7 @@ fn verify_kani(root: &Path) -> Result<()> {
     };
     run_probe(
         root,
-        scratch.path(),
+        &scratch,
         Some(&root.join(KANI_FIXTURE).join("Cargo.toml")),
         &fixture,
     )
@@ -588,10 +600,17 @@ fn verify_miri(root: &Path) -> Result<()> {
         Some(&fixture.join("Cargo.toml")),
         &root.join(FIXTURE_OUTPUT).join("miri"),
     );
-    let passed = tool::status(&mut fixture_command, "cargo miri test on the fixture")?;
+    let refused = tool::output(&mut fixture_command, "cargo miri test on the fixture")?;
+    let diagnostic = format!(
+        "{}{}",
+        String::from_utf8_lossy(&refused.stdout),
+        String::from_utf8_lossy(&refused.stderr)
+    );
     ensure!(
-        !passed,
-        "the Miri fixture with undefined behavior passed; the gate cannot show it fails"
+        !refused.status.success()
+            && diagnostic.contains("Undefined Behavior")
+            && diagnostic.contains("past_the_end"),
+        "the Miri fixture needs its out-of-bounds diagnostic, not a tool error:\n{diagnostic}"
     );
     Ok(())
 }
@@ -642,13 +661,20 @@ fn verify_fuzz(root: &Path) -> Result<()> {
     } else {
         eprintln!("fuzz: the product defines no fuzz workspace yet, so only the fixture runs");
     }
-    let passed = tool::status(
+    let refused = tool::output(
         &mut fuzz_run(root, FUZZ_FIXTURE, FUZZ_FIXTURE_TARGET, &["-runs=0"]),
         "cargo fuzz run on the fixture",
     )?;
+    let diagnostic = format!(
+        "{}{}",
+        String::from_utf8_lossy(&refused.stdout),
+        String::from_utf8_lossy(&refused.stderr)
+    );
     ensure!(
-        !passed,
-        "the fuzz fixture whose corpus panics passed; the replay cannot show it fails"
+        !refused.status.success()
+            && diagnostic.contains("the fixture input reached the target")
+            && diagnostic.contains("panicked at"),
+        "the fuzz fixture needs its corpus-triggered panic, not a tool error:\n{diagnostic}"
     );
     Ok(())
 }
@@ -817,27 +843,7 @@ fn verify_mutants(root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn digest(root: &Path) -> Result<String> {
-    let mut hasher = Sha256::new();
-    let mut paths = fs::files_with_suffix(&root.join(CORE).join("src"), ".rs")?;
-    paths.push(root.join(obligations::MANIFEST));
-    for path in paths {
-        if fs::is_file(&path)? {
-            let relative = path
-                .strip_prefix(root)
-                .with_context(|| format!("{} lies in the checkout", path.display()))?;
-            hasher.update(portable(relative).as_bytes());
-            hasher.update(fs::read(&path)?);
-        }
-    }
-    let mut text = String::new();
-    for byte in hasher.finalize() {
-        write!(text, "{byte:02x}").context("format the digest")?;
-    }
-    Ok(text)
-}
-
-fn receipt(root: &Path, step: Step) -> Result<()> {
+fn receipt(root: &Path, step: Step, plan: &Plan, campaign: &Campaign<'_>) -> Result<()> {
     let version = match step {
         Step::Kani => KANI_VERSION,
         Step::Verus => verus::VERSION,
@@ -853,31 +859,46 @@ fn receipt(root: &Path, step: Step) -> Result<()> {
     let receipt = serde_json::json!({
         "step": step.name(),
         "version": version,
-        "inputs": digest(root)?,
+        "inputs": containers::source_digest(root)?,
+        "image": match step {
+            Step::Alloy => crate::alloy::image(root)?,
+            Step::Quint | Step::Tla => crate::quint::image(root)?,
+            Step::Prolog => containers::prolog_image(root)?,
+            Step::Kani | Step::Verus | Step::Smt | Step::Miri | Step::Fuzz | Step::Mutants => containers::rust_image(root)?,
+        },
+        "target": "linux/amd64",
+        "limits": {"cpus": 2, "memory_bytes": 4_294_967_296_u64, "swap_bytes": 0, "pids": 256},
         "result": "pass",
+        "selection": plan,
+        "containers": campaign.evidence(),
     });
     let path = root.join(RECEIPTS).join(format!("{}.json", step.name()));
     fs::write(&path, serde_json::to_string_pretty(&receipt)?.as_bytes())
 }
 
-fn verify(root: &Path, step: Step) -> Result<()> {
+fn verify_native(root: &Path, step: Step) -> Result<()> {
+    containers::require_worker()?;
     match step {
         Step::Kani => verify_kani(root)?,
         Step::Verus => verus::verify(root)?,
         Step::Smt => crate::smt::verify(root)?,
-        Step::Alloy => crate::alloy::verify(root)?,
-        Step::Quint => crate::quint::verify(root)?,
-        Step::Prolog => verify_prolog(root)?,
-        Step::Tla => crate::tla::verify(root)?,
+        Step::Alloy | Step::Quint | Step::Prolog | Step::Tla => {
+            bail!("model verifiers run through the campaign controller")
+        }
         Step::Miri => verify_miri(root)?,
         Step::Fuzz => verify_fuzz(root)?,
         Step::Mutants => verify_mutants(root)?,
     }
-    receipt(root, step)
+    Ok(())
 }
 
 /// Runs every Prolog reference the manifest declares.
-fn verify_prolog(root: &Path) -> Result<()> {
+fn verify_prolog(root: &Path, campaign: &Campaign<'_>) -> Result<()> {
+    campaign.build(
+        &containers::prolog_image(root)?,
+        "xtask/proofs/prolog",
+        &root.join("xtask/proofs/prolog"),
+    )?;
     let manifest = obligations::load(root)?;
     let mut verified: usize = 0;
     for obligation in &manifest.obligation {
@@ -894,24 +915,73 @@ fn verify_prolog(root: &Path) -> Result<()> {
             "the manifest names the reference {spec}, but the gate runs {}",
             crate::reference::SPEC
         );
-        crate::reference::verify(root, *generated, *seed)?;
+        crate::reference::verify(root, campaign, *generated, *seed)?;
         verified = verified.saturating_add(1);
     }
     ensure!(verified > 0, "the manifest declares no Prolog obligation");
     Ok(())
 }
 
-/// Runs the selected verifiers and reports every failure together.
+/// Runs selected verifiers serially, stopping when evidence is incomplete.
 ///
 /// # Errors
 ///
 /// Returns an error naming each failed verifier.
-pub fn run(root: &Path, options: Options) -> Result<()> {
-    let mut report = Report::default();
-    for step in options.selected() {
-        report.stage(step.name(), || verify(root, step));
+pub fn run(root: &Path, options: &Options) -> Result<()> {
+    let plan = options.selection(root)?;
+    eprintln!("{}", serde_json::to_string_pretty(&plan)?);
+    if options.plan {
+        return Ok(());
     }
-    report.finish("proofs")
+    fs::remove_dir_all(&root.join(RECEIPTS))?;
+    fs::write(
+        &root.join(RECEIPTS).join("plan.json"),
+        &serde_json::to_vec_pretty(&plan)?,
+    )?;
+    if plan.steps.is_empty() {
+        return Ok(());
+    }
+    let campaign = if options.ci || options.base.is_some() || options.only.is_some() {
+        Campaign::selected(root)?
+    } else {
+        Campaign::open(root)?
+    };
+    let result = (|| {
+        for name in &plan.steps {
+            let step = Step::named(name).context("invalid planned verifier")?;
+            eprintln!("proofs: {}", step.name());
+            match step {
+                Step::Alloy => crate::alloy::verify(root, &campaign)?,
+                Step::Quint => crate::quint::verify(root, &campaign)?,
+                Step::Prolog => verify_prolog(root, &campaign)?,
+                Step::Tla => crate::tla::verify(root, &campaign)?,
+                Step::Kani | Step::Verus | Step::Smt | Step::Miri | Step::Fuzz | Step::Mutants => {
+                    containers::rust_worker(root, &campaign, &["proof-worker", step.name()])?;
+                }
+            }
+            ensure!(
+                containers::source_digest(root)? == plan.inputs,
+                "verification inputs changed during the campaign"
+            );
+            receipt(root, step, &plan, &campaign)?;
+        }
+        Ok(())
+    })();
+    containers::finish(result, campaign.close())?;
+    fs::write(
+        &root.join(RECEIPTS).join("complete.json"),
+        &serde_json::to_vec_pretty(&plan)?,
+    )
+}
+
+/// The internal entry point accepts only a worker whose kernel limits were checked.
+///
+/// # Errors
+///
+/// Reports a refused proof or an unbounded execution environment.
+pub fn worker(root: &Path, step: &str) -> Result<()> {
+    let step = Step::named(step).context("unknown proof worker")?;
+    verify_native(root, step)
 }
 
 /// Fuzzes one product target beyond its corpus for `runs` runs with a fixed seed.
@@ -920,6 +990,18 @@ pub fn run(root: &Path, options: Options) -> Result<()> {
 ///
 /// Returns an error when the target is unknown, the count is not a number, or the run finds a crash.
 pub fn fuzz(root: &Path, target: &str, runs: &str) -> Result<()> {
+    let campaign = Campaign::open(root)?;
+    let result = containers::rust_worker(root, &campaign, &["fuzz-worker", target, runs]);
+    containers::finish(result, campaign.close())
+}
+
+/// The bounded fuzz worker, with the same fixed run count and seed on each machine.
+///
+/// # Errors
+///
+/// Reports invalid arguments, missing limits, or a discovered crash.
+pub fn fuzz_worker(root: &Path, target: &str, runs: &str) -> Result<()> {
+    containers::require_worker()?;
     let runs: u64 = runs.parse().context("the run count is a whole number")?;
     ensure!(
         fuzz_targets(root, FUZZ)?
@@ -992,14 +1074,16 @@ mod tests {
             Options::from_words(&[]),
             Some(Options {
                 ci: false,
-                only: None
+                only: None,
+                ..Options::default()
             })
         );
         assert_eq!(
             Options::from_words(&["--ci", "--only", "miri"]),
             Some(Options {
                 ci: true,
-                only: Some(Step::Miri)
+                only: Some(Step::Miri),
+                ..Options::default()
             })
         );
         assert_eq!(Options::from_words(&["--only"]), None);
@@ -1008,7 +1092,8 @@ mod tests {
         assert_eq!(
             Options {
                 ci: true,
-                only: None
+                only: None,
+                ..Options::default()
             }
             .selected(),
             [
@@ -1026,7 +1111,8 @@ mod tests {
         assert_eq!(
             Options {
                 ci: true,
-                only: Some(Step::Mutants)
+                only: Some(Step::Mutants),
+                ..Options::default()
             }
             .selected(),
             [Step::Mutants]
