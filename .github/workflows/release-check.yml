@@ -1,0 +1,96 @@
+name: Release check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MISE_AUTO_INSTALL: "false"
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+
+jobs:
+  acceptance:
+    name: Complete candidate verification
+    runs-on: ubuntu-26.04
+    timeout-minutes: 360
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+        with:
+          install_args: >-
+            rust just taplo typos actionlint zizmor
+            aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit
+            aqua:nextest-rs/nextest/cargo-nextest gh
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: sivi-release-v1
+          cache-bin: false
+      - name: Run the fast gate and every verifier, including mutation testing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mise x -- just release-check
+      - name: Preserve verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: proof-evidence
+          path: |
+            target/proofs/receipts/
+            target/proofs/containers/
+            target/proofs/container-build/*.log
+            target/proofs/jobs/**/kani/*.json
+            target/proofs/jobs/alloy-*/**/*.json
+            target/proofs/jobs/alloy-*/**/*.xml
+            target/proofs/jobs/quint-*/**/*.json
+            target/proofs/jobs/prolog-*/*.json
+          if-no-files-found: error
+          retention-days: 5
+
+  test:
+    name: Native tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+        with:
+          install_args: rust aqua:nextest-rs/nextest/cargo-nextest
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: sivi-release-v1
+          cache-bin: false
+      - run: cargo xtask ci test
+
+  release-success:
+    name: release-success
+    if: always()
+    needs: [acceptance, test]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+        with:
+          install_args: rust
+      - name: Require complete candidate verification
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: cargo xtask ci gate release

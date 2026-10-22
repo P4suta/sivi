@@ -1,8 +1,13 @@
 ---
-status: accepted
+status: amended
 date: 2026-10-13
 ---
 # Admit a closed Markdown subset and refuse everything else with a named code
+
+## Status
+
+The [release-gate decision](run-heavy-verification-at-the-release-gate.md) moves corpus replays from every push to release acceptance and on-demand runs from 2026-10-22.
+The original assurance boundary below records the earlier cadence.
 
 ## Context
 
