@@ -35,51 +35,10 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo xtask ci check
 
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-26.04, macos-26, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
-        with:
-          install_args: rust aqua:nextest-rs/nextest/cargo-nextest
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: sivi-ci-v1
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo xtask ci test
-
-  proofs:
-    runs-on: ubuntu-26.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
-        with:
-          install_args: rust aqua:nextest-rs/nextest/cargo-nextest cargo:kani-verifier@0.68.0 cargo:cargo-fuzz@0.13.2
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: sivi-proofs-v1
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Install the pinned nightly for Miri and cargo-fuzz
-        run: rustup toolchain install nightly-2026-08-21 --profile minimal --component miri --component rust-src
-      - run: cargo kani setup
-      - run: cargo xtask ci proofs
-
   ci-success:
     name: ci-success
     if: always()
-    needs: [check, test, proofs]
+    needs: [check]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -89,7 +48,7 @@ jobs:
       - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install_args: rust
-      - name: Require every gating job
+      - name: Require the fast gate
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: cargo xtask ci gate ci
@@ -102,7 +61,7 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: Require the complete CI gate
+      - name: Require the fast CI gate
         env:
           CI_RESULT: ${{ needs.ci-success.result }}
         run: test "$CI_RESULT" = success

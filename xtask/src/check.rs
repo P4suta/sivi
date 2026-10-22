@@ -251,20 +251,13 @@ pub fn run(root: &Path, scope: Scope) -> Result<()> {
     }
 }
 
-/// Every check and then every proof, which a push requires.
+/// The fast gate on the current host, which a push requires.
 ///
 /// # Errors
 ///
-/// Returns an error when a check or a proof fails.
+/// Returns an error when a check fails.
 pub fn push_check(root: &Path) -> Result<()> {
-    run(root, Scope::Everything)?;
-    proofs::run(
-        root,
-        proofs::Options {
-            ci: false,
-            only: None,
-        },
-    )
+    run(root, Scope::Everything)
 }
 
 /// Writes the generated files from their sources.

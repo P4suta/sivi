@@ -44,7 +44,14 @@ A build never touches the network; a family the library lacks is a diagnostic th
 | `cargo xtask check` | rustfmt, taplo, typos, clippy with warnings denied, `structure`, the decision records, the generated repository files and the diagnostics catalog, actionlint and zizmor, nextest, cargo-deny, cargo-audit |
 | `cargo xtask check --staged` | The quick subset over the staged files |
 | `cargo xtask proofs` | Every verifier of `verification/obligations.toml` with its rejecting probe: Kani, Verus, Z3, Alloy, Quint with the trace replay, the Prolog reference, TLC over the publication model, Miri over the pure crates, every fuzz corpus replay, and the mutation campaign over the pure crates; each verifier also refuses its fixture under `xtask/proofs/` |
-| `cargo xtask push-check` | `check` and then `proofs` |
+| `cargo xtask push-check` | `check` on the current host, with no heavy verification |
+| `just release-check` | `check` and then the complete `proofs` inventory, including mutation testing |
+
+Pull-request CI repeats only the fast gate on `ubuntu-26.04`.
+The `ci-success` and `required` summary names stay stable and depend only on that gate.
+The manually dispatched release workflow runs `just release-check` on the selected candidate, adds native macOS and Windows tests, and requires every job through `release-success` before release acceptance.
+It publishes nothing.
+[Contributing](../CONTRIBUTING.md) describes the triggers and bounded local commands, and [the decision record](adr/run-heavy-verification-at-the-release-gate.md) records the boundary.
 
 The machine-wide hooks of the owner's dotfiles run first on every commit and push: the assurance shapes, the structural catalog, the comment and prose checks.
 This repository's `lefthook.yml` adds only its own gates.

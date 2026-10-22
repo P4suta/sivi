@@ -2,6 +2,9 @@
 
 `cargo xtask proofs` discharges every obligation of `verification/obligations.toml` and refuses each verifier's fixture under `xtask/proofs/`.
 Every verifier owns one class of property, as `docs/adr/verification-portfolio.md` records, so no property is proved twice.
+The complete inventory runs at the [release gate](../../.github/workflows/release-check.yml), including mutation testing, and on demand through the [bounded local route](../../CONTRIBUTING.md#on-demand-heavy-checks).
+Push hooks and pull-request CI run only the fast gate.
+Unrun heavy checks remain unverified until a candidate run supplies their evidence.
 
 | Verifier | Pinned version | Obligations | Negative control |
 | --- | --- | --- | --- |
@@ -58,6 +61,7 @@ The Typst layout engine is an external boundary; `docs/verification/typst-bounda
 ## The last full run
 
 `just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with every version above.
+At that time, `push-check` included the heavy inventory; [the release-gate decision](../adr/run-heavy-verification-at-the-release-gate.md) changes its timing from 2026-10-22 onward.
 The receipts under `target/proofs/receipts/` name one input digest for every verifier of that run.
 
 | Gate | Outcome |
