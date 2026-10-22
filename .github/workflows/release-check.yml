@@ -32,7 +32,7 @@ jobs:
             aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit
             aqua:nextest-rs/nextest/cargo-nextest cargo:kani-verifier@0.68.0
             cargo:cargo-fuzz@0.13.2 cargo:cargo-mutants@27.1.0
-            github:Z3Prover/z3 github:ouch-org/ouch gh
+            github:ouch-org/ouch gh
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: sivi-release-v1
@@ -42,6 +42,17 @@ jobs:
           rustup toolchain install nightly-2026-08-21 --profile minimal --component miri --component rust-src
           rustup toolchain install 1.98.1 --profile minimal
       - run: cargo kani setup
+      - name: Install checksum-verified Z3
+        env:
+          Z3_VERSION: 5.1.0
+          Z3_LINUX_X64_SHA256: f47be8d27d3230e823bf1eeede2fe0abaca55bb78d0b59974370e6689a92284a
+        run: |
+          archive="$RUNNER_TEMP/z3.zip"
+          curl --fail --show-error --location --output "$archive" \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-2.39.zip"
+          printf '%s  %s\n' "$Z3_LINUX_X64_SHA256" "$archive" | sha256sum --check --strict -
+          unzip -q "$archive" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/z3-${Z3_VERSION}-x64-glibc-2.39/bin" >> "$GITHUB_PATH"
       - name: Install checksum-verified SWI-Prolog
         env:
           SWIPL_VERSION: 10.0.2
