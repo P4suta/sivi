@@ -80,7 +80,7 @@ fn read_error(error: &io::ReadError, path: &Path, shown: &str) -> Diagnostic {
         ReadErrorKind::Io(inner) if inner.kind() == std::io::ErrorKind::NotFound => {
             Diagnostic::new(
                 Code::ImageMissing,
-                format!("the image `{shown}` is missing at {}", path.display()),
+                format!("the image `{shown}` is missing at {}", io::path_label(path)),
             )
             .help(String::from(
                 "check the path, which is relative to the deck",
