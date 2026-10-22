@@ -66,7 +66,8 @@ fn gate(name: &str) -> Result<()> {
 
 fn validate_jobs(name: &str, needs: &str) -> Result<()> {
     let expected: &[&str] = match name {
-        "ci" => &["check", "test"],
+        "ci" => &["check"],
+        "release" => &["acceptance", "test"],
         "codeql" => &["analyze"],
         "dependency-review" => &["review"],
         "scorecard" => &["analysis"],
@@ -120,19 +121,31 @@ mod tests {
     use super::{unsuccessful, validate_jobs};
 
     #[test]
-    fn routine_gate_requires_both_fast_jobs_and_no_unexpected_result() {
+    fn routine_gate_requires_the_fast_job_and_no_unexpected_result() {
+        validate_jobs("ci", r#"{"check":{"result":"success"}}"#).unwrap();
+        for needs in [
+            "{}",
+            r#"{"check":{"result":"skipped"}}"#,
+            r#"{"check":{"result":"failure"}}"#,
+            r#"{"check":{"result":"success"},"test":{"result":"skipped"}}"#,
+        ] {
+            validate_jobs("ci", needs).unwrap_err();
+        }
+    }
+
+    #[test]
+    fn release_gate_requires_the_complete_inventory_and_native_tests() {
         validate_jobs(
-            "ci",
-            r#"{"check":{"result":"success"},"test":{"result":"success"}}"#,
+            "release",
+            r#"{"acceptance":{"result":"success"},"test":{"result":"success"}}"#,
         )
         .unwrap();
         for needs in [
-            r#"{"check":{"result":"success"}}"#,
-            r#"{"check":{"result":"success"},"test":{"result":"skipped"}}"#,
-            r#"{"check":{"result":"success"},"test":{"result":"failure"}}"#,
-            r#"{"check":{"result":"success"},"test":{"result":"success"},"proofs":{"result":"success"}}"#,
+            r#"{"acceptance":{"result":"success"}}"#,
+            r#"{"acceptance":{"result":"failure"},"test":{"result":"success"}}"#,
+            r#"{"acceptance":{"result":"success"},"test":{"result":"skipped"}}"#,
         ] {
-            validate_jobs("ci", needs).unwrap_err();
+            validate_jobs("release", needs).unwrap_err();
         }
     }
 
@@ -146,7 +159,7 @@ mod tests {
         unsuccessful(r#"{"check":{}}"#).unwrap_err();
         unsuccessful("[]").unwrap_err();
         unsuccessful("{}").unwrap_err();
-        validate_jobs("ci", r#"{"check":{"result":"success"}}"#).unwrap_err();
+        validate_jobs("ci", r#"{"test":{"result":"success"}}"#).unwrap_err();
         validate_jobs("codeql", r#"{"other":{"result":"success"}}"#).unwrap_err();
         validate_jobs("codeql", r#"{"analyze":{"result":"success"}}"#).unwrap();
     }
