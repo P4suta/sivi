@@ -122,7 +122,7 @@ pub fn default_output(deck: &Path) -> PathBuf {
 }
 
 fn rendered(outcome: &Outcome, deck: &Path, setting: Setting<'_>) -> Run {
-    let deck_path = deck.display().to_string();
+    let deck_path = crate::io::path_label(deck);
     let sources = Sources {
         deck_path: &deck_path,
         deck_text: &outcome.deck_text,

@@ -178,7 +178,7 @@ fn font_read_error(file: &FontFile, path: &Path, error: &ReadError) -> Diagnosti
                 "the font file `{}` of family `{}` is missing at {}",
                 file.path,
                 file.family,
-                path.display()
+                io::path_label(path)
             ),
         )
         .help(String::from(
@@ -263,7 +263,7 @@ fn text_of(choice: &Choice) -> Result<(String, String, Option<PathBuf>), Vec<Dia
         Choice::Dir(dir) => {
             let path = dir.join(THEME_FILE);
             match io::read_to_string(&path) {
-                Ok(text) => Ok((text, path.display().to_string(), Some(dir.clone()))),
+                Ok(text) => Ok((text, io::path_label(&path), Some(dir.clone()))),
                 Err(error) => Err(vec![
                     Diagnostic::new(
                         Code::ThemeToml,
