@@ -1,10 +1,10 @@
 ---
-status: amended
-date: 2026-10-21
+status: accepted
+date: 2026-10-22
 ---
 # Bound image preparation and verification at the Docker boundary
 
-The routine execution policy is amended by [selecting changed contracts](select-contracts-for-routine-verification.md).
+This amends the execution route in [the release-gate decision](run-heavy-verification-at-the-release-gate.md), while preserving its development and release timing.
 
 ## Context
 
@@ -25,12 +25,17 @@ Image preparation uses a dedicated rootless BuildKit container with the same res
 Rootless BuildKit removes the executor's separate cgroup configuration, so its children inherit the bounded parent container.
 The runner checks the builder's non-root user and refuses privileged operation.
 It connects through Docker's local transport, exposes no port, and stops the builder before verification starts.
+Rootless overlayfs requires [Linux 5.11 or an Ubuntu kernel](https://github.com/moby/buildkit/blob/v0.34.1/docs/rootless.md#known-limitations).
+Cargo's registry and worker artifacts use bounded BuildKit caches across source changes, and verifier installation is independent of the source stage.
+The boundary image prepares only the worker, without installing proof tools.
+Generated mountpoints exist before the source becomes read-only, and writable corpus copies never replace committed seeds.
 The maintained upstream implementations are trust assumptions: [BuildKit rootless conversion](https://github.com/moby/buildkit/blob/f5b59a1f2fb25a0cb7072c398cab9aed7835da4e/util/rootless/specconv/specconv_linux.go) and [Docker's remote builder transport](https://docs.docker.com/build/builders/drivers/remote/).
 Docker's daemon, image transport, and kernel resource accounting remain outside the repository's implementation.
 
 Kani runs one harness at a time without a per-harness correctness deadline.
 Input domains, unwinding bounds, assertions, covers, and named negative controls remain authoritative.
 A two-hour campaign deadline limits occupancy rather than deciding correctness.
+Selected campaigns have a twenty-minute safety stop, and the separate boundary check has fifteen minutes.
 OOM, cancellation, infrastructure errors, and safety stops leave incomplete evidence and stop the campaign.
 The runner preserves logs, immutable container and image identities, and terminal state before removing owned objects.
 It retains the reservation when it can't confirm cleanup.
@@ -39,8 +44,8 @@ It neither retries expensive failures nor raises resource limits automatically.
 Affected selection unions each changed input's verifiers.
 Known model files select their owning checker, documentation selects none, and every other input selects the full portfolio.
 The default command still selects every verifier, including mutation testing.
-Automatic hosted checks omit the mutation campaign and preserve an explicit selection plan.
-The manual workflow can request the full portfolio, including mutation testing.
+An explicit reduced campaign omits mutation testing and preserves its selection plan.
+The manually dispatched release workflow requests the full portfolio, including mutation testing.
 Receipts bind the source digest, selected scope, tool versions, image identity, limits, and completed result.
 No receipt is reused across source changes.
 

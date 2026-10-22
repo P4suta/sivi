@@ -4,6 +4,11 @@ on:
   pull_request:
   merge_group:
   workflow_dispatch:
+    inputs:
+      native_tests:
+        description: Also test macOS and Windows without running the proof inventory
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -18,7 +23,12 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-26.04
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.native_tests && '["ubuntu-26.04","macos-26","windows-2025"]' || '["ubuntu-26.04"]') }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,39 +36,17 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
-          install_args: rust taplo typos actionlint zizmor aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit aqua:nextest-rs/nextest/cargo-nextest
+          install_args: ${{ matrix.os == 'ubuntu-26.04' && 'rust taplo typos actionlint zizmor aqua:EmbarkStudios/cargo-deny aqua:rustsec/rustsec/cargo-audit aqua:nextest-rs/nextest/cargo-nextest' || 'rust aqua:nextest-rs/nextest/cargo-nextest' }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: sivi-ci-v1
           cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo xtask ci check
-
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-26, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-        with:
-          install_args: rust aqua:nextest-rs/nextest/cargo-nextest
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: sivi-ci-v1
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo xtask ci test
+      - run: cargo xtask ci ${{ matrix.os == 'ubuntu-26.04' && 'check' || 'test' }}
 
   ci-success:
     name: ci-success
     if: always()
-    needs: [check, test]
+    needs: [check]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -68,7 +56,7 @@ jobs:
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           install_args: rust
-      - name: Require every gating job
+      - name: Require the fast gate
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: cargo xtask ci gate ci
@@ -81,7 +69,7 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: Require the complete CI gate
+      - name: Require the fast CI gate
         env:
           CI_RESULT: ${{ needs.ci-success.result }}
         run: test "$CI_RESULT" = success
