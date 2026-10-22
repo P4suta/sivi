@@ -16,7 +16,7 @@ check *args: trust
 check-staged: trust
     mise x -- cargo xtask check --staged
 
-# Every check and every proof, which the pre-push hook runs.
+# The deterministic push gate; the pull request also requires its selected proofs.
 push-check: trust
     mise x -- cargo xtask push-check
 

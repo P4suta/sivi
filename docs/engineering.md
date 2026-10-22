@@ -47,10 +47,12 @@ Everything outside `raw`, including the rest of the owner, stays fully linted.
 
 - `just check` runs the lint, structure, record, test, and dependency gates.
 - `just proofs` runs Kani with its rejecting probes, Miri, the fuzz corpus replays, and the mutation campaign, and refuses each verifier's fixture.
-- `just proofs-ci` runs the same without the mutation campaign, which stays local.
+- `just proofs-ci` runs the same without the full mutation campaign.
 - Every expensive verifier runs through the [bounded container runner](adr/bounded-container-verification.md).
 - `just proofs --plan` prints the selected workload without reserving Docker or preparing images.
 - `just proofs --affected BASE` selects affected contracts against an explicit base commit, with unknown paths selecting every verifier.
+- `just push-check` runs the deterministic project checks without starting a proof campaign.
+- Pull requests require the affected proof results, and the full proof and mutation inventories run only on an explicit request.
 - `just proofs --status` lists the engine's sivi reservations and workers without starting them.
 - After an interrupted controller, `just proofs --cleanup ID` requires the reservation's full immutable ID, collects the owned workers' logs, stops them, and releases the reservation only after confirming cleanup.
 - The generated repository files are checked with the owner's `dotfiles repository check`; a host without that tool notes its absence instead of claiming the check.

@@ -56,7 +56,7 @@ use sivi_core::verification_rules::{Selection, affected};
 /// Which verifiers run.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Options {
-    /// A hosted run, which skips the mutation campaign that stays local.
+    /// An automatic run, which leaves mutation testing to an explicit full campaign.
     pub ci: bool,
     pub only: Option<Step>,
     pub base: Option<String>,
@@ -941,7 +941,11 @@ pub fn run(root: &Path, options: &Options) -> Result<()> {
     if plan.steps.is_empty() {
         return Ok(());
     }
-    let campaign = Campaign::open(root)?;
+    let campaign = if options.ci || options.base.is_some() || options.only.is_some() {
+        Campaign::selected(root)?
+    } else {
+        Campaign::open(root)?
+    };
     let result = (|| {
         for name in &plan.steps {
             let step = Step::named(name).context("invalid planned verifier")?;
