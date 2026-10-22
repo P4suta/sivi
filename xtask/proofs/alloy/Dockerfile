@@ -1,5 +1,5 @@
 # The offline host of the Alloy obligations, which `cargo xtask proofs` runs with `--network none`.
-FROM docker.io/library/eclipse-temurin:21-jre@sha256:cff19e6215689161eb6162c11b86b0c60ddf802164f2eaf48d570f8fb79a36c5
+FROM docker.io/library/eclipse-temurin:27-jre@sha256:d6bfa738df69e8dec9061b3e26f2ae564d92ad169faa36086dcfa33f0a901d35
 
 # The release publishes no checksum file, so this file pins the digest of the jar the release serves.
 ARG ALLOY_VERSION=6.2.0
