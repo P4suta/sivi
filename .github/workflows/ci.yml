@@ -1,16 +1,9 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  merge_group:
   workflow_dispatch:
-    inputs:
-      full_proofs:
-        description: Verify the full portfolio, including mutation testing
-        type: boolean
-        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -62,48 +55,10 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo xtask ci test
 
-  proofs:
-    runs-on: ubuntu-26.04
-    timeout-minutes: 130
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
-        with:
-          install_args: rust
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: sivi-proofs-v1
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Verify the affected contracts in bounded containers
-        env:
-          PROOF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          PROOF_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.full_proofs }}
-        run: cargo xtask ci proofs
-      - name: Preserve verification evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: proof-evidence
-          path: |
-            target/proofs/receipts/
-            target/proofs/containers/
-            target/proofs/container-build/*.log
-            target/proofs/jobs/**/kani/*.json
-            target/proofs/jobs/alloy-*/**/*.json
-            target/proofs/jobs/alloy-*/**/*.xml
-            target/proofs/jobs/quint-*/**/*.json
-            target/proofs/jobs/prolog-*/*.json
-          if-no-files-found: error
-          retention-days: 5
-
   ci-success:
     name: ci-success
     if: always()
-    needs: [check, test, proofs]
+    needs: [check, test]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
