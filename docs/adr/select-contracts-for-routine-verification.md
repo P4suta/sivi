@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-22
 ---
 # Select changed contracts for routine verification
+
+Superseded by [keeping proof campaigns manual](keep-proof-campaigns-manual.md).
 
 ## Context
 
