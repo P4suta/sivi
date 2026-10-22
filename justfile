@@ -16,7 +16,7 @@ check *args: trust
 check-staged: trust
     mise x -- cargo xtask check --staged
 
-# Every check and every proof, which the pre-push hook runs.
+# The deterministic push gate.
 push-check: trust
     mise x -- cargo xtask push-check
 
@@ -28,7 +28,7 @@ structure: trust
 proofs *args: trust
     mise x -- cargo xtask proofs {{args}}
 
-# The proofs a hosted Linux runner repeats, without mutation testing.
+# An explicit proof campaign without mutation testing.
 proofs-ci: trust
     mise x -- cargo xtask proofs --ci
 

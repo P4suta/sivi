@@ -251,21 +251,13 @@ pub fn run(root: &Path, scope: Scope) -> Result<()> {
     }
 }
 
-/// Every check and then every proof, which a push requires.
+/// The deterministic checks a push requires; selected proofs gate the pull request.
 ///
 /// # Errors
 ///
 /// Returns an error when a check or a proof fails.
 pub fn push_check(root: &Path) -> Result<()> {
-    run(root, Scope::Everything)?;
-    proofs::run(
-        root,
-        &proofs::Options {
-            ci: false,
-            only: None,
-            ..proofs::Options::default()
-        },
-    )
+    run(root, Scope::Everything)
 }
 
 /// Writes the generated files from their sources.

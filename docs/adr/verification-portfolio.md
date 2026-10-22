@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: amended
 date: 2026-10-13
 ---
 # Assign each verifier one class of property and prove nothing twice
+
+The routine execution policy is amended by [selecting changed contracts](select-contracts-for-routine-verification.md).
 
 ## Context
 
