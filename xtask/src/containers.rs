@@ -21,17 +21,20 @@ const BUILD_DIRECTORY: &str = "target/proofs/container-build";
 const LOG_DIRECTORY: &str = "target/proofs/containers";
 const POLL: Duration = Duration::from_secs(1);
 const CAMPAIGN_LIMIT: Duration = Duration::from_hours(2);
+const SELECTED_LIMIT: Duration = Duration::from_mins(20);
+const BOUNDARY_LIMIT: Duration = Duration::from_mins(15);
 const WORKER_TIMEOUT: &str = "7200s";
 const LOG_LIMIT: &str = "10m";
 const PLATFORM: &str = "linux/amd64";
 const ID_DIGITS: usize = 12;
-const BUILDKIT_CONFIG: &str = "[worker.oci]\nrootless = true\nsnapshotter = \"native\"\nmax-parallelism = 1\nmaxUsedSpace = \"10GB\"\nreservedSpace = \"1GB\"\n";
+const BUILDKIT_CONFIG: &str = "[worker.oci]\nrootless = true\nsnapshotter = \"overlayfs\"\nmax-parallelism = 1\nmaxUsedSpace = \"10GB\"\nreservedSpace = \"1GB\"\n";
 const BUILDKIT_CONFIG_PATH: &str = "/etc/buildkit/sivi.toml";
 const PROOF_WORKER: &str = "/usr/local/bin/sivi-proof-worker";
 const RUST_IMAGE_DIRECTORY: &str = "xtask/proofs/rust";
 const PROLOG_RECIPE: &str = "xtask/proofs/prolog/Dockerfile";
 const JOB_DIRECTORY: &str = "target/proofs/jobs";
 const DOCKER_MARKER: &str = "/.dockerenv";
+const DOCKER_NOT_STARTED: &str = "0001-01-01T00:00:00Z";
 const CGROUP_CPU: &str = "/sys/fs/cgroup/cpu.max";
 const CGROUP_MEMORY: &str = "/sys/fs/cgroup/memory.max";
 const CGROUP_SWAP: &str = "/sys/fs/cgroup/memory.swap.max";
@@ -51,6 +54,13 @@ const WRITABLE_DIRECTORIES: [&str; 8] = [
     "xtask/proofs/fuzz-fixture/artifacts",
     "xtask/proofs/fuzz-fixture/corpus",
 ];
+
+#[derive(Clone, Copy, Debug)]
+struct Recipe<'a> {
+    directory: &'a str,
+    context: &'a Path,
+    stage: Option<&'a str>,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -86,6 +96,7 @@ struct State {
     oom_killed: bool,
     exit_code: i32,
     error: String,
+    started_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -214,6 +225,15 @@ impl<'a> Campaign<'a> {
         Self::open_for(root, CAMPAIGN_LIMIT)
     }
 
+    /// Reserves a short campaign for the contracts selected by a change.
+    ///
+    /// # Errors
+    ///
+    /// Refuses unsupported limits or another campaign without stealing its reservation.
+    pub fn selected(root: &'a Path) -> Result<Self> {
+        Self::open_for(root, SELECTED_LIMIT)
+    }
+
     fn open_for(root: &'a Path, limit: Duration) -> Result<Self> {
         tool::handle_interrupts()?;
         let information = tool::capture(
@@ -309,6 +329,16 @@ impl<'a> Campaign<'a> {
         Ok(())
     }
 
+    fn deadline(&self) -> Result<String> {
+        self.within_budget()?;
+        let seconds = self
+            .limit
+            .saturating_sub(self.started.elapsed())
+            .as_secs()
+            .max(1);
+        Ok(format!("{seconds}s"))
+    }
+
     /// The immutable container and image identities observed during this campaign.
     #[must_use]
     pub fn evidence(&self) -> Vec<serde_json::Value> {
@@ -321,6 +351,17 @@ impl<'a> Campaign<'a> {
     ///
     /// Refuses an unbounded builder and stops it before returning to verification.
     pub fn build(&self, image: &str, directory: &str, context: &Path) -> Result<()> {
+        self.build_stage(
+            image,
+            Recipe {
+                directory,
+                context,
+                stage: None,
+            },
+        )
+    }
+
+    fn build_stage(&self, image: &str, recipe: Recipe<'_>) -> Result<()> {
         self.within_budget()?;
         let present = tool::output(
             Tool::Docker
@@ -358,27 +399,28 @@ impl<'a> Campaign<'a> {
                     && matches!(checked.config.user.as_str(), "1000:1000" | "1000"),
                 "the builder requires bounded, unprivileged rootless execution"
             );
-            tool::controlled(
-                Tool::Docker
-                    .command(self.root)
-                    .args([
-                        "buildx",
-                        "build",
-                        "--builder",
-                        &name,
-                        "--load",
-                        "--platform",
-                        PLATFORM,
-                        "--tag",
-                        image,
-                        "--file",
-                    ])
-                    .arg(self.root.join(directory).join("Dockerfile"))
-                    .arg(context),
-                "build the verification image",
-                &log,
-                || self.within_budget(),
-            )
+            let mut build = Tool::Docker.command(self.root);
+            build
+                .args([
+                    "buildx",
+                    "build",
+                    "--builder",
+                    &name,
+                    "--load",
+                    "--platform",
+                    PLATFORM,
+                    "--tag",
+                    image,
+                    "--file",
+                ])
+                .arg(self.root.join(recipe.directory).join("Dockerfile"));
+            if let Some(stage) = recipe.stage {
+                build.args(["--target", stage]);
+            }
+            build.arg(recipe.context);
+            tool::controlled(&mut build, "build the verification image", &log, || {
+                self.within_budget()
+            })
         })();
         self.finish_builder(&name, &builder, result)
     }
@@ -416,9 +458,11 @@ impl<'a> Campaign<'a> {
         let config = self.root.join(BUILD_DIRECTORY).join("buildkitd.toml");
         fs::write(&config, BUILDKIT_CONFIG.as_bytes())?;
         let id = tool::capture(
-            Tool::Docker
-                .command(self.root)
-                .args(builder_arguments(&config, &self.lease.id)),
+            Tool::Docker.command(self.root).args(builder_arguments(
+                &config,
+                &self.lease.id,
+                &self.deadline()?,
+            )),
             "create the bounded rootless builder",
         )?;
         let builder = Owned {
@@ -477,7 +521,7 @@ impl<'a> Campaign<'a> {
                 .args(["image", "inspect", "--format", "{{.Id}}", image]),
             "resolve the immutable worker image",
         )?;
-        let mut arguments = create_arguments(image, arguments)?;
+        let mut arguments = timed_arguments(image, arguments, &self.deadline()?)?;
         arguments.splice(
             1..1,
             [
@@ -520,7 +564,7 @@ impl<'a> Campaign<'a> {
             if !verification_rules::completed(
                 after.state.exit_code,
                 after.state.oom_killed,
-                !after.state.error.is_empty(),
+                !after.state.error.is_empty() || after.state.started_at == DOCKER_NOT_STARTED,
             ) {
                 return Err(anyhow::Error::new(Incomplete {
                     oom: after.state.oom_killed,
@@ -593,7 +637,6 @@ impl<'a> Campaign<'a> {
             Tool::Docker.command(self.root).args(["logs", name]),
             "read the bounded worker log",
         )?;
-        ensure!(logs.status.success(), "the worker log is unavailable");
         fs::write(&evidence.with_extension("stdout"), &logs.stdout)?;
         fs::write(&evidence.with_extension("stderr"), &logs.stderr)?;
         fs::write(&evidence, serde_json::to_vec_pretty(&serde_json::json!({
@@ -603,9 +646,16 @@ impl<'a> Campaign<'a> {
             "memory_swap": after.host_config.memory_swap, "processes": after.host_config.pids_limit,
             "role": after.config.labels.get("org.sivi.verification"),
             "exit_code": after.state.exit_code, "oom_killed": after.state.oom_killed,
-            "error": after.state.error, "elapsed_seconds": self.started.elapsed().as_secs()
+            "error": after.state.error, "started_at": after.state.started_at,
+            "log_exit_code": logs.status.code(),
+            "elapsed_seconds": self.started.elapsed().as_secs()
         }))?.as_slice())?;
         self.evidence.borrow_mut().push(serde_json::json!({"container": after.id, "image": after.image, "evidence": crate::portable(&evidence)}));
+        ensure!(
+            logs.status.success()
+                || (!after.state.running && after.state.started_at == DOCKER_NOT_STARTED),
+            "the worker log is unavailable"
+        );
         Ok((after, logs))
     }
 }
@@ -620,7 +670,7 @@ pub(crate) fn finish<T>(result: Result<T>, cleanup: Result<()>) -> Result<T> {
     }
 }
 
-fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
+fn builder_arguments(config: &Path, campaign: &str, deadline: &str) -> Vec<OsString> {
     let mut arguments: Vec<OsString> = [
         "create",
         "--init",
@@ -628,12 +678,6 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
         "org.sivi.verification=builder",
         "--label",
         &format!("org.sivi.campaign={campaign}"),
-        "--log-driver",
-        "local",
-        "--log-opt",
-        "max-size=10m",
-        "--log-opt",
-        "max-file=1",
         "--security-opt",
         "seccomp=unconfined",
         "--security-opt",
@@ -645,6 +689,7 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
     ]
     .map(OsString::from)
     .into();
+    arguments.extend(log_arguments());
     arguments.extend(limit_arguments().map(OsString::from));
     arguments.extend(
         [
@@ -660,7 +705,7 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
             BUILDKIT_IMAGE,
             "-k",
             "10",
-            WORKER_TIMEOUT,
+            deadline,
             "rootlesskit",
             "buildkitd",
             "--config",
@@ -669,6 +714,20 @@ fn builder_arguments(config: &Path, campaign: &str) -> Vec<OsString> {
         .map(OsString::from),
     );
     arguments
+}
+
+fn log_arguments() -> [OsString; 8] {
+    [
+        "--log-driver",
+        "local",
+        "--log-opt",
+        &format!("max-size={LOG_LIMIT}"),
+        "--log-opt",
+        "max-file=1",
+        "--log-opt",
+        "compress=false",
+    ]
+    .map(OsString::from)
 }
 
 const fn limit_arguments() -> [&'static str; 12] {
@@ -694,6 +753,10 @@ const fn limit_arguments() -> [&'static str; 12] {
 ///
 /// Refuses an ambiguous image, a changed network plan, or competing resource options.
 pub fn create_arguments(image: &str, arguments: &[OsString]) -> Result<Vec<OsString>> {
+    timed_arguments(image, arguments, WORKER_TIMEOUT)
+}
+
+fn timed_arguments(image: &str, arguments: &[OsString], deadline: &str) -> Result<Vec<OsString>> {
     let prefix: Vec<OsString> = ["run", "--rm", "--network", "none"]
         .map(OsString::from)
         .into();
@@ -732,12 +795,6 @@ pub fn create_arguments(image: &str, arguments: &[OsString]) -> Result<Vec<OsStr
         "no-new-privileges=true",
         "--label",
         "org.sivi.verification=worker",
-        "--log-driver",
-        "local",
-        "--log-opt",
-        &format!("max-size={LOG_LIMIT}"),
-        "--log-opt",
-        "max-file=1",
         "--entrypoint",
         TIMEOUT_PROGRAM,
         "--platform",
@@ -745,10 +802,11 @@ pub fn create_arguments(image: &str, arguments: &[OsString]) -> Result<Vec<OsStr
     ]
     .map(OsString::from)
     .into();
+    result.extend(log_arguments());
     result.extend(limit_arguments().map(OsString::from));
     result.extend_from_slice(options);
     result.push(image.into());
-    result.extend(["--kill-after=10s", WORKER_TIMEOUT].map(OsString::from));
+    result.extend(["--kill-after=10s", deadline].map(OsString::from));
     result.extend_from_slice(
         arguments
             .get(image_index.saturating_add(1)..)
@@ -862,7 +920,7 @@ pub fn require_worker() -> Result<()> {
 ///
 /// Reports incomplete or failed verification and preserves the job's outputs.
 pub fn rust_worker(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<()> {
-    let output = rust_output(root, campaign, words)?;
+    let output = rust_output(root, campaign, words, RustStage::Proofs)?;
     ensure!(
         output.status.success(),
         "proof worker failed with {}; see target/proofs/jobs",
@@ -981,9 +1039,39 @@ pub(crate) fn job(root: &Path, prefix: &str) -> Result<PathBuf> {
     Ok(job)
 }
 
-fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<Output> {
-    let image = rust_image(root)?;
-    campaign.build(&image, RUST_IMAGE_DIRECTORY, root)?;
+#[derive(Clone, Copy, Debug)]
+enum RustStage {
+    Boundary,
+    Proofs,
+}
+
+impl RustStage {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Boundary => "boundary",
+            Self::Proofs => "proofs",
+        }
+    }
+}
+
+fn rust_output(
+    root: &Path,
+    campaign: &Campaign<'_>,
+    words: &[&str],
+    stage: RustStage,
+) -> Result<Output> {
+    let image = match stage {
+        RustStage::Proofs => rust_image(root)?,
+        RustStage::Boundary => format!("sivi-proof-boundary:{}", source_digest(root)?),
+    };
+    campaign.build_stage(
+        &image,
+        Recipe {
+            directory: RUST_IMAGE_DIRECTORY,
+            context: root,
+            stage: Some(stage.name()),
+        },
+    )?;
     let job = job(root, "rust-")?;
     fs::create_dir_all(&job.join("tmp"))?;
     for corpus in CORPORA {
@@ -999,8 +1087,21 @@ fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<O
         .iter()
         .position(|value| value == image.as_str())
         .context("worker image")?;
+    let mounts = writable_mounts(root, &job)?;
+    arguments.splice(image_index..image_index, mounts);
+    let output = campaign.run(&image, &arguments)?;
+    eprint!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(output)
+}
+
+fn writable_mounts(root: &Path, job: &Path) -> Result<Vec<OsString>> {
     let mut mounts = Vec::new();
     for directory in WRITABLE_DIRECTORIES {
+        fs::create_dir_all(&root.join(directory))?;
         let output = job.join(directory);
         fs::create_dir_all(&output)?;
         mounts.extend([
@@ -1012,14 +1113,7 @@ fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<O
             ),
         ]);
     }
-    arguments.splice(image_index..image_index, mounts);
-    let output = campaign.run(&image, &arguments)?;
-    eprint!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    Ok(output)
+    Ok(mounts)
 }
 
 /// Exercises the real Docker boundary, including intentional incomplete results.
@@ -1030,11 +1124,16 @@ fn rust_output(root: &Path, campaign: &Campaign<'_>, words: &[&str]) -> Result<O
 pub fn self_check(root: &Path) -> Result<()> {
     let started = tool::Timer::start();
     for probe in ["mounts", "failure", "timeout", "oom"] {
-        let remaining = CAMPAIGN_LIMIT
+        let remaining = BOUNDARY_LIMIT
             .checked_sub(started.elapsed())
             .context("resource boundary checks reached their safety stop")?;
         let campaign = Campaign::open_for(root, remaining)?;
-        let result = rust_output(root, &campaign, &["proof-boundary", probe]);
+        let result = rust_output(
+            root,
+            &campaign,
+            &["proof-boundary", probe],
+            RustStage::Boundary,
+        );
         let checked = match (probe, result) {
             ("mounts", Ok(output)) if output.status.success() => Ok(()),
             ("failure", Ok(output)) if output.status.code() == i32::from(BOUNDARY_FAILURE) => {
@@ -1119,6 +1218,21 @@ mod tests {
     use std::ffi::OsString;
 
     #[test]
+    fn output_mountpoints_exist_before_the_parent_source_becomes_read_only() {
+        let source = tempfile::tempdir().unwrap();
+        let job = tempfile::tempdir().unwrap();
+        let corpus = source.path().join("fuzz/corpus/seed");
+        crate::fs::write(&corpus, b"original seed").unwrap();
+        let mounts = super::writable_mounts(source.path(), job.path()).unwrap();
+        assert_eq!(mounts.len(), super::WRITABLE_DIRECTORIES.len() * 2);
+        for directory in super::WRITABLE_DIRECTORIES {
+            assert!(crate::fs::is_directory(&source.path().join(directory)).unwrap());
+            assert!(crate::fs::is_directory(&job.path().join(directory)).unwrap());
+        }
+        assert_eq!(crate::fs::read(&corpus).unwrap(), b"original seed");
+    }
+
+    #[test]
     fn model_jobs_keep_separate_evidence_after_their_creation_scope_ends() {
         let root = tempfile::tempdir().unwrap();
         let first = super::job(root.path(), "quint-").unwrap();
@@ -1140,13 +1254,15 @@ mod tests {
     #[test]
     fn image_recipes_keep_the_verifier_versions_the_gate_requires() {
         let recipe = include_str!("../proofs/rust/Dockerfile");
-        for (package, version) in [
-            ("kani-verifier", crate::tool::KANI_VERSION),
-            ("cargo-fuzz", crate::tool::FUZZ_VERSION),
-            ("cargo-mutants", crate::tool::MUTANTS_VERSION),
-        ] {
-            assert!(recipe.contains(&format!("{package} --version {version}")));
-        }
+        assert!(recipe.contains(&format!(
+            "kani-verifier --version {}",
+            crate::tool::KANI_VERSION
+        )));
+        assert!(recipe.contains(&format!("/cargo-fuzz-{}-", crate::tool::FUZZ_VERSION)));
+        assert!(recipe.contains(&format!(
+            "/v{}/cargo-mutants-",
+            crate::tool::MUTANTS_VERSION
+        )));
         assert!(recipe.contains(crate::tool::NIGHTLY));
         assert!(recipe.contains(crate::verus::TOOLCHAIN));
         assert!(recipe.contains(crate::verus::VERSION));
@@ -1156,8 +1272,19 @@ mod tests {
     }
 
     #[test]
+    fn the_boundary_image_needs_no_verifier_installation() {
+        let recipe = include_str!("../proofs/rust/Dockerfile");
+        let (worker, _) = recipe.split_once("FROM worker AS boundary").unwrap();
+        for expensive in ["kani", "miri", "mutants", "nightly", "rustc-dev"] {
+            assert!(!worker.contains(expensive), "{expensive}");
+        }
+        assert_eq!(super::RustStage::Boundary.name(), "boundary");
+        assert_eq!(super::RustStage::Proofs.name(), "proofs");
+    }
+
+    #[test]
     fn the_builder_is_rootless_bounded_and_mount_options_stay_paired() {
-        let arguments = super::builder_arguments(std::path::Path::new("/config"), "lease");
+        let arguments = super::builder_arguments(std::path::Path::new("/config"), "lease", "900s");
         assert!(arguments.contains(&OsString::from(super::BUILDKIT_IMAGE)));
         assert!(!arguments.contains(&OsString::from("--privileged")));
         let mounts: Vec<_> = arguments
@@ -1175,6 +1302,24 @@ mod tests {
                 .windows(2)
                 .any(|pair| pair == ["--memory-swap", "4g"].map(OsString::from))
         );
+    }
+
+    #[test]
+    fn a_single_retained_log_file_needs_compression_off_for_both_container_roles() {
+        let input: Vec<OsString> = ["run", "--rm", "--network", "none", "image", "false"]
+            .map(OsString::from)
+            .into();
+        for arguments in [
+            super::builder_arguments(std::path::Path::new("/config"), "lease", "900s"),
+            create_arguments("image", &input).unwrap(),
+        ] {
+            let options: Vec<_> = arguments
+                .windows(2)
+                .filter(|pair| pair[0] == "--log-opt")
+                .map(|pair| pair[1].to_str().unwrap())
+                .collect();
+            assert_eq!(options, ["max-size=10m", "max-file=1", "compress=false"]);
+        }
     }
 
     #[test]

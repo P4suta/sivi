@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: amended
 date: 2026-10-21
 ---
 # Bound image preparation and verification at the Docker boundary
+
+The routine execution policy is amended by [selecting changed contracts](select-contracts-for-routine-verification.md).
 
 ## Context
 

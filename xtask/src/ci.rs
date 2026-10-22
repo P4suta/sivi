@@ -66,7 +66,7 @@ fn gate(name: &str) -> Result<()> {
 
 fn validate_jobs(name: &str, needs: &str) -> Result<()> {
     let expected: &[&str] = match name {
-        "ci" => &["check", "test", "proofs"],
+        "ci" => &["check", "test"],
         "codeql" => &["analyze"],
         "dependency-review" => &["review"],
         "scorecard" => &["analysis"],
@@ -118,6 +118,23 @@ pub fn run(root: &Path, words: &[&str]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{unsuccessful, validate_jobs};
+
+    #[test]
+    fn routine_gate_requires_both_fast_jobs_and_no_unexpected_result() {
+        validate_jobs(
+            "ci",
+            r#"{"check":{"result":"success"},"test":{"result":"success"}}"#,
+        )
+        .unwrap();
+        for needs in [
+            r#"{"check":{"result":"success"}}"#,
+            r#"{"check":{"result":"success"},"test":{"result":"skipped"}}"#,
+            r#"{"check":{"result":"success"},"test":{"result":"failure"}}"#,
+            r#"{"check":{"result":"success"},"test":{"result":"success"},"proofs":{"result":"success"}}"#,
+        ] {
+            validate_jobs("ci", needs).unwrap_err();
+        }
+    }
 
     #[test]
     fn every_job_must_succeed() {
