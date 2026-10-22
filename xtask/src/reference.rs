@@ -19,7 +19,7 @@ use std::path::Path;
 pub const SPEC: &str = "specs/binding.pl";
 
 /// The SWI-Prolog release the reference runs under.
-pub const SWIPL_VERSION: &str = "10.0.2";
+pub const SWIPL_VERSION: &str = "10.1.16";
 
 /// Where the deck fixtures live.
 const DECKS: &str = "fixtures/decks";
