@@ -251,11 +251,11 @@ pub fn run(root: &Path, scope: Scope) -> Result<()> {
     }
 }
 
-/// The deterministic checks a push requires; selected proofs gate the pull request.
+/// The fast gate on the current host, which a push requires.
 ///
 /// # Errors
 ///
-/// Returns an error when a check or a proof fails.
+/// Returns an error when a check fails.
 pub fn push_check(root: &Path) -> Result<()> {
     run(root, Scope::Everything)
 }

@@ -2,6 +2,9 @@
 
 `cargo xtask proofs` discharges every obligation of `verification/obligations.toml` and refuses each verifier's fixture under `xtask/proofs/`.
 Every verifier owns one class of property, as `docs/adr/verification-portfolio.md` records, so no property is proved twice.
+The complete inventory runs at the [release gate](../../.github/workflows/release-check.yml), including mutation testing, and on demand through the [bounded local route](../../CONTRIBUTING.md#on-demand-heavy-checks).
+Push hooks and pull-request CI run only the fast gate.
+Unrun heavy checks remain unverified until a candidate run supplies their evidence.
 
 | Verifier | Pinned version | Obligations | Negative control |
 | --- | --- | --- | --- |
@@ -16,7 +19,7 @@ Every verifier owns one class of property, as `docs/adr/verification-portfolio.m
 | cargo-fuzz | 0.13.2 | Every target of `fuzz/` over its committed corpus | `xtask/proofs/fuzz-fixture`, whose corpus makes its target panic |
 | cargo-mutants | 27.1.0 | One campaign each over `sivi-core`, `sivi-markdown`, and `sivi-theme`, judged by the crate's own tests, with zero missed and zero timed-out mutants; the generated color tables are left out, since a mutated entry is data that the generator check and the light-table proof own | `xtask/proofs/mutants-fixture`, whose test asserts nothing |
 
-Each run writes a receipt under `target/proofs/receipts/` with the verifier's version and a digest of the core sources and the manifest.
+Each run writes a receipt under `target/proofs/receipts/` bound to the complete source inputs, selected scope, verifier version, container image, limits, and completed result.
 
 ## What each rule module proves
 
@@ -39,7 +42,8 @@ Each run writes a receipt under `target/proofs/receipts/` with the verifier's ve
 | `mark_rules` | an opacity has an alpha exactly within clear to solid, the byte nearest to the exact scaling, never decreasing as the opacity grows, with clear and solid at the ends, for every pair of opacities | — |
 | `color_rules` | the light table rises and every channel reads back; every color has a luminance within one; the ratio of any two luminances lies from one to twenty-one and is one for equal luminances; a channel over another lies between the two and is either one at the ends; the symmetry of a contrast and the Oklab form of every gray are held by tests, since the root searches lie beyond the solver's budget | — |
 | `palette_rules` | the hues of every harmony lie within the turn, start at the seed, read as the harmony says, and form at most three families; three hues form at least one family and at most three, one when they lie within the span | — |
-| `ui_rules` | the quit key leaves every state quitting; a build starts only when none runs or the one that ran has ended; every selection stays within its count after every event, over every state and event | — |
+| `ui_rules` | both streams must be terminals before the interface opens; the quit key leaves every state quitting; a build starts only when none runs or the one that ran has ended; every selection stays within its count after every event, over every state and event | — |
+| `verification_rules` | admitted workers have hard CPU, memory, swap, and process ceilings; incomplete terminations never supply a result; verifier selection preserves every input's obligations | — |
 
 ## What the fuzz targets replay
 
@@ -57,7 +61,8 @@ The Typst layout engine is an external boundary; `docs/verification/typst-bounda
 
 ## The last full run
 
-`just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with every version above.
+`just push-check` ran clean on 2026-10-14 on a macOS host with Apple silicon, with the versions pinned at that time.
+At that time, `push-check` included the heavy inventory; [the release-gate decision](../adr/run-heavy-verification-at-the-release-gate.md) changes its timing from 2026-10-22 onward.
 The receipts under `target/proofs/receipts/` name one input digest for every verifier of that run.
 
 | Gate | Outcome |

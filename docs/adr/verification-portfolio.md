@@ -4,7 +4,10 @@ date: 2026-10-13
 ---
 # Assign each verifier one class of property and prove nothing twice
 
-The routine execution policy is amended by [selecting changed contracts](select-contracts-for-routine-verification.md).
+## Status
+
+The [release-gate decision](run-heavy-verification-at-the-release-gate.md) amends the verification timing from 2026-10-22.
+The original decision below retains the verifier ownership and its historical cadence.
 
 ## Context
 
