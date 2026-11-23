@@ -1,5 +1,5 @@
 # The offline host of the Quint obligations, which `just proofs` runs with `--network none`.
-FROM docker.io/library/eclipse-temurin:27-jre@sha256:d6bfa738df69e8dec9061b3e26f2ae564d92ad169faa36086dcfa33f0a901d35 AS java
+FROM docker.io/library/eclipse-temurin:27-jre@sha256:05a57c9f4d6d8bf8d8c2213049ea816609672ffcc14463a9c83433a610703e10 AS java
 
 FROM docker.io/library/node:24-bookworm-slim@sha256:91acba91b842bec0bf7ea6f5e09c644c7ccad72c4996ed9616d861d1c7cd60d4
 COPY --from=java /opt/java/openjdk /opt/java/openjdk
